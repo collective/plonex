@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "plonedeployment"
+description = "Deploy a Plone site based on some configuration files"
+readme = "README.md"
+license = {text = "GPL-3.0"}
+keywords = ["plone", "deployment"]
+version = "0.1.0"
+requires-python = ">=3.8"
+authors = [
+    { name="Alessandro Pisa", email="pisa@syslab.com" },
+]
+maintainers = [
+    { name="Alessandro Pisa", email="pisa@syslab.com" },
+]
+dependencies = [
+    "PyYAML",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.scripts]
+plonedeployment = "plonedeployment:cli.main"
+
+[project.urls]
+Homepage = "https://tbd"
+Documentation = "https://tbd"
+Repository = "https://tbd"
+Issues = "https://tbd"
+Changelog = "https://tbd"
