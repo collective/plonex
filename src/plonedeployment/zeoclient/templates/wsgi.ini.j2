@@ -1,0 +1,80 @@
+[server:main]
+paste.server_factory = plone.recipe.zope2instance:main
+use = egg:plone.recipe.zope2instance#main
+{{ 'fast-listen' if options.fast_listen else 'listen' }} = 0.0.0.0:{{ options.http_port }}
+threads = {{ options.threads }}
+
+[app:zope]
+use = egg:Zope#main
+zope_conf = {{ options.zope_conf }}
+
+[filter:translogger]
+use = egg:Paste#translogger
+setup_console_handler = False
+
+[pipeline:main]
+pipeline =
+    translogger
+    egg:Zope#httpexceptions
+    zope
+
+[loggers]
+keys = root, plone, waitress.queue, waitress, wsgi
+
+[handlers]
+keys = console, accesslog, eventlog
+
+[formatters]
+keys = generic, message
+
+[logger_root]
+level = INFO
+handlers = console, eventlog
+
+[logger_plone]
+level = INFO
+handlers = eventlog
+qualname = plone
+
+[logger_waitress.queue]
+level = INFO
+handlers = eventlog
+qualname = waitress.queue
+propagate = 0
+
+[logger_waitress]
+level = INFO
+handlers = eventlog
+qualname = waitress
+
+[logger_wsgi]
+level = INFO
+handlers = accesslog
+qualname = wsgi
+propagate = 0
+
+[handler_console]
+class = StreamHandler
+args = (sys.stderr,)
+level = NOTSET
+formatter = generic
+
+[handler_accesslog]
+class = logging.handlers.TimedRotatingFileHandler
+args = ("{{ options.var_folder }}/log/{{ options.name }}-access.log",)
+kwargs = {}
+level = INFO
+formatter = message
+
+[handler_eventlog]
+class = logging.handlers.TimedRotatingFileHandler
+args = ("{{ options.var_folder }}/log/{{ options.name }}.log",)
+kwargs = {}
+level = NOTSET
+formatter = generic
+
+[formatter_generic]
+format = %(asctime)s %(levelname)-7.7s [%(name)s:%(lineno)s][%(threadName)s] %(message)s
+
+[formatter_message]
+format = %(message)s

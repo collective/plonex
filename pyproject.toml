@@ -17,7 +17,9 @@ maintainers = [
     { name="Alessandro Pisa", email="pisa@syslab.com" },
 ]
 dependencies = [
+    "Jinja2",
     "PyYAML",
+    "plone.recipe.zope2instance",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",

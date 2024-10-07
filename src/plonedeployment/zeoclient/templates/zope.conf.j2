@@ -1,0 +1,30 @@
+%define INSTANCEHOME {{ options.instance_home }}
+instancehome $INSTANCEHOME
+%define CLIENTHOME {{ options.client_home }}
+clienthome $CLIENTHOME
+debug-mode {{ options.debug_mode }}
+security-policy-implementation {{ options.security_policy_implementation }}
+verbose-security {{ options.verbose_security }}
+default-zpublisher-encoding utf-8
+<environment>
+    {% for key, value in options.environment_vars.items() %}
+    {{ key }} {{ value }}
+    {% endfor %}
+</environment>
+<zodb_db main>
+    # Main database
+    cache-size 100000
+# Blob-enabled ZEOStorage database
+    <zeoclient>
+      read-only false
+      read-only-fallback false
+      blob-dir {{ options.blobstorage }}
+      shared-blob-dir on
+      server {{ options.zeo_address }}
+      storage 1
+      name zeostorage
+      cache-size 128MB
+    </zeoclient>
+    mount-point /
+</zodb_db>
+python-check-interval 10000

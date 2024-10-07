@@ -1,0 +1,36 @@
+%define INSTANCE {{ options.tmp_folder }}
+
+<zeo>
+  address {{ options.address }}
+  read-only false
+  invalidation-queue-size 100
+  pid-filename {{ options.pidfile }}
+</zeo>
+
+<filestorage 1>
+  path {{ options.path }}
+  blob-dir {{ options.blob_dir }}
+</filestorage>
+
+<eventlog>
+  level info
+  <logfile>
+    path {{ options.log_path }}
+    format %(asctime)s %(message)s
+  </logfile>
+</eventlog>
+
+<runner>
+  program {{ options.runzeo_path }}
+  socket-name {{ options.socket_name }}
+  daemon true
+  forever false
+  backoff-limit 10
+  exit-codes 0, 2
+  directory $INSTANCE
+  default-to-interactive true
+
+  # This logfile should match the one in the zeo.conf file.
+  # It is used by zdctl's logtail command, zdrun/zdctl doesn't write it.
+  logfile {{ options.log_path }}
+</runner>
