@@ -55,9 +55,9 @@ class ZeoServer:
     zeo_conf_template: str = "plonedeployment.zeoserver.templates:zeo.conf.j2"
     tmp_folder: Path | None = None
     var_folder: Path | None = None
-    conf_folder: Path = field(init=False)
-    zeo_conf: Path = field(init=False)
-    runzeo: Path = field(init=False)
+    conf_folder: Path | None = field(init=False, default=None)
+    zeo_conf: Path | None = field(init=False, default=None)
+    runzeo: Path | None = field(init=False, default=None)
 
     @staticmethod
     def _ensure_dir(path: str | Path) -> Path:

@@ -45,7 +45,7 @@ Issues = "https://tbd"
 Changelog = "https://tbd"
 
 [project.optional-dependencies]
-test = ["pytest", "pytest-cov"]
+test = ["mypy", "pytest", "pytest-cov"]
 
 [tool.black]
 line-length = 88
