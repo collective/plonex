@@ -1,7 +1,9 @@
 from argparse import ArgumentParser
 from pathlib import Path
+from plonedeployment import logger
+from plonedeployment import zeoclient
+from plonedeployment.zeoserver import ZeoServer
 
-from plonedeployment import logger, zeoclient, zeoserver
 
 parser = ArgumentParser(
     description="Plone Deployment CLI",
@@ -44,7 +46,8 @@ def main() -> None:
 
     if args.action == "zeoserver":
         logger.debug("Starting ZEO Server")
-        zeoserver.run()
+        with ZeoServer() as zeoserver:
+            zeoserver.run()
     elif args.action == "zeoclient":
         logger.debug("Starting ZEO Client")
         zeoclient.run()

@@ -1,3 +1,4 @@
+.PHONY: all
 all: .venv/bin/uv requirements.txt constraints.txt
 	.venv/bin/uv pip install -r requirements.txt -c constraints.txt
 
@@ -6,3 +7,7 @@ all: .venv/bin/uv requirements.txt constraints.txt
 
 .venv/bin/uv: .venv/bin/python3
 	.venv/bin/pip install uv
+
+.PHONY: test
+test: all
+	.venv/bin/pytest --cov=plonedeployment --cov-report=html
