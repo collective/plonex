@@ -1,32 +1,15 @@
-from contextlib import chdir
+from .utils import ReadExpected
+from .utils import temp_cwd
 from contextlib import contextmanager
 from pathlib import Path
 from plonedeployment import logger
 from plonedeployment.zeoserver import ZeoServer
-from tempfile import TemporaryDirectory
 
 import logging
 import unittest
 
 
-EXPECTED_FOLDER = Path(__file__).parent / "expected" / "zeoserver"
-
-
-def read_expected(name, zeo):
-    return (
-        (EXPECTED_FOLDER / name)
-        .read_text()
-        .replace("CONF_PATH", str(zeo.conf_folder))
-        .replace("TARGET_PATH", str(zeo.target))
-    ).strip()
-
-
-@contextmanager
-def temp_cwd():
-    with TemporaryDirectory() as temp_dir:
-        temp_dir_path = Path(temp_dir)
-        with chdir(temp_dir_path):
-            yield temp_dir_path
+read_expected = ReadExpected(Path(__file__).parent / "expected" / "zeoserver")
 
 
 @contextmanager
