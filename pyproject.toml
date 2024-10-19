@@ -20,6 +20,7 @@ dependencies = [
     "Jinja2",
     "PyYAML",
     "plone.recipe.zope2instance",
+    "supervisor",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
