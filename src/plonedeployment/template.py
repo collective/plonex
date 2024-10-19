@@ -1,6 +1,6 @@
 from importlib import resources
-
-from jinja2 import StrictUndefined, Template
+from jinja2 import StrictUndefined
+from jinja2 import Template
 
 
 def render(template_path, options):
@@ -12,9 +12,8 @@ def render(template_path, options):
     """
 
     package, filename_path = template_path.partition(":")[::2]
-
-    with resources.path(package, filename_path) as path:
-        # template = Template(path.read_text())
-        # template with strict undefined
-        template = Template(path.read_text(), undefined=StrictUndefined)
-        return template.render(options=options)
+    package_files = resources.files(package)
+    path = package_files / filename_path
+    # template with strict undefined
+    template = Template(path.read_text(), undefined=StrictUndefined)
+    return template.render(options=options)
