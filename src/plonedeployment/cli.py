@@ -1,7 +1,7 @@
 from argparse import ArgumentParser
 from pathlib import Path
 from plonedeployment import logger
-from plonedeployment import zeoclient
+from plonedeployment.zeoclient import ZeoClient
 from plonedeployment.zeoserver import ZeoServer
 
 
@@ -50,9 +50,34 @@ def main() -> None:
             zeoserver.run()
     elif args.action == "zeoclient":
         logger.debug("Starting ZEO Client")
-        zeoclient.run()
+        with ZeoClient() as zeoclient:
+            zeoclient.run()
     elif args.action == "adduser":
-        logger.debug("Adding a user")
+        logger.info("TODO: Adding a user")
+        pass
+    elif args.action == "start":
+        logger.info("TODO: Manage the start of the services")
+        pass
+    elif args.action == "status":
+        logger.info("TODO: Manage the status of the services")
+        pass
+    elif args.action == "stop":
+        logger.info("TODO: Manage the stop of the services")
+        pass
+    elif args.action == "restart":
+        logger.info("TODO: Manage the restart of the services")
+        pass
+    elif args.action == "graceful":
+        logger.info("TODO: Manage the graceful restart of the services")
+        pass
+    elif args.action == "backup":
+        logger.info("TODO: Manage the backup of the services")
+        pass
+    elif args.action == "restore":
+        logger.info("TODO: Manage the restore of the services")
+        pass
+    elif args.action == "pack":
+        logger.info("TODO: Manage the pack of DB")
         pass
 
 

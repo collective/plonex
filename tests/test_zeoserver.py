@@ -1,10 +1,24 @@
 from contextlib import chdir
 from contextlib import contextmanager
 from pathlib import Path
+from plonedeployment import logger
 from plonedeployment.zeoserver import ZeoServer
 from tempfile import TemporaryDirectory
 
+import logging
 import unittest
+
+
+EXPECTED_FOLDER = Path(__file__).parent / "expected" / "zeoserver"
+
+
+def read_expected(name, zeo):
+    return (
+        (EXPECTED_FOLDER / name)
+        .read_text()
+        .replace("CONF_PATH", str(zeo.conf_folder))
+        .replace("TARGET_PATH", str(zeo.target))
+    ).strip()
 
 
 @contextmanager
@@ -23,6 +37,12 @@ def temp_zeo():
 
 
 class TestZeoServer(unittest.TestCase):
+
+    maxDiff = None
+
+    def setUp(self):
+        # Silence the logger
+        logger.setLevel(logging.CRITICAL)
 
     def test_constructor(self):
         """Test the constructor for the zeoserver object"""
@@ -106,3 +126,12 @@ class TestZeoServer(unittest.TestCase):
         """Test the active only method"""
         with temp_zeo() as zeo:
             self.assertIsNone(ZeoServer.active_only(lambda self: None)(zeo))
+
+    def test_zeo_conf(self):
+        """Test the zeo conf method"""
+        with temp_zeo() as zeo:
+            self.assertTrue(zeo.zeo_conf.exists())
+            # Read the file "expected/zeoserver/test_zeo_conf"
+            # and compare it with the generated file
+            expected = read_expected("test_zeo_conf", zeo)
+            self.assertEqual(zeo.zeo_conf.read_text(), expected)
