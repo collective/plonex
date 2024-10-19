@@ -2,7 +2,11 @@ from contextlib import chdir
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from plonedeployment import logger
 from tempfile import TemporaryDirectory
+
+import logging
+import unittest
 
 
 @contextmanager
@@ -25,3 +29,12 @@ class ReadExpected:
             .replace("CONF_PATH", str(zeo.conf_folder))
             .replace("TARGET_PATH", str(zeo.target))
         ).strip()
+
+
+class ZeoTestCase(unittest.TestCase):
+
+    maxDiff = None
+
+    def setUp(self):
+        # Silence the logger
+        logger.setLevel(logging.CRITICAL)

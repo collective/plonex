@@ -1,12 +1,9 @@
 from .utils import ReadExpected
 from .utils import temp_cwd
+from .utils import ZeoTestCase
 from contextlib import contextmanager
 from pathlib import Path
-from plonedeployment import logger
 from plonedeployment.zeoserver import ZeoServer
-
-import logging
-import unittest
 
 
 read_expected = ReadExpected(Path(__file__).parent / "expected" / "zeoserver")
@@ -19,13 +16,7 @@ def temp_zeo():
             yield zeo
 
 
-class TestZeoServer(unittest.TestCase):
-
-    maxDiff = None
-
-    def setUp(self):
-        # Silence the logger
-        logger.setLevel(logging.CRITICAL)
+class TestZeoServer(ZeoTestCase):
 
     def test_constructor(self):
         """Test the constructor for the zeoserver object"""
