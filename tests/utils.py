@@ -22,12 +22,12 @@ class ReadExpected:
 
     expected_folder: Path
 
-    def __call__(self, name, zeo):
+    def __call__(self, name, service):
         return (
             (self.expected_folder / name)
             .read_text()
-            .replace("CONF_PATH", str(zeo.conf_folder))
-            .replace("TARGET_PATH", str(zeo.target))
+            .replace("CONF_PATH", str(service.conf_folder))
+            .replace("TARGET_PATH", str(service.target))
         ).strip()
 
 

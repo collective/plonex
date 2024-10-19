@@ -1,0 +1,27 @@
+%define INSTANCEHOME TARGET_PATH/tmp
+instancehome $INSTANCEHOME
+%define CLIENTHOME TARGET_PATH/tmp
+clienthome $CLIENTHOME
+debug-mode off
+security-policy-implementation C
+verbose-security off
+default-zpublisher-encoding utf-8
+<environment>
+</environment>
+<zodb_db main>
+    # Main database
+    cache-size 100000
+# Blob-enabled ZEOStorage database
+    <zeoclient>
+      read-only false
+      read-only-fallback false
+      blob-dir TARGET_PATH/var/blobstorage
+      shared-blob-dir on
+      server TARGET_PATH/var/zeosocket.sock
+      storage 1
+      name zeostorage
+      cache-size 128MB
+    </zeoclient>
+    mount-point /
+</zodb_db>
+python-check-interval 10000
