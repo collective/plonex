@@ -1,17 +1,9 @@
-from contextlib import chdir
 from dataclasses import dataclass
 from dataclasses import field
-from functools import wraps
 from pathlib import Path
 from plonedeployment import logger
 from plonedeployment.base import BaseService
 from plonedeployment.template import render
-from shutil import rmtree
-from tempfile import mkdtemp
-from typing import Callable
-
-import subprocess
-import sys
 
 
 @dataclass
@@ -67,26 +59,7 @@ class ZeoServer(BaseService):
         self.tmp_folder = self._ensure_dir(self.tmp_folder or self.target / "tmp")
         self.var_folder = self._ensure_dir(self.var_folder or self.target / "var")
 
-    @staticmethod
-    def active_only(method: Callable) -> Callable:
-        """Decorator that ensures the context manager is entered before running
-        the method
-
-        When we are in the context manager we have the temporary folder
-        created and we can run the method
-        """
-
-        @wraps(method)
-        def wrapper(self, *args, **kwargs):
-            if not self.conf_folder:
-                raise RuntimeError(
-                    f"You need to enter the {self.__class__!r} context manager first"
-                )
-            return method(self, *args, **kwargs)
-
-        return wrapper
-
-    @active_only
+    @BaseService.active_only
     def make_zeo_conf(self):
         """Generate the ZEO configuration file"""
         options = ZeoServerOption(
@@ -103,11 +76,11 @@ class ZeoServer(BaseService):
         logger.info(f"Generated {self.zeo_conf}")
         logger.info(self.zeo_conf.read_text())
 
-    @active_only
+    @BaseService.active_only
     def make_runzeo(self):
         """Generate the runzeo script"""
         options = RunZeoOption(
-            python=Path(sys.executable),
+            python=self.executable,
             instance_home=self.target,
             zeo_conf=self.zeo_conf,
         )
@@ -119,23 +92,13 @@ class ZeoServer(BaseService):
         logger.info(self.runzeo.read_text())
 
     def __enter__(self):
-        self.conf_folder = Path(mkdtemp(dir=self.tmp_folder))
-        logger.info(f"Temporary folder: {self.conf_folder}")
+        self = super().__enter__()
         self.zeo_conf = self.conf_folder / "zeo.conf"
         self.runzeo = self.conf_folder / "runzeo"
         self.make_zeo_conf()
         self.make_runzeo()
         return self
 
-    @active_only
-    def run(self):  # pragma: no cover
-        with chdir(self.conf_folder):
-            logger.debug(f"Running {self.runzeo}")
-            try:
-                subprocess.run([self.runzeo], check=True)
-            except KeyboardInterrupt:
-                logger.info("Stopping {self.runzeo}")
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        logger.info(f"Cleaning up {self.conf_folder}")
-        rmtree(self.conf_folder)
+    @property
+    def command(self):
+        return [str(self.runzeo)]

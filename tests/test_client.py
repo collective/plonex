@@ -47,13 +47,6 @@ class TestZeoClient(ZeoTestCase):
             self.assertIsNone(zeo.interpreter)
             self.assertIsNone(zeo.instance)
 
-    def test_active_only_when_inactive(self):
-        """Test the active only decorator when the context manager is not active"""
-        with temp_cwd():
-            client = ZeoClient()
-            with self.assertRaises(RuntimeError):
-                client.active_only(lambda self: None)(client)
-
     def test_zope_conf(self):
         """Test the zope.conf file"""
         with temp_client() as client:

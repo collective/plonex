@@ -60,3 +60,21 @@ class TestBaseService(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             self.service._ensure_dir(foo_path)
+
+    def test_active_only_when_inactive(self):
+        """Test the active only decorator when the context manager is not active"""
+        client = BaseService()
+        with self.assertRaises(RuntimeError):
+            client.active_only(lambda self: None)(client)
+
+    def test_run(self):
+        """Test the run method"""
+        with BaseService() as service:
+            service.run()
+
+    def test_cleanup(self):
+        """Test the cleanup method"""
+        with BaseService() as service:
+            conf_folder = service.conf_folder
+            self.assertTrue(conf_folder.exists())
+        self.assertFalse(conf_folder.exists())
