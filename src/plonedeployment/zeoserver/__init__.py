@@ -4,6 +4,7 @@ from dataclasses import field
 from functools import wraps
 from pathlib import Path
 from plonedeployment import logger
+from plonedeployment.base import BaseService
 from plonedeployment.template import render
 from shutil import rmtree
 from tempfile import mkdtemp
@@ -34,7 +35,7 @@ class RunZeoOption:
 
 
 @dataclass
-class ZeoServer:
+class ZeoServer(BaseService):
     """This is a context manager that allows to run a ZEO server
 
     The ZEO server configuration is created in a temporary folder
@@ -60,19 +61,6 @@ class ZeoServer:
     conf_folder: Path | None = field(init=False, default=None)
     zeo_conf: Path | None = field(init=False, default=None)
     runzeo: Path | None = field(init=False, default=None)
-
-    @staticmethod
-    def _ensure_dir(path: str | Path) -> Path:
-        """Ensure the path is a directory and exists,
-        if path is a string, convert it to a Path object.
-        """
-        if isinstance(path, str):
-            path = Path(path)
-        if not path.exists():
-            path.mkdir(parents=True)
-        elif not path.is_dir():
-            raise ValueError(f"{path} is not a directory")
-        return path
 
     def __post_init__(self):
         self.target = self._ensure_dir(self.target)

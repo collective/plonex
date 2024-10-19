@@ -47,53 +47,6 @@ class TestZeoClient(ZeoTestCase):
             self.assertIsNone(zeo.interpreter)
             self.assertIsNone(zeo.instance)
 
-    def test_ensure_dir_with_path(self):
-        """Test the ensure path method"""
-        with temp_cwd() as temp_dir:
-            zeo = ZeoClient()
-            foo_path = temp_dir / "foo"
-
-            path = zeo._ensure_dir(foo_path)
-            self.assertEqual(path, foo_path)
-            self.assertTrue(foo_path.exists())
-            self.assertTrue(foo_path.is_dir())
-
-            # Rerunning the method should not raise an error
-            path = zeo._ensure_dir("foo")
-
-    def test_ensure_dir_with_str(self):
-        """Test the ensure path method passing a string"""
-        with temp_cwd() as temp_dir:
-            zeo = ZeoClient()
-            foo_path = temp_dir / "foo"
-
-            path = zeo._ensure_dir(str(foo_path))
-            self.assertEqual(path, foo_path)
-            self.assertTrue(foo_path.exists())
-            self.assertTrue(foo_path.is_dir())
-
-    def test_ensure_dir_with_existing_dir(self):
-        """Test the ensure path method with an existing directory"""
-        with temp_cwd() as temp_dir:
-            zeo = ZeoClient()
-            foo_path = temp_dir / "foo"
-            foo_path.mkdir()
-
-            path = zeo._ensure_dir(foo_path)
-            self.assertEqual(path, foo_path)
-            self.assertTrue(foo_path.exists())
-            self.assertTrue(foo_path.is_dir())
-
-    def test_ensure_dir_with_existing_file(self):
-        """Test the ensure path method with an existing file"""
-        with temp_cwd() as temp_dir:
-            zeo = ZeoClient()
-            foo_path = temp_dir / "foo"
-            foo_path.touch()
-
-            with self.assertRaises(ValueError):
-                zeo._ensure_dir(foo_path)
-
     def test_active_only_when_inactive(self):
         """Test the active only decorator when the context manager is not active"""
         with temp_cwd():

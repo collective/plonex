@@ -1,5 +1,6 @@
 import logging
 
+
 logger = logging.getLogger("plonedeployment")
 logger.setLevel(logging.INFO)
 handler = logging.StreamHandler()
