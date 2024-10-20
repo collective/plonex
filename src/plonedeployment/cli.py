@@ -15,7 +15,7 @@ parser = ArgumentParser(
 
 parser.add_argument(
     "action",
-    choices=["zeoserver", "zeoclient", "adduser", "start", "status"],
+    choices=["zeoserver", "zeoclient", "adduser", "start", "status", "stop", "restart"],
     help="Action to perform",
 )
 
@@ -63,11 +63,9 @@ def main() -> None:
     elif args.action == "status":
         Supervisor().run_status()
     elif args.action == "stop":
-        logger.info("TODO: Manage the stop of the services")
-        pass
+        Supervisor().run_stop()
     elif args.action == "restart":
-        logger.info("TODO: Manage the restart of the services")
-        pass
+        Supervisor().run_restart()
     elif args.action == "graceful":
         logger.info("TODO: Manage the graceful restart of the services")
         pass

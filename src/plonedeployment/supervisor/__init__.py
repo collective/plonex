@@ -145,3 +145,23 @@ class Supervisor(BaseService):
                 "status",
             ]
         )
+
+    def run_stop(self):
+        subprocess.run(
+            [
+                str(self.executable_dir / "supervisorctl"),
+                "-c",
+                str(self.supervisord_conf),
+                "shutdown",
+            ]
+        )
+
+    def run_restart(self):
+        subprocess.run(
+            [
+                str(self.executable_dir / "supervisorctl"),
+                "-c",
+                str(self.supervisord_conf),
+                "restart all",
+            ]
+        )
