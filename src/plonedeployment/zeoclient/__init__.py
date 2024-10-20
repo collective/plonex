@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
-from plonedeployment import logger
 from plonedeployment.base import BaseService
 from plonedeployment.template import render
 from typing import Literal
@@ -94,22 +93,22 @@ class ZeoClient(BaseService):
             zeo_address=self.var_folder / "zeosocket.sock",
         )
         self.zope_conf.write_text(render(self.zope_conf_template, options))
-        logger.info("Generated {self.zope_conf}")
-        logger.info(self.zope_conf.read_text())
+        self.logger.info("Generated {self.zope_conf}")
+        self.logger.info(self.zope_conf.read_text())
 
     @BaseService.active_only
     def make_wsgi_ini(self):
         options = WSGIOptions(zope_conf=self.zope_conf, var_folder=self.var_folder)
         self.wsgi_ini.write_text(render(self.wsgi_ini_template, options))
-        logger.info("Generated {self.wsgi_ini}")
-        logger.info(self.wsgi_ini.read_text())
+        self.logger.info("Generated {self.wsgi_ini}")
+        self.logger.info(self.wsgi_ini.read_text())
 
     @BaseService.active_only
     def make_interpreter(self):
         options = InterpreterOptions(python=Path(self.executable))
         self.interpreter.write_text(render(self.interpreter_template, options))
-        logger.info("Generated {self.interpreter}")
-        logger.info(self.interpreter.read_text())
+        self.logger.info("Generated {self.interpreter}")
+        self.logger.info(self.interpreter.read_text())
 
     @BaseService.active_only
     def make_instance(self):
@@ -120,8 +119,8 @@ class ZeoClient(BaseService):
             wsgi_ini_path=self.wsgi_ini,
         )
         self.instance.write_text(render(self.instance_template, options))
-        logger.info("Generated {self.instance}")
-        logger.info(self.instance.read_text())
+        self.logger.info("Generated {self.instance}")
+        self.logger.info(self.instance.read_text())
 
     def __enter__(self):
         self = super().__enter__()
