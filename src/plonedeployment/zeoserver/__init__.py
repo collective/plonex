@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
-from plonedeployment import logger
 from plonedeployment.base import BaseService
 from plonedeployment.template import render
 
@@ -73,8 +72,8 @@ class ZeoServer(BaseService):
             runzeo_path=self.runzeo,
         )
         self.zeo_conf.write_text(render(self.zeo_conf_template, options))
-        logger.info(f"Generated {self.zeo_conf}")
-        logger.info(self.zeo_conf.read_text())
+        self.logger.info(f"Generated {self.zeo_conf}")
+        self.logger.info(self.zeo_conf.read_text())
 
     @BaseService.active_only
     def make_runzeo(self):
@@ -88,8 +87,8 @@ class ZeoServer(BaseService):
             render(self.runzeo_template, options),
         )
         self.runzeo.chmod(0o755)
-        logger.info(f"Generated {self.runzeo}")
-        logger.info(self.runzeo.read_text())
+        self.logger.info(f"Generated {self.runzeo}")
+        self.logger.info(self.runzeo.read_text())
 
     def __enter__(self):
         self = super().__enter__()

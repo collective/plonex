@@ -1,6 +1,7 @@
 from argparse import ArgumentParser
 from pathlib import Path
 from plonedeployment import logger
+from plonedeployment.supervisor import Supervisor
 from plonedeployment.zeoclient import ZeoClient
 from plonedeployment.zeoserver import ZeoServer
 
@@ -14,7 +15,7 @@ parser = ArgumentParser(
 
 parser.add_argument(
     "action",
-    choices=["zeoserver", "zeoclient", "adduser"],
+    choices=["zeoserver", "zeoclient", "adduser", "start"],
     help="Action to perform",
 )
 
@@ -56,8 +57,8 @@ def main() -> None:
         logger.info("TODO: Adding a user")
         pass
     elif args.action == "start":
-        logger.info("TODO: Manage the start of the services")
-        pass
+        with Supervisor() as supervisor:
+            supervisor.run()
     elif args.action == "status":
         logger.info("TODO: Manage the status of the services")
         pass

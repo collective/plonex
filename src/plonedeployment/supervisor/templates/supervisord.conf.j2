@@ -1,0 +1,25 @@
+[supervisord]
+logfile={{ options.log_folder }}/supervisord.log
+pidfile={{ options.pidfile }}
+logfile_maxbytes=50MB
+logfile_backups=10
+loglevel=info
+childlogdir={{ options.log_folder }}
+directory={{ options.target }}
+
+[unix_http_server]
+file = {{ options.var_folder }}/supervisord.sock
+username =
+password =
+chmod = 0700
+
+[supervisorctl]
+serverurl = unix://{{ options.var_folder }}/supervisord.sock
+username =
+password =
+
+[rpcinterface:supervisor]
+supervisor.rpcinterface_factory=supervisor.rpcinterface:make_main_rpcinterface
+
+[include]
+files = {{ options.included_files }}

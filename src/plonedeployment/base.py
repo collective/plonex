@@ -21,6 +21,10 @@ class BaseService:
     def executable(self) -> Path:
         return Path(sys.executable)
 
+    @property
+    def executable_dir(self) -> Path:
+        return self.executable.parent
+
     @staticmethod
     def _ensure_dir(path: str | Path) -> Path:
         """Ensure the path is a directory and exists,
@@ -59,7 +63,7 @@ class BaseService:
         return self
 
     @property
-    def command(self):
+    def command(self) -> list[str]:
         return ["true"]  # pragma: no cover
 
     @active_only
