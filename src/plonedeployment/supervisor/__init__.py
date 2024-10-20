@@ -4,6 +4,8 @@ from pathlib import Path
 from plonedeployment.base import BaseService
 from plonedeployment.template import render
 
+import subprocess
+
 
 @dataclass
 class SupervisordConfOptions:
@@ -93,7 +95,27 @@ class Supervisor(BaseService):
         )
         self.logger.info(f"Generated {self.supervisord_conf}")
 
+    def check_if_running(self):
+        exit_code = subprocess.run(
+            [
+                str(self.executable_dir / "supervisorctl"),
+                "-c",
+                str(self.supervisord_conf),
+                "status",
+            ],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        ).returncode
+        self.logger.info("Supervisorctl returns %r", exit_code)
+        if exit_code:
+            return False
+        return True
+
     def __enter__(self):
+        if self.check_if_running():
+            self._entered = True
+            self.conf_folder = None
+            return self
         self = super().__enter__()
         self.make_zeoserver_program_conf()
         self.make_zeoclient_program_conf()
@@ -106,5 +128,20 @@ class Supervisor(BaseService):
             str(self.executable_dir / "supervisord"),
             "-c",
             str(self.supervisord_conf),
-            "-n",
         ]
+
+    @BaseService.active_only
+    def run(self):
+        if not self.conf_folder:
+            return
+        return super().run()
+
+    def run_status(self):
+        subprocess.run(
+            [
+                str(self.executable_dir / "supervisorctl"),
+                "-c",
+                str(self.supervisord_conf),
+                "status",
+            ]
+        )

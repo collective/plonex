@@ -15,7 +15,7 @@ parser = ArgumentParser(
 
 parser.add_argument(
     "action",
-    choices=["zeoserver", "zeoclient", "adduser", "start"],
+    choices=["zeoserver", "zeoclient", "adduser", "start", "status"],
     help="Action to perform",
 )
 
@@ -25,6 +25,7 @@ def _check_folders() -> None:
 
     expected_folders = [
         Path("tmp"),
+        Path("etc"),
         Path("var"),
         Path("var/blobstorage"),
         Path("var/cache"),
@@ -60,8 +61,7 @@ def main() -> None:
         with Supervisor() as supervisor:
             supervisor.run()
     elif args.action == "status":
-        logger.info("TODO: Manage the status of the services")
-        pass
+        Supervisor().run_status()
     elif args.action == "stop":
         logger.info("TODO: Manage the stop of the services")
         pass

@@ -13,6 +13,7 @@ import sys
 class BaseService:
 
     logger = logger
+    _entered = False
 
     def __init__(self):
         self.tmp_folder = self._ensure_dir(mkdtemp())
@@ -49,7 +50,7 @@ class BaseService:
 
         @wraps(method)
         def wrapper(self, *args, **kwargs):
-            if not getattr(self, "conf_folder", None):
+            if not self._entered:
                 raise RuntimeError(
                     f"You need to enter the {self.__class__!r} context manager first"
                 )
@@ -58,6 +59,7 @@ class BaseService:
         return wrapper
 
     def __enter__(self):
+        self._entered = True
         self.conf_folder = Path(mkdtemp(dir=self.tmp_folder))
         self.logger.info(f"Temporary folder: {self.conf_folder}")
         return self
@@ -77,6 +79,8 @@ class BaseService:
                 self.logger.info("Stopping %r", command)
 
     def __exit__(self, exc_type, exc_value, traceback):
-        self.logger.info(f"Cleaning up {self.conf_folder}")
-        rmtree(self.conf_folder)
+        self._entered = False
+        if self.conf_folder and self.conf_folder.exists():
+            self.logger.info(f"Cleaning up {self.conf_folder}")
+            rmtree(self.conf_folder)
         del self.conf_folder
