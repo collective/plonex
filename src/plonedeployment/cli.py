@@ -1,6 +1,7 @@
 from argparse import ArgumentParser
 from pathlib import Path
 from plonedeployment import logger
+from plonedeployment.install import InstallService
 from plonedeployment.supervisor import Supervisor
 from plonedeployment.zeoclient import ZeoClient
 from plonedeployment.zeoserver import ZeoServer
@@ -15,7 +16,16 @@ parser = ArgumentParser(
 
 parser.add_argument(
     "action",
-    choices=["zeoserver", "zeoclient", "adduser", "start", "status", "stop", "restart"],
+    choices=[
+        "zeoserver",
+        "zeoclient",
+        "adduser",
+        "start",
+        "status",
+        "stop",
+        "restart",
+        "dependencies",
+    ],
     help="Action to perform",
 )
 
@@ -78,6 +88,9 @@ def main() -> None:
     elif args.action == "pack":
         logger.info("TODO: Manage the pack of DB")
         pass
+    elif args.action == "dependencies":
+        with InstallService() as install:
+            install.run()
 
 
 if __name__ == "__main__":
