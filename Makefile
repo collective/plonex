@@ -10,5 +10,5 @@ all: .venv/bin/uv requirements.txt constraints.txt
 
 .PHONY: test
 test: all
-	.venv/bin/mypy src/plonedeployment
-	.venv/bin/pytest --cov=plonedeployment --cov-report=html
+	.venv/bin/mypy src/plonex
+	.venv/bin/pytest --cov=plonex --cov-report=html

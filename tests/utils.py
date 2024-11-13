@@ -2,7 +2,7 @@ from contextlib import chdir
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from plonedeployment import logger
+from plonex import logger
 from tempfile import TemporaryDirectory
 
 import logging

@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
-from plonedeployment.base import BaseService
-from plonedeployment.template import render
+from plonex.base import BaseService
+from plonex.template import render
 
 import subprocess
 
@@ -38,10 +38,8 @@ class ProgramConf:
 class Supervisor(BaseService):
 
     target: Path = field(default_factory=Path.cwd)
-    supervisord_conf_template: str = (
-        "plonedeployment.supervisor.templates:supervisord.conf.j2"
-    )
-    program_conf_template: str = "plonedeployment.supervisor.templates:program.conf.j2"
+    supervisord_conf_template: str = "plonex.supervisor.templates:supervisord.conf.j2"
+    program_conf_template: str = "plonex.supervisor.templates:program.conf.j2"
     etc_folder: Path | None = None
     tmp_folder: Path | None = None
     var_folder: Path | None = None
@@ -61,7 +59,7 @@ class Supervisor(BaseService):
     def make_zeoserver_program_conf(self):
         options = ProgramConf(
             program="zeoserver",
-            command=f"{self.executable_dir / "plonedeployment"} zeoserver",
+            command=f"{self.executable_dir / "plonex"} zeoserver",
             process_name="zeoserver",
             directory=str(self.target),
             priority=1,
@@ -73,7 +71,7 @@ class Supervisor(BaseService):
     def make_zeoclient_program_conf(self):
         options = ProgramConf(
             program="zeoclient",
-            command=f"{self.executable_dir / "plonedeployment"} zeoclient",
+            command=f"{self.executable_dir / "plonex"} zeoclient",
             process_name="zeoclient",
             directory=str(self.target),
             priority=2,

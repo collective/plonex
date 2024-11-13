@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
-from plonedeployment.base import BaseService
-from plonedeployment.template import render
+from plonex.base import BaseService
+from plonex.template import render
 
 
 @dataclass
@@ -44,8 +44,8 @@ class ZeoServer(BaseService):
     """
 
     target: Path = field(default_factory=Path.cwd)
-    zeo_conf_template: str = "plonedeployment.zeoserver.templates:zeo.conf.j2"
-    runzeo_template: str = "plonedeployment.zeoserver.templates:runzeo.j2"
+    zeo_conf_template: str = "plonex.zeoserver.templates:zeo.conf.j2"
+    runzeo_template: str = "plonex.zeoserver.templates:runzeo.j2"
     tmp_folder: Path | None = None
     var_folder: Path | None = None
 

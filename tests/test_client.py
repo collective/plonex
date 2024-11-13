@@ -3,16 +3,16 @@ from .utils import temp_cwd
 from .utils import ZeoTestCase
 from contextlib import contextmanager
 from pathlib import Path
-from plonedeployment.zeoclient import ZeoClient
+from plonex.zeoclient import ZeoClient
 
 
 read_expected = ReadExpected(Path(__file__).parent / "expected" / "zeoclient")
 
 
 @contextmanager
-def temp_client():
+def temp_client(**kwargs):
     with temp_cwd():
-        with ZeoClient() as client:
+        with ZeoClient(**kwargs) as client:
             yield client
 
 
@@ -53,3 +53,20 @@ class TestZeoClient(ZeoTestCase):
             self.assertTrue(client.zope_conf.exists())
             expected = read_expected("test_zope_conf", client)
             self.assertEqual(client.zope_conf.read_text(), expected)
+
+    def test_command(self):
+        """Test the command method"""
+        with temp_client() as client:
+            self.assertEqual(
+                client.command,
+                [client.conf_folder / "instance", "fg"],
+            )
+
+    def test_config_files_bobus(self):
+        """Test the config files method"""
+        with temp_cwd() as temp_dir:
+            bogus_path = Path(temp_dir) / "bogus"
+            self.assertFalse(bogus_path.exists())
+
+            with temp_client(config_files=[]) as client:
+                self.assertEqual(client.config_files, [])

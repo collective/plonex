@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
-from plonedeployment.base import BaseService
+from plonex.base import BaseService
 
 import subprocess
 

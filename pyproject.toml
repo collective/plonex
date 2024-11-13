@@ -3,7 +3,7 @@ requires = ["setuptools >= 61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "plonedeployment"
+name = "plonex"
 description = "Deploy a Plone site based on some configuration files"
 readme = "README.md"
 license = {text = "GPL-3.0"}
@@ -21,6 +21,7 @@ dependencies = [
     "PyYAML",
     "plone.recipe.zope2instance",
     "supervisor",
+    "types-PyYAML",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -36,7 +37,7 @@ classifiers = [
 ]
 
 [project.scripts]
-plonedeployment = "plonedeployment:cli.main"
+plonex = "plonex:cli.main"
 
 [project.urls]
 Homepage = "https://tbd"

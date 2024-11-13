@@ -1,5 +1,5 @@
 from .utils import temp_cwd
-from plonedeployment.base import BaseService
+from plonex.base import BaseService
 
 import sys
 import unittest

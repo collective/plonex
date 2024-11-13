@@ -3,7 +3,7 @@ from .utils import temp_cwd
 from .utils import ZeoTestCase
 from contextlib import contextmanager
 from pathlib import Path
-from plonedeployment.zeoserver import ZeoServer
+from plonex.zeoserver import ZeoServer
 
 
 read_expected = ReadExpected(Path(__file__).parent / "expected" / "zeoserver")
@@ -60,3 +60,11 @@ class TestZeoServer(ZeoTestCase):
             self.assertTrue(zeo.zeo_conf.exists())
             expected = read_expected("test_zeo_conf", zeo)
             self.assertEqual(zeo.zeo_conf.read_text(), expected)
+
+    def test_command(self):
+        """Test the command method"""
+        with temp_zeo() as zeo:
+            self.assertEqual(
+                zeo.command,
+                [str(zeo.conf_folder / "runzeo")],
+            )
