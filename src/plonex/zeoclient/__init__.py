@@ -101,7 +101,6 @@ class ZeoClient(BaseService):
         self.config_files = [
             Path(file) if isinstance(file, str) else file for file in self.config_files
         ]
-        breakpoint()
         for path in self.config_files:
             if not path.is_file():
                 self.logger.error("Config file %r is not valid", path)
