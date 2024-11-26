@@ -1,0 +1,25 @@
+[supervisord]
+logfile=TARGET_PATH/var/log/supervisord.log
+pidfile=TARGET_PATH/tmp/supervisord.pid
+logfile_maxbytes=50MB
+logfile_backups=10
+loglevel=info
+childlogdir=TARGET_PATH/var/log
+directory=TARGET_PATH
+
+[unix_http_server]
+file = TARGET_PATH/var/supervisord.sock
+username =
+password =
+chmod = 0700
+
+[supervisorctl]
+serverurl = unix://TARGET_PATH/var/supervisord.sock
+username =
+password =
+
+[rpcinterface:supervisor]
+supervisor.rpcinterface_factory=supervisor.rpcinterface:make_main_rpcinterface
+
+[include]
+files = CONF_PATH/*.conf
