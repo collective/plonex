@@ -17,9 +17,11 @@ maintainers = [
     { name="Alessandro Pisa", email="pisa@syslab.com" },
 ]
 dependencies = [
+    "gitman",
     "Jinja2",
     "PyYAML",
     "plone.recipe.zope2instance",
+    "rich-argparse",
     "supervisor",
     "types-PyYAML",
 ]

@@ -1,5 +1,9 @@
 from .utils import temp_cwd
+from dataclasses import dataclass
+from dataclasses import field
+from pathlib import Path
 from plonex.base import BaseService
+from unittest import mock
 
 import sys
 import unittest
@@ -12,6 +16,26 @@ if sys.version_info < (3, 11):
         self.addCleanup(context_manager.__exit__, None, None, None)
 
     unittest.TestCase.enterContext = _enterContext
+
+
+@dataclass
+class DummyLogger:
+
+    infos: list = field(default_factory=list)
+    debugs: list = field(default_factory=list)
+
+    def debug(self, *args):
+        self.debugs.append(args)
+
+    def info(self, *args):
+        self.infos.append(args)
+
+
+class DummyService(BaseService):
+
+    def __init__(self):
+        super().__init__()
+        self.logger = DummyLogger()
 
 
 class TestBaseService(unittest.TestCase):
@@ -78,3 +102,21 @@ class TestBaseService(unittest.TestCase):
             conf_folder = service.conf_folder
             self.assertTrue(conf_folder.exists())
         self.assertFalse(conf_folder.exists())
+
+    def test_keyboard_interrupt_logs(self):
+        """Test the KeyboardInterrupt exception"""
+        with DummyService() as service:
+            with mock.patch("subprocess.run", side_effect=KeyboardInterrupt):
+                service.run()
+
+            self.assertEqual(
+                service.logger.infos,
+                [
+                    (f"Temporary folder: {service.conf_folder}",),
+                    ("Stopping %r", ["true"]),
+                ],
+            )
+
+    def test_executable_dir(self):
+        """Test the executable_dir property"""
+        self.assertEqual(BaseService().executable_dir, Path(sys.executable).parent)

@@ -5,16 +5,20 @@ from plonex.install import InstallService
 from plonex.supervisor import Supervisor
 from plonex.zeoclient import ZeoClient
 from plonex.zeoserver import ZeoServer
+from rich_argparse import RichHelpFormatter
 
 
 parser = ArgumentParser(
     description="Plone Deployment CLI",
     prog="plonex",
     usage="%(prog)s [options]",
+    formatter_class=RichHelpFormatter,
 )
 action_subparsers = parser.add_subparsers(dest="action")
 
-supervisor_parser = action_subparsers.add_parser("supervisor", help="Manage supervisor")
+supervisor_parser = action_subparsers.add_parser(
+    "supervisor", help="Manage supervisor", formatter_class=parser.formatter_class
+)
 supervisor_subparsers = supervisor_parser.add_subparsers(
     dest="supervisor_action", help="Supervisor actions"
 )
@@ -28,14 +32,28 @@ supervisor_start_parser.add_argument(
     default="==SUPPRESS==",
     help="Show this help message and exit",
 )
-supervisor_subparsers.add_parser("stop", help="Stop supervisor")
-supervisor_subparsers.add_parser("restart", help="Restart supervisor")
-supervisor_subparsers.add_parser("status", help="Status of supervisor")
-supervisor_subparsers.add_parser("graceful", help="Graceful restart of supervisor")
+supervisor_subparsers.add_parser(
+    "stop", help="Stop supervisor", formatter_class=parser.formatter_class
+)
+supervisor_subparsers.add_parser(
+    "restart", help="Restart supervisor", formatter_class=parser.formatter_class
+)
+supervisor_subparsers.add_parser(
+    "status", help="Status of supervisor", formatter_class=parser.formatter_class
+)
+supervisor_subparsers.add_parser(
+    "graceful",
+    help="Graceful restart of supervisor",
+    formatter_class=parser.formatter_class,
+)
 
-zeoserver_parser = action_subparsers.add_parser("zeoserver", help="Start ZEO Server")
+zeoserver_parser = action_subparsers.add_parser(
+    "zeoserver", help="Start ZEO Server", formatter_class=parser.formatter_class
+)
 
-zeoclient_parser = action_subparsers.add_parser("zeoclient", help="Start ZEO Client")
+zeoclient_parser = action_subparsers.add_parser(
+    "zeoclient", help="Start ZEO Client", formatter_class=parser.formatter_class
+)
 zeoclient_parser.add_argument(
     "-c",
     "--config",
@@ -46,16 +64,26 @@ zeoclient_parser.add_argument(
     action="append",
 )
 
-adduser_parser = action_subparsers.add_parser("adduser", help="Add a user")
+adduser_parser = action_subparsers.add_parser(
+    "adduser", help="Add a user", formatter_class=parser.formatter_class
+)
 
-backup_parser = action_subparsers.add_parser("backup", help="Backup the services")
+backup_parser = action_subparsers.add_parser(
+    "backup", help="Backup the services", formatter_class=parser.formatter_class
+)
 
-restore_parser = action_subparsers.add_parser("restore", help="Restore the services")
+restore_parser = action_subparsers.add_parser(
+    "restore", help="Restore the services", formatter_class=parser.formatter_class
+)
 
-pack_parser = action_subparsers.add_parser("pack", help="Pack the DB")
+pack_parser = action_subparsers.add_parser(
+    "pack", help="Pack the DB", formatter_class=parser.formatter_class
+)
 
 dependencies_parser = action_subparsers.add_parser(
-    "dependencies", help="Install the dependencies"
+    "dependencies",
+    help="Install the dependencies",
+    formatter_class=parser.formatter_class,
 )
 
 

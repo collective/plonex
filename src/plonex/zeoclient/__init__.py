@@ -97,7 +97,7 @@ class ZeoClient(BaseService):
         self.target = self._ensure_dir(self.target)
         self.tmp_folder = self._ensure_dir(self.tmp_folder or self.target / "tmp")
         self.var_folder = self._ensure_dir(self.var_folder or self.target / "var")
-        # Ensure self.config_files is a list of PAths
+        # Ensure self.config_files is a list of Paths
         self.config_files = [
             Path(file) if isinstance(file, str) else file for file in self.config_files
         ]
