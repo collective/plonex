@@ -32,3 +32,25 @@ class TestSupervisor(PloneXTestCase):
             self.assertEqual(
                 install.requirements_d_folder, Path(temp_dir) / "etc" / "requirements.d"
             )
+
+    def test_requirements(self):
+        # Prepare some fake requirements file
+        with temp_cwd():
+            install = InstallService()
+
+            (install.requirements_d_folder / "foo.txt").write_text("foo")
+            (install.requirements_d_folder / "bar.txt").write_text("bar")
+            (install.constraints_d_folder / "foo.txt").write_text("foo==1.0.0")
+            (install.constraints_d_folder / "bar.txt").write_text("bar==1.0.0")
+            with install:
+                self.assertListEqual(
+                    install.requirements_txt.read_text().splitlines(),
+                    [
+                        f"-r {str(install.requirements_d_folder)}/bar.txt",
+                        f"-r {str(install.requirements_d_folder)}/foo.txt",
+                    ],
+                )
+                self.assertListEqual(
+                    install.constrainst_txt.read_text().splitlines(),
+                    ["bar==1.0.0", "foo==1.0.0"],
+                )

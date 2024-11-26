@@ -33,7 +33,7 @@ class InstallService(BaseService):
     def make_requirements_txt(self):
         """This will merge therequiremets files in one big requirements.txt file"""
         lines = []
-        for file in self.requirements_d_folder.iterdir():
+        for file in sorted(self.requirements_d_folder.iterdir()):
             lines.append(f"-r {file.absolute()}")
         self.requirements_txt = self.etc_folder / "requirements.txt"
         self.requirements_txt.write_text("\n".join(lines))

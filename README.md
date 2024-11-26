@@ -5,5 +5,5 @@ This is me!
 ## Install your packages
 
 ```
-plonex install
+plonex dependencies
 ```
