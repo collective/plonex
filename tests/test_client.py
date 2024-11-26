@@ -4,6 +4,7 @@ from .utils import ZeoTestCase
 from contextlib import contextmanager
 from pathlib import Path
 from plonex.zeoclient import ZeoClient
+from unittest import mock
 
 
 read_expected = ReadExpected(Path(__file__).parent / "expected" / "zeoclient")
@@ -62,11 +63,27 @@ class TestZeoClient(ZeoTestCase):
                 [client.conf_folder / "instance", "fg"],
             )
 
-    def test_config_files_bobus(self):
-        """Test the config files method"""
-        with temp_cwd() as temp_dir:
-            bogus_path = Path(temp_dir) / "bogus"
-            self.assertFalse(bogus_path.exists())
+    def test_broken_config_files(self):
+        """Test the config files method with a broken file"""
+        # mock Logger.error to check the error messages
+        with mock.patch("logging.Logger.error") as mock_error:
+            with temp_client(config_files=["bogus"]) as client:
+                self.assertEqual(client.config_files, [Path("bogus")])
+            mock_error.assert_called_once_with(
+                "Config file %r is not valid", Path("bogus")
+            )
 
-            with temp_client(config_files=[]) as client:
-                self.assertEqual(client.config_files, [])
+        path = Path(__file__).parent / "sample_confs" / "zeoclient_bogus.yml"
+        with mock.patch("logging.Logger.error") as mock_error:
+            with temp_client(config_files=[str(path)]) as client:
+                self.assertEqual(client.config_files, [path])
+            mock_error.assert_called_once_with(
+                "The config file %r should contain a dict", path
+            )
+
+    def test_options_from_config_files(self):
+        """Test the options from the config files"""
+        path = Path(__file__).parent / "sample_confs" / "zeoclient.yml"
+        with temp_client(config_files=[str(path)]) as client:
+            self.assertListEqual(client.config_files, [path])
+            self.assertDictEqual(client.options, {"foo": "bar", "http_port": 8080})

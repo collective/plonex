@@ -1,12 +1,30 @@
 from contextlib import chdir
 from contextlib import contextmanager
 from dataclasses import dataclass
+from dataclasses import field
 from pathlib import Path
 from plonex import logger
 from tempfile import TemporaryDirectory
 
 import logging
 import unittest
+
+
+@dataclass
+class DummyLogger:
+
+    debugs: list = field(default_factory=list)
+    infos: list = field(default_factory=list)
+    errors: list = field(default_factory=list)
+
+    def debug(self, *args):
+        self.debugs.append(args)
+
+    def info(self, *args):
+        self.infos.append(args)
+
+    def error(self, *args):
+        self.errors.append(args)
 
 
 @contextmanager

@@ -1,6 +1,6 @@
+from .utils import DummyLogger
 from .utils import temp_cwd
 from dataclasses import dataclass
-from dataclasses import field
 from pathlib import Path
 from plonex.base import BaseService
 from unittest import mock
@@ -19,18 +19,6 @@ if sys.version_info < (3, 11):
 
 
 @dataclass
-class DummyLogger:
-
-    infos: list = field(default_factory=list)
-    debugs: list = field(default_factory=list)
-
-    def debug(self, *args):
-        self.debugs.append(args)
-
-    def info(self, *args):
-        self.infos.append(args)
-
-
 class DummyService(BaseService):
 
     def __init__(self):
