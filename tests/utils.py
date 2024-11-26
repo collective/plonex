@@ -49,7 +49,7 @@ class ReadExpected:
         ).strip()
 
 
-class ZeoTestCase(unittest.TestCase):
+class PloneXTestCase(unittest.TestCase):
 
     maxDiff = None
 

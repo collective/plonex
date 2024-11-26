@@ -1,6 +1,6 @@
+from .utils import PloneXTestCase
 from .utils import ReadExpected
 from .utils import temp_cwd
-from .utils import ZeoTestCase
 from contextlib import contextmanager
 from pathlib import Path
 from plonex.zeoserver import ZeoServer
@@ -16,7 +16,7 @@ def temp_zeo():
             yield zeo
 
 
-class TestZeoServer(ZeoTestCase):
+class TestZeoServer(PloneXTestCase):
 
     def test_constructor(self):
         """Test the constructor for the zeoserver object"""
