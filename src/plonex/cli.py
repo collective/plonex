@@ -1,4 +1,5 @@
 from argparse import ArgumentParser
+from itertools import chain
 from pathlib import Path
 from plonex import logger
 from plonex.install import InstallService
@@ -15,6 +16,10 @@ parser = ArgumentParser(
     formatter_class=RichHelpFormatter,
 )
 action_subparsers = parser.add_subparsers(dest="action")
+
+init_parser = action_subparsers.add_parser(
+    "init", help="Initialize the project", formatter_class=parser.formatter_class
+)
 
 supervisor_parser = action_subparsers.add_parser(
     "supervisor", help="Manage supervisor", formatter_class=parser.formatter_class
@@ -68,6 +73,18 @@ adduser_parser = action_subparsers.add_parser(
     "adduser", help="Add a user", formatter_class=parser.formatter_class
 )
 
+adduser_parser.add_argument(
+    "-c",
+    "--config",
+    type=str,
+    help="Path to the configuration file",
+    required=False,
+    dest="zeoclient_config",
+    action="append",
+)
+adduser_parser.add_argument("username", type=str, help="Username")
+adduser_parser.add_argument("password", type=str, help="Password")
+
 backup_parser = action_subparsers.add_parser(
     "backup", help="Backup the services", formatter_class=parser.formatter_class
 )
@@ -107,26 +124,47 @@ def _check_folders() -> None:
         else:
             logger.debug(f"{folder} already exists")
 
+    # Ensure that in the etc folder we have a plonex.yml file
+    etc_folder = Path("etc")
+    plonex_config = etc_folder / "plonex.yml"
+    if not plonex_config.exists():
+        logger.info(f"Creating {plonex_config}")
+        plonex_config.write_text("---\n")
+
 
 def main() -> None:
     args = parser.parse_args()
+    if args.action == "init":
+        _check_folders()
+        logger.info("Project initialized")
+        return
 
-    _check_folders()
+    cwd = Path.cwd()
+
+    for target in chain([cwd], cwd.parents):
+        if (target / "etc" / "plonex.yml").exists():
+            break
+    else:
+        logger.error(
+            "Could not find the etc/plonex.yml file. "
+            "Please run plonex init in the project root"
+        )
+        return
 
     if args.action == "zeoserver":
         logger.debug("Starting ZEO Server")
-        with ZeoServer() as zeoserver:
+        with ZeoServer(target) as zeoserver:
             zeoserver.run()
     elif args.action == "zeoclient":
         logger.debug("Starting ZEO Client")
-
         # Get the configuration file
-        config_files = getattr(args, "zeoclient_config", [])
-        with ZeoClient(config_files=config_files) as zeoclient:
+        config_files = getattr(args, "zeoclient_config", []) or []
+        with ZeoClient(target, config_files=config_files) as zeoclient:
             zeoclient.run()
     elif args.action == "adduser":
-        logger.info("TODO: Adding a user")
-        pass
+        config_files = getattr(args, "zeoclient_config", []) or []
+        with ZeoClient(target, config_files=config_files) as zeoclient:
+            zeoclient.adduser(args.username, args.password)
     elif args.action == "supervisor":
         supervisor_action = getattr(args, "supervisor_action", None)
         if supervisor_action is None:
@@ -159,6 +197,8 @@ def main() -> None:
     elif args.action == "dependencies":
         with InstallService() as install:
             install.run()
+    elif args.action is None:
+        logger.error("Not handling action: %r", args.action)
 
 
 if __name__ == "__main__":

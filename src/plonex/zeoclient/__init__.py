@@ -1,3 +1,4 @@
+from contextlib import chdir
 from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
@@ -5,6 +6,7 @@ from plonex.base import BaseService
 from plonex.template import render
 from typing import Literal
 
+import subprocess
 import yaml
 
 
@@ -178,3 +180,13 @@ class ZeoClient(BaseService):
     @property
     def command(self):
         return [self.instance, "fg"]
+
+    @BaseService.active_only
+    def adduser(self, username: str, password: str):
+        with chdir(self.conf_folder):  # type: ignore
+            command = [str(self.instance), "adduser", username, password]
+            self.logger.info("Running %r", command)
+            try:
+                subprocess.run(command, check=True)
+            except KeyboardInterrupt:
+                self.logger.info("Stopping %r", command)
