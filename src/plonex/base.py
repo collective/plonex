@@ -11,12 +11,20 @@ import sys
 
 
 class BaseService:
-
+    name = "base"
     logger = logger
     _entered = False
 
     def __init__(self):
-        self.tmp_folder = self._ensure_dir(mkdtemp())
+        self.tmp_folder = self.mkdtemp()
+
+    def mkdtemp(self, dir=None) -> Path:
+        """Wrapper for mkdtemp that creates a temporary folder with a prefix
+        that matches the service name.
+
+        Returns a Path object instead than a string
+        """
+        return self._ensure_dir(mkdtemp(prefix=f"{self.name}-", dir=dir))
 
     @property
     def executable(self) -> Path:
@@ -60,8 +68,9 @@ class BaseService:
 
     def __enter__(self):
         self._entered = True
-        self.conf_folder = Path(mkdtemp(dir=self.tmp_folder))
-        self.logger.info(f"Temporary folder: {self.conf_folder}")
+        self._ensure_dir(self.tmp_folder)
+        self.conf_folder = self._ensure_dir(self.tmp_folder / "etc")
+        self.logger.info(f"Temporary configuration folder: {self.conf_folder}")
         return self
 
     @property
@@ -80,7 +89,4 @@ class BaseService:
 
     def __exit__(self, exc_type, exc_value, traceback):
         self._entered = False
-        if self.conf_folder and self.conf_folder.exists():
-            self.logger.info(f"Cleaning up {self.conf_folder}")
-            rmtree(self.conf_folder)
-        del self.conf_folder
+        rmtree(self.tmp_folder, ignore_errors=True)

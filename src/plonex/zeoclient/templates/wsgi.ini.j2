@@ -1,7 +1,7 @@
 [server:main]
 paste.server_factory = plone.recipe.zope2instance:main
 use = egg:plone.recipe.zope2instance#main
-{{ 'fast-listen' if options.fast_listen else 'listen' }} = 0.0.0.0:{{ options.context.options['http_port'] }}
+{{ 'fast-listen' if options.fast_listen else 'listen' }} = {{ options.context.options['http_address'] }}:{{ options.context.options['http_port'] }}
 threads = {{ options.threads }}
 
 [app:zope]

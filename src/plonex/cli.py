@@ -1,3 +1,4 @@
+from argcomplete import autocomplete
 from argparse import ArgumentParser
 from itertools import chain
 from pathlib import Path
@@ -6,19 +7,53 @@ from plonex.install import InstallService
 from plonex.supervisor import Supervisor
 from plonex.zeoclient import ZeoClient
 from plonex.zeoserver import ZeoServer
-from rich_argparse import RichHelpFormatter
+from rich_argparse import RawTextRichHelpFormatter
 
 
 parser = ArgumentParser(
-    description="Plone Deployment CLI",
+    description="""Plone Deployment CLI.
+
+Activate autocomplete with:
+
+eval "$(register-python-argcomplete plonex)"
+""",
     prog="plonex",
     usage="%(prog)s [options]",
-    formatter_class=RichHelpFormatter,
+    formatter_class=RawTextRichHelpFormatter,
 )
+parser.add_argument(
+    "-t",
+    "--target",
+    type=str,
+    help="Path to the target folder",
+    required=False,
+    default=Path.cwd(),
+    dest="target",
+)
+
 action_subparsers = parser.add_subparsers(dest="action")
 
 init_parser = action_subparsers.add_parser(
-    "init", help="Initialize the project", formatter_class=parser.formatter_class
+    "init",
+    description=(
+        "Initialize the project in the specified target folder. "
+        "This will create the necessary folders and configuration files."
+    ),
+    help=("Initialize the project in the specified target folder."),
+    formatter_class=parser.formatter_class,
+)
+
+# init will accept one and only one positional target argument,
+# which defaults to the current working directory
+init_parser.add_argument(
+    "target",
+    type=str,
+    help=(
+        "Path where the project will be initialized. "
+        "Defaults to the current working directory."
+    ),
+    default=str(Path.cwd()),
+    nargs="?",
 )
 
 supervisor_parser = action_subparsers.add_parser(
@@ -27,7 +62,14 @@ supervisor_parser = action_subparsers.add_parser(
 supervisor_subparsers = supervisor_parser.add_subparsers(
     dest="supervisor_action", help="Supervisor actions"
 )
-# The possible actions for the supervisor are start, stop, restart, status, graceful
+
+# The possible actions for the supervisor are:
+#
+# - start
+# - stop
+# - restart
+# - status
+# - graceful
 supervisor_start_parser = supervisor_subparsers.add_parser(
     "start", help="Start supervisor"
 )
@@ -69,6 +111,24 @@ zeoclient_parser.add_argument(
     action="append",
 )
 
+zeoclient_parser.add_argument(
+    "-p",
+    "--port",
+    type=int,
+    help="Port to run the ZEO Client (default: 8080)",
+    required=False,
+    default=8080,
+)
+
+zeoclient_parser.add_argument(
+    "--host",
+    type=str,
+    help="Host to run the ZEO Client (default: 0.0.0.0)",
+    required=False,
+    default="0.0.0.0",
+)
+
+
 adduser_parser = action_subparsers.add_parser(
     "adduser", help="Add a user", formatter_class=parser.formatter_class
 )
@@ -104,17 +164,20 @@ dependencies_parser = action_subparsers.add_parser(
 )
 
 
-def _check_folders() -> None:
+autocomplete(parser)
+
+
+def _check_folders(path: str) -> None:
     """Check that we have the necessary folders"""
 
     expected_folders = [
-        Path("tmp"),
-        Path("etc"),
-        Path("var"),
-        Path("var/blobstorage"),
-        Path("var/cache"),
-        Path("var/filestorage"),
-        Path("var/log"),
+        Path(f"{path}/tmp"),
+        Path(f"{path}/etc"),
+        Path(f"{path}/var"),
+        Path(f"{path}/var/blobstorage"),
+        Path(f"{path}/var/cache"),
+        Path(f"{path}/var/filestorage"),
+        Path(f"{path}/var/log"),
     ]
 
     for folder in expected_folders:
@@ -125,7 +188,7 @@ def _check_folders() -> None:
             logger.debug(f"{folder} already exists")
 
     # Ensure that in the etc folder we have a plonex.yml file
-    etc_folder = Path("etc")
+    etc_folder = Path(f"{path}/etc")
     plonex_config = etc_folder / "plonex.yml"
     if not plonex_config.exists():
         logger.info(f"Creating {plonex_config}")
@@ -135,14 +198,13 @@ def _check_folders() -> None:
 def main() -> None:
     args = parser.parse_args()
     if args.action == "init":
-        _check_folders()
+        _check_folders(path=args.target)
         logger.info("Project initialized")
         return
 
-    cwd = Path.cwd()
-
-    for target in chain([cwd], cwd.parents):
-        if (target / "etc" / "plonex.yml").exists():
+    target = Path(args.target)
+    for folder in chain([target], target.parents):
+        if (folder / "etc" / "plonex.yml").exists():
             break
     else:
         logger.error(
@@ -159,7 +221,11 @@ def main() -> None:
         logger.debug("Starting ZEO Client")
         # Get the configuration file
         config_files = getattr(args, "zeoclient_config", []) or []
-        with ZeoClient(target, config_files=config_files) as zeoclient:
+        with ZeoClient(
+            target,
+            config_files=config_files,
+            cli_options={"http_port": args.port, "http_host": args.host},
+        ) as zeoclient:
             zeoclient.run()
     elif args.action == "adduser":
         config_files = getattr(args, "zeoclient_config", []) or []
@@ -174,7 +240,7 @@ def main() -> None:
                 tuple(possible_actions),
             )
             return
-        with Supervisor() as supervisor:
+        with Supervisor(target) as supervisor:
             if supervisor_action == "start":
                 supervisor.run()
             elif supervisor_action == "stop":
@@ -195,10 +261,10 @@ def main() -> None:
         logger.info("TODO: Manage the pack of DB")
         pass
     elif args.action == "dependencies":
-        with InstallService() as install:
+        with InstallService(target) as install:
             install.run()
     elif args.action is None:
-        logger.error("Not handling action: %r", args.action)
+        parser.print_help()
 
 
 if __name__ == "__main__":

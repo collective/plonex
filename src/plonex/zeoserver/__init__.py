@@ -43,6 +43,8 @@ class ZeoServer(BaseService):
     or kill the process with the signal 15
     """
 
+    name = "zeoserver"
+
     target: Path = field(default_factory=Path.cwd)
     zeo_conf_template: str = "plonex.zeoserver.templates:zeo.conf.j2"
     runzeo_template: str = "plonex.zeoserver.templates:runzeo.j2"
@@ -55,7 +57,9 @@ class ZeoServer(BaseService):
 
     def __post_init__(self):
         self.target = self._ensure_dir(self.target)
-        self.tmp_folder = self._ensure_dir(self.tmp_folder or self.target / "tmp")
+        self.tmp_folder = self._ensure_dir(
+            self.tmp_folder or self.mkdtemp(self.target / "tmp")
+        )
         self.var_folder = self._ensure_dir(self.var_folder or self.target / "var")
 
     @BaseService.active_only

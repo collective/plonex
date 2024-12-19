@@ -9,6 +9,8 @@ import subprocess
 @dataclass
 class InstallService(BaseService):
 
+    name = "install"
+
     target: Path = field(default_factory=Path.cwd)
     etc_folder: Path | None = None
     tmp_folder: Path | None = None
@@ -20,7 +22,7 @@ class InstallService(BaseService):
     constrainst_txt: Path | None = field(init=False, default=None)
 
     def __post_init__(self):
-        self.target = self._ensure_dir(self.target)
+        self.target = self._ensure_dir(self.target.absolute())
         self.etc_folder = self._ensure_dir(self.etc_folder or self.target / "etc")
         self.tmp_folder = self._ensure_dir(self.tmp_folder or self.target / "tmp")
         self.requirements_d_folder = self._ensure_dir(
@@ -31,10 +33,12 @@ class InstallService(BaseService):
         )
 
     def make_requirements_txt(self):
-        """This will merge therequiremets files in one big requirements.txt file"""
+        """This will merge the requiremets files in one big requirements.txt file"""
         lines = []
         for file in sorted(self.requirements_d_folder.iterdir()):
             lines.append(f"-r {file.absolute()}")
+        if not lines:
+            lines.append("-r https://dist.plone.org/release/6-latest/requirements.txt")
         self.requirements_txt = self.etc_folder / "requirements.txt"
         self.requirements_txt.write_text("\n".join(lines))
 
@@ -64,6 +68,7 @@ class InstallService(BaseService):
                 f"{package}=={version}"
                 for package, version in sorted(constraints.items())
             )
+            or "-c https://dist.plone.org/release/6-latest/constraints.txt"
         )
 
     @property
@@ -73,9 +78,9 @@ class InstallService(BaseService):
             "pip",
             "install",
             "-r",
-            str(self.requirements_txt),
+            str(self.requirements_txt.absolute()),
             "-c",
-            str(self.constrainst_txt),
+            str(self.constrainst_txt.absolute()),
         ]
 
     def __enter__(self):

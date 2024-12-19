@@ -54,6 +54,7 @@ class InstanceOptions:
 
 default_options = {
     "http_port": 8080,
+    "http_address": "0.0.0.0",
 }
 
 
@@ -75,6 +76,8 @@ class ZeoClient(BaseService):
     or kill the process with the signal 15
     """
 
+    name = "zeoclient"
+
     target: Path = field(default_factory=Path.cwd)
 
     zope_conf_template: str = "plonex.zeoclient.templates:zope.conf.j2"
@@ -95,9 +98,14 @@ class ZeoClient(BaseService):
 
     options: dict = field(init=False, default_factory=default_options.copy)
 
+    # Command line options will win over the config file options
+    cli_options: dict = field(default_factory=dict)
+
     def __post_init__(self):
         self.target = self._ensure_dir(self.target)
-        self.tmp_folder = self._ensure_dir(self.tmp_folder or self.target / "tmp")
+        self.tmp_folder = self._ensure_dir(
+            self.tmp_folder or self.mkdtemp(self.target / "tmp")
+        )
         self.var_folder = self._ensure_dir(self.var_folder or self.target / "var")
         # Ensure self.config_files is a list of Paths
         self.config_files = [
@@ -117,6 +125,9 @@ class ZeoClient(BaseService):
                     else:
                         self.options.update(new_options)
 
+        # Command line options will win over the config file options
+        self.options.update(self.cli_options)
+
     @BaseService.active_only
     def make_zope_conf(self):
         options = ZopeConfOptions(
@@ -127,13 +138,16 @@ class ZeoClient(BaseService):
             zeo_address=self.var_folder / "zeosocket.sock",
         )
         self.zope_conf.write_text(render(self.zope_conf_template, options))
-        self.logger.info("Generated {self.zope_conf}")
+        self.logger.info(f"Generated {self.zope_conf}")
         self.logger.info(self.zope_conf.read_text())
 
     @BaseService.active_only
     def make_wsgi_ini(self):
         options = WSGIOptions(
-            context=self, zope_conf=self.zope_conf, var_folder=self.var_folder
+            context=self,
+            name=f"instance-{self.options['http_port']}",
+            zope_conf=self.zope_conf,
+            var_folder=self.var_folder,
         )
         self.wsgi_ini.write_text(render(self.wsgi_ini_template, options))
         self.logger.info("Generated {self.wsgi_ini}")

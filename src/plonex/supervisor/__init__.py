@@ -37,6 +37,8 @@ class ProgramConf:
 @dataclass
 class Supervisor(BaseService):
 
+    name = "supervisor"
+
     target: Path = field(default_factory=Path.cwd)
     supervisord_conf_template: str = "plonex.supervisor.templates:supervisord.conf.j2"
     program_conf_template: str = "plonex.supervisor.templates:program.conf.j2"
