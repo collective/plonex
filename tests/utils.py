@@ -10,7 +10,7 @@ import logging
 import unittest
 
 
-@dataclass
+@dataclass(kw_only=True)
 class DummyLogger:
 
     debugs: list = field(default_factory=list)
@@ -41,12 +41,15 @@ class ReadExpected:
     expected_folder: Path
 
     def __call__(self, name, service):
-        return (
-            (self.expected_folder / name)
-            .read_text()
-            .replace("CONF_PATH", str(service.conf_folder))
-            .replace("TARGET_PATH", str(service.target))
-        ).strip()
+        text = (self.expected_folder / name).read_text().strip()
+
+        # Replace the placeholders in the text
+        if "CONF_PATH" in text:
+            text = text.replace("CONF_PATH", str(service.etc_folder))
+        if "TARGET_PATH" in text:
+            text = text.replace("TARGET_PATH", str(service.target))
+
+        return text
 
 
 class PloneXTestCase(unittest.TestCase):

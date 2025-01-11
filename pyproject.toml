@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "plonex"
-description = "Deploy a Plone site based on some configuration files"
+description = "Deploy a manage Plone site based on some configuration files"
 readme = "README.md"
 license = {text = "GPL-3.0"}
 keywords = ["plone", "deployment"]
@@ -18,12 +18,12 @@ maintainers = [
 ]
 dependencies = [
     "argcomplete",
-    "gitman",
     "Jinja2",
-    "plone.recipe.zope2instance",
     "PyYAML",
+    "pip-requirements-parser",
+    "requests",
+    "types-requests",
     "rich-argparse",
-    "supervisor",
     "types-PyYAML",
 ]
 classifiers = [
@@ -31,7 +31,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -50,11 +49,11 @@ Issues = "https://tbd"
 Changelog = "https://tbd"
 
 [project.optional-dependencies]
-test = ["mypy", "pytest", "pytest-cov"]
+test = ["mypy", "pytest", "pytest-cov", "supervisor"]
 
 [tool.black]
 line-length = 88
-target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
+target-version = ['py39', 'py310', 'py311', 'py312']
 
 [tool.flake8]
 max-line-length = 88

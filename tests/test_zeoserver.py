@@ -23,7 +23,7 @@ class TestZeoServer(PloneXTestCase):
         with temp_cwd() as temp_dir:
             zeo = ZeoServer()
             self.assertEqual(zeo.target, Path(temp_dir))
-            self.assertEqual(zeo.tmp_folder, Path(temp_dir) / "tmp")
+            self.assertEqual(zeo.tmp_folder, Path(temp_dir) / "tmp" / "zeoserver")
             self.assertEqual(zeo.var_folder, Path(temp_dir) / "var")
             self.assertEqual(zeo.zeo_conf, None)
             self.assertEqual(zeo.runzeo, None)
@@ -32,7 +32,7 @@ class TestZeoServer(PloneXTestCase):
         """Test the constructor with parameters"""
         with temp_cwd() as temp_dir:
             zeo = ZeoServer(
-                temp_dir / "another_place",
+                target=temp_dir / "another_place",
                 tmp_folder=temp_dir / "another_tmp",
                 var_folder=temp_dir / "another_var",
             )
@@ -42,17 +42,17 @@ class TestZeoServer(PloneXTestCase):
             self.assertEqual(zeo.zeo_conf, None)
             self.assertEqual(zeo.runzeo, None)
 
-    def test_active_only_when_inactive(self):
+    def test_entered_only_when_inactive(self):
         """Test the active only method"""
         with temp_cwd():
             zeo = ZeoServer()
             with self.assertRaises(RuntimeError):
-                ZeoServer.active_only(lambda self: None)(zeo)
+                ZeoServer.entered_only(lambda self: None)(zeo)
 
-    def test_active_only_when_active(self):
+    def test_entered_only_when_active(self):
         """Test the active only method"""
         with temp_zeo() as zeo:
-            self.assertIsNone(ZeoServer.active_only(lambda self: None)(zeo))
+            self.assertIsNone(ZeoServer.entered_only(lambda self: None)(zeo))
 
     def test_zeo_conf(self):
         """Test the zeo conf method"""
@@ -66,5 +66,5 @@ class TestZeoServer(PloneXTestCase):
         with temp_zeo() as zeo:
             self.assertEqual(
                 zeo.command,
-                [str(zeo.conf_folder / "runzeo")],
+                [str(zeo.tmp_folder / "bin" / "runzeo")],
             )

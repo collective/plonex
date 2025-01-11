@@ -1,10 +1,10 @@
-%define INSTANCE TARGET_PATH/tmp
+%define INSTANCE TARGET_PATH/tmp/zeoserver
 
 <zeo>
   address TARGET_PATH/var/zeosocket.sock
   read-only false
   invalidation-queue-size 100
-  pid-filename TARGET_PATH/tmp/zeoserver.pid
+  pid-filename TARGET_PATH/var/zeoserver.pid
 </zeo>
 
 <filestorage 1>
@@ -21,8 +21,8 @@
 </eventlog>
 
 <runner>
-  program CONF_PATH/runzeo
-  socket-name TARGET_PATH/tmp/zeoserver.sock
+  program TARGET_PATH/tmp/zeoserver/bin/runzeo
+  socket-name TARGET_PATH/var/zeoserver.sock
   daemon true
   forever false
   backoff-limit 10

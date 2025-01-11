@@ -1,5 +1,6 @@
 from argcomplete import autocomplete
 from argparse import ArgumentParser
+from importlib.metadata import version
 from itertools import chain
 from pathlib import Path
 from plonex import logger
@@ -7,7 +8,10 @@ from plonex.install import InstallService
 from plonex.supervisor import Supervisor
 from plonex.zeoclient import ZeoClient
 from plonex.zeoserver import ZeoServer
+from rich.console import Console
 from rich_argparse import RawTextRichHelpFormatter
+
+import requests
 
 
 parser = ArgumentParser(
@@ -102,6 +106,15 @@ zeoclient_parser = action_subparsers.add_parser(
     "zeoclient", help="Start ZEO Client", formatter_class=parser.formatter_class
 )
 zeoclient_parser.add_argument(
+    "-n",
+    "--name",
+    type=str,
+    help="Name of the ZEO Client",
+    required=False,
+    default="zeoclient",
+)
+
+zeoclient_parser.add_argument(
     "-c",
     "--config",
     type=str,
@@ -126,6 +139,31 @@ zeoclient_parser.add_argument(
     help="Host to run the ZEO Client (default: 0.0.0.0)",
     required=False,
     default="0.0.0.0",
+)
+
+zeoclient_subparsers = zeoclient_parser.add_subparsers(
+    dest="zeoclient_action", help="ZEO Client actions"
+)
+
+# optional actions for the zeoclient are:
+# console
+# start
+# debug
+# stop
+# status
+# run
+# If not specified, the default action is start
+
+zeoclient_console_parser = zeoclient_subparsers.add_parser(
+    "console", help="Start the ZEO Client console"
+)
+
+zeoclient_start_parser = zeoclient_subparsers.add_parser(
+    "start", help="Start the ZEO Client"
+)
+
+zeoclient_debug_parser = zeoclient_subparsers.add_parser(
+    "debug", help="Start the ZEO Client in debug mode"
 )
 
 
@@ -167,12 +205,23 @@ dependencies_parser = action_subparsers.add_parser(
 autocomplete(parser)
 
 
+def _ask_for_plone_version() -> str:
+    console = Console()
+    return (
+        console.input("Please select the Plone version (default: 6.0-latest):")
+        or "6.0-latest"
+    )
+
+
 def _check_folders(path: str) -> None:
     """Check that we have the necessary folders"""
+    plone_version = None
 
     expected_folders = [
         Path(f"{path}/tmp"),
         Path(f"{path}/etc"),
+        Path(f"{path}/etc/constraints.d"),
+        Path(f"{path}/etc/requirements.d"),
         Path(f"{path}/var"),
         Path(f"{path}/var/blobstorage"),
         Path(f"{path}/var/cache"),
@@ -192,7 +241,41 @@ def _check_folders(path: str) -> None:
     plonex_config = etc_folder / "plonex.yml"
     if not plonex_config.exists():
         logger.info(f"Creating {plonex_config}")
-        plonex_config.write_text("---\n")
+        plonex_version = version("plonex")
+        plonex_config.write_text(
+            "\n".join(
+                (
+                    "---",
+                    f'plonex_version: "{plonex_version}"',
+                    "",
+                )
+            )
+        )
+
+    # Ensure we have the requirements.d/000-plonex.txt
+    # and constraints.d/000-plonex.txt files
+    requirements_d = etc_folder / "requirements.d"
+    if not (requirements_d / "000-plonex.txt").exists():
+        requirements_txt = "\n".join(
+            (
+                "Plone",
+                "plone.recipe.zope2instance",
+                "supervisor",
+            )
+        )
+        logger.info("Creating %s", requirements_d / "000-plonex.txt")
+        (requirements_d / "000-plonex.txt").write_text(requirements_txt)
+
+    constraints_d = etc_folder / "constraints.d"
+    if not (constraints_d / "000-plonex.txt").exists():
+        if plone_version is None:
+            plone_version = _ask_for_plone_version()
+        logger.info("Fetching the constraints.txt file for Plone %s", plone_version)
+        constraints_txt = requests.get(
+            f"https://dist.plone.org/release/{plone_version}/constraints.txt"
+        ).text
+        logger.info("Creating %s", constraints_d / "000-plonex.txt")
+        (constraints_d / "000-plonex.txt").write_text(constraints_txt)
 
 
 def main() -> None:
@@ -215,21 +298,34 @@ def main() -> None:
 
     if args.action == "zeoserver":
         logger.debug("Starting ZEO Server")
-        with ZeoServer(target) as zeoserver:
+        with ZeoServer(target=target) as zeoserver:
             zeoserver.run()
     elif args.action == "zeoclient":
         logger.debug("Starting ZEO Client")
         # Get the configuration file
         config_files = getattr(args, "zeoclient_config", []) or []
         with ZeoClient(
-            target,
+            name=args.name,
+            target=target,
             config_files=config_files,
             cli_options={"http_port": args.port, "http_host": args.host},
         ) as zeoclient:
-            zeoclient.run()
+            if args.zeoclient_action == "console":
+                zeoclient.run_console()
+            elif args.zeoclient_action == "start":
+                zeoclient.run_start()
+            elif args.zeoclient_action == "debug":
+                zeoclient.run_debug()
+            elif args.zeoclient_action == "stop":
+                zeoclient.run_stop()
+            elif args.zeoclient_action == "status":
+                zeoclient.run_status()
+            else:
+                zeoclient.run()
+
     elif args.action == "adduser":
         config_files = getattr(args, "zeoclient_config", []) or []
-        with ZeoClient(target, config_files=config_files) as zeoclient:
+        with ZeoClient(target=target, config_files=config_files) as zeoclient:
             zeoclient.adduser(args.username, args.password)
     elif args.action == "supervisor":
         supervisor_action = getattr(args, "supervisor_action", None)
@@ -240,7 +336,7 @@ def main() -> None:
                 tuple(possible_actions),
             )
             return
-        with Supervisor(target) as supervisor:
+        with Supervisor(target=target) as supervisor:
             if supervisor_action == "start":
                 supervisor.run()
             elif supervisor_action == "stop":
@@ -261,7 +357,7 @@ def main() -> None:
         logger.info("TODO: Manage the pack of DB")
         pass
     elif args.action == "dependencies":
-        with InstallService(target) as install:
+        with InstallService(target=target) as install:
             install.run()
     elif args.action is None:
         parser.print_help()

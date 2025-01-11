@@ -2,6 +2,7 @@ from contextlib import chdir
 from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
+from plonex.base import BaseOptions
 from plonex.base import BaseService
 from plonex.template import render
 from typing import Literal
@@ -10,21 +11,22 @@ import subprocess
 import yaml
 
 
-@dataclass
-class ZopeConfOptions:
+_undefined = object()
+
+
+@dataclass(kw_only=True)
+class ZopeConfOptions(BaseOptions):
 
     context: "ZeoClient"
     instance_home: Path
     client_home: Path
-    blobstorage: Path
-    zeo_address: Path
     environment_vars: dict[str, str] = field(default_factory=dict)
     debug_mode: Literal["on", "off"] = "off"
     security_policy_implementation: Literal["PYTHON", "C"] = "C"
     verbose_security: Literal["on", "off"] = "off"
 
 
-@dataclass
+@dataclass(kw_only=True)
 class WSGIOptions:
 
     context: "ZeoClient"
@@ -35,14 +37,14 @@ class WSGIOptions:
     threads: int = 3
 
 
-@dataclass
+@dataclass(kw_only=True)
 class InterpreterOptions:
 
     context: "ZeoClient"
     python: Path
 
 
-@dataclass
+@dataclass(kw_only=True)
 class InstanceOptions:
 
     context: "ZeoClient"
@@ -55,10 +57,12 @@ class InstanceOptions:
 default_options = {
     "http_port": 8080,
     "http_address": "0.0.0.0",
+    "zeo_address": _undefined,
+    "blobstorage": _undefined,
 }
 
 
-@dataclass
+@dataclass(kw_only=True)
 class ZeoClient(BaseService):
     """This is a context manager that allows to run a ZEO client
 
@@ -76,41 +80,51 @@ class ZeoClient(BaseService):
     or kill the process with the signal 15
     """
 
-    name = "zeoclient"
-
+    # Those are the most important parameters passed to the constructor
+    name: str = "zeoclient"
     target: Path = field(default_factory=Path.cwd)
+    config_files: list[str | Path] = field(default_factory=list)
 
+    # You can override the templates used to generate the configuration files
     zope_conf_template: str = "plonex.zeoclient.templates:zope.conf.j2"
     wsgi_ini_template: str = "plonex.zeoclient.templates:wsgi.ini.j2"
     interpreter_template: str = "plonex.zeoclient.templates:interpreter.j2"
     instance_template: str = "plonex.zeoclient.templates:instance.j2"
 
+    # This service has some folders
     tmp_folder: Path | None = None
     var_folder: Path | None = None
 
-    config_files: list[str | Path] = field(default_factory=list)
-
-    conf_folder: Path | None = field(init=False, default=None)
     zope_conf: Path | None = field(init=False, default=None)
     wsgi_ini: Path | None = field(init=False, default=None)
     interpreter: Path | None = field(init=False, default=None)
     instance: Path | None = field(init=False, default=None)
 
+    # The service has some options
     options: dict = field(init=False, default_factory=default_options.copy)
 
     # Command line options will win over the config file options
     cli_options: dict = field(default_factory=dict)
 
     def __post_init__(self):
+        # Be sure that the required folders exist
+        if self.tmp_folder is None:
+            # We want a dedicated subfolder for this service
+            self.tmp_folder = self.target / "tmp" / self.name
+        if self.var_folder is None:
+            # This is not dedicated because it is usually shared with the ZEO server
+            self.var_folder = self.target / "var"
+
         self.target = self._ensure_dir(self.target)
-        self.tmp_folder = self._ensure_dir(
-            self.tmp_folder or self.mkdtemp(self.target / "tmp")
-        )
-        self.var_folder = self._ensure_dir(self.var_folder or self.target / "var")
+        self.tmp_folder = self._ensure_dir(self.tmp_folder)
+        self.var_folder = self._ensure_dir(self.var_folder)
+
         # Ensure self.config_files is a list of Paths
         self.config_files = [
             Path(file) if isinstance(file, str) else file for file in self.config_files
         ]
+
+        # We will read the config files and update the default options
         for path in self.config_files:
             if not path.is_file():
                 self.logger.error("Config file %r is not valid", path)
@@ -128,20 +142,26 @@ class ZeoClient(BaseService):
         # Command line options will win over the config file options
         self.options.update(self.cli_options)
 
-    @BaseService.active_only
+        # Ensure that the required undefined options are set
+        if self.options["zeo_address"] is _undefined:
+            self.options["zeo_address"] = self.var_folder / "zeosocket.sock"
+
+        if self.options["blobstorage"] is _undefined:
+            self.options["blobstorage"] = self.var_folder / "blobstorage"
+
+    @BaseService.entered_only
     def make_zope_conf(self):
+        """Generate the zope.conf file for this ZEO client"""
         options = ZopeConfOptions(
             context=self,
-            instance_home=self.tmp_folder,
-            client_home=self.tmp_folder,
-            blobstorage=self.var_folder / "blobstorage",
-            zeo_address=self.var_folder / "zeosocket.sock",
+            instance_home=self._ensure_dir(self.tmp_folder),
+            client_home=self._ensure_dir(self.var_folder / self.name),
         )
         self.zope_conf.write_text(render(self.zope_conf_template, options))
         self.logger.info(f"Generated {self.zope_conf}")
         self.logger.info(self.zope_conf.read_text())
 
-    @BaseService.active_only
+    @BaseService.entered_only
     def make_wsgi_ini(self):
         options = WSGIOptions(
             context=self,
@@ -153,14 +173,16 @@ class ZeoClient(BaseService):
         self.logger.info("Generated {self.wsgi_ini}")
         self.logger.info(self.wsgi_ini.read_text())
 
-    @BaseService.active_only
+    @BaseService.entered_only
     def make_interpreter(self):
-        options = InterpreterOptions(context=self, python=Path(self.executable))
+        options = InterpreterOptions(
+            context=self, python=Path(self.virtualenv_dir / "bin" / "python")
+        )
         self.interpreter.write_text(render(self.interpreter_template, options))
         self.logger.info("Generated {self.interpreter}")
         self.logger.info(self.interpreter.read_text())
 
-    @BaseService.active_only
+    @BaseService.entered_only
     def make_instance(self):
         options = InstanceOptions(
             context=self,
@@ -182,7 +204,7 @@ class ZeoClient(BaseService):
         self.zope_conf = etc_folder / "zope.conf"
         self.wsgi_ini = etc_folder / "wsgi.ini"
         self.interpreter = bin_folder / "interpreter"
-        self.instance = self.conf_folder / "instance"
+        self.instance = etc_folder / "instance"
         self.instance.touch()
         self.instance.chmod(0o755)
         self.make_zope_conf()
@@ -195,9 +217,9 @@ class ZeoClient(BaseService):
     def command(self):
         return [self.instance, "fg"]
 
-    @BaseService.active_only
+    @BaseService.entered_only
     def adduser(self, username: str, password: str):
-        with chdir(self.conf_folder):  # type: ignore
+        with chdir(self.target):  # type: ignore
             command = [str(self.instance), "adduser", username, password]
             self.logger.info("Running %r", command)
             try:

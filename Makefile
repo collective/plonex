@@ -11,4 +11,4 @@ all: .venv/bin/uv requirements.txt constraints.txt
 .PHONY: test
 test: all
 	.venv/bin/mypy src/plonex
-	.venv/bin/pytest --cov=plonex --cov-report=html
+	.venv/bin/pytest -s --cov=plonex --cov-report=html

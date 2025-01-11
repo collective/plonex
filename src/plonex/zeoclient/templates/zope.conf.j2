@@ -18,7 +18,7 @@ default-zpublisher-encoding utf-8
     <zeoclient>
       read-only false
       read-only-fallback false
-      blob-dir {{ options.blobstorage }}
+      blob-dir {{ options["blobstorage"] }}
       shared-blob-dir on
       server {{ options.zeo_address }}
       storage 1

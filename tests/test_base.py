@@ -18,7 +18,7 @@ if sys.version_info < (3, 11):
     unittest.TestCase.enterContext = _enterContext
 
 
-@dataclass
+@dataclass(kw_only=True)
 class DummyService(BaseService):
 
     def __init__(self):
@@ -73,23 +73,16 @@ class TestBaseService(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.service._ensure_dir(foo_path)
 
-    def test_active_only_when_inactive(self):
+    def test_entered_only_when_inactive(self):
         """Test the active only decorator when the context manager is not active"""
         client = BaseService()
         with self.assertRaises(RuntimeError):
-            client.active_only(lambda self: None)(client)
+            client.entered_only(lambda self: None)(client)
 
     def test_run(self):
         """Test the run method"""
         with BaseService() as service:
             service.run()
-
-    def test_cleanup(self):
-        """Test the cleanup method"""
-        with BaseService() as service:
-            conf_folder = service.conf_folder
-            self.assertTrue(conf_folder.exists())
-        self.assertFalse(conf_folder.exists())
 
     def test_keyboard_interrupt_logs(self):
         """Test the KeyboardInterrupt exception"""
@@ -100,7 +93,6 @@ class TestBaseService(unittest.TestCase):
             self.assertEqual(
                 service.logger.infos,
                 [
-                    (f"Temporary folder: {service.conf_folder}",),
                     ("Stopping %r", ["true"]),
                 ],
             )

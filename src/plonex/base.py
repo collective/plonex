@@ -1,8 +1,6 @@
-from contextlib import chdir
 from functools import wraps
 from pathlib import Path
 from plonex import logger
-from shutil import rmtree
 from tempfile import mkdtemp
 from typing import Callable
 
@@ -11,28 +9,26 @@ import sys
 
 
 class BaseService:
+    """Base class for a context manager that runs a command.
+
+    The command can be executed only when the context manager is entered.
+
+    Every command needs to have a temporary folder where the configuration will
+    be stored.
+    """
+
     name = "base"
     logger = logger
     _entered = False
 
     def __init__(self):
+        # This is a workaround to use this class as a base class for dataclasses
+        self.__post_init__()
+
+    def __post_init__(self):
+        """ """
         self.tmp_folder = self.mkdtemp()
-
-    def mkdtemp(self, dir=None) -> Path:
-        """Wrapper for mkdtemp that creates a temporary folder with a prefix
-        that matches the service name.
-
-        Returns a Path object instead than a string
-        """
-        return self._ensure_dir(mkdtemp(prefix=f"{self.name}-", dir=dir))
-
-    @property
-    def executable(self) -> Path:
-        return Path(sys.executable)
-
-    @property
-    def executable_dir(self) -> Path:
-        return self.executable.parent
+        self.target = self.mkdtemp()
 
     @staticmethod
     def _ensure_dir(path: str | Path) -> Path:
@@ -47,8 +43,40 @@ class BaseService:
             raise ValueError(f"{path} is not a directory")
         return path
 
+    def mkdtemp(self, dir=None) -> Path:
+        """Wrapper for mkdtemp that creates a temporary folder with a prefix
+        that matches the service name.
+
+        Returns a Path object instead than a string
+        """
+        return self._ensure_dir(mkdtemp(prefix=f"{self.name}-", dir=dir))
+
+    @property
+    def executable(self) -> Path:
+        """The path to the Python executable"""
+        return Path(sys.executable)
+
+    @property
+    def executable_dir(self) -> Path:
+        """The directory where the Python executable is located
+
+        This is usually the bin folder in a virtualenv.
+        """
+        return self.executable.parent
+
+    @property
+    def virtualenv_dir(self) -> Path:
+        """The path to the virtualenv"""
+        dir = self.target / ".venv"
+        if not (dir / "bin" / "activate").exists():
+            logger.error(
+                "No virtualenv found in %r. You may want to run `plonex init`", dir
+            )
+            sys.exit(1)
+        return dir
+
     @staticmethod
-    def active_only(method: Callable) -> Callable:
+    def entered_only(method: Callable) -> Callable:
         """Decorator that ensures the context manager is entered before running
         the method
 
@@ -68,25 +96,36 @@ class BaseService:
 
     def __enter__(self):
         self._entered = True
-        self._ensure_dir(self.tmp_folder)
-        self.conf_folder = self._ensure_dir(self.tmp_folder / "etc")
-        self.logger.info(f"Temporary configuration folder: {self.conf_folder}")
         return self
 
     @property
     def command(self) -> list[str]:
         return ["true"]  # pragma: no cover
 
-    @active_only
+    @entered_only
     def run(self):
-        with chdir(self.conf_folder):
-            command = self.command
-            self.logger.debug("Running %r", command)
-            try:
-                subprocess.run(command, check=True)
-            except KeyboardInterrupt:
-                self.logger.info("Stopping %r", command)
+        command = self.command
+        self.logger.debug("Running %r", command)
+        try:
+            subprocess.run(command, check=True)
+        except KeyboardInterrupt:
+            self.logger.info("Stopping %r", command)
 
     def __exit__(self, exc_type, exc_value, traceback):
         self._entered = False
-        rmtree(self.tmp_folder, ignore_errors=True)
+
+
+class BaseOptions:
+    """Base class for options that can be accessed as attributes or from the context"""
+
+    def __getattribute__(self, name):
+        """This looks for the attribute in the context options"""
+        try:
+            return super().__getattribute__(name)
+        except AttributeError:
+            try:
+                return self.context.options[name]
+            except KeyError:
+                raise AttributeError(
+                    f"{name} not found in {self} or {self.context.options}"
+                )

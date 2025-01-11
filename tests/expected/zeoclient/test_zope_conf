@@ -1,6 +1,6 @@
-%define INSTANCEHOME TARGET_PATH/tmp
+%define INSTANCEHOME TARGET_PATH/tmp/zeoclient
 instancehome $INSTANCEHOME
-%define CLIENTHOME TARGET_PATH/tmp
+%define CLIENTHOME TARGET_PATH/var/zeoclient
 clienthome $CLIENTHOME
 debug-mode off
 security-policy-implementation C

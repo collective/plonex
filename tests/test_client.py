@@ -13,6 +13,9 @@ read_expected = ReadExpected(Path(__file__).parent / "expected" / "zeoclient")
 @contextmanager
 def temp_client(**kwargs):
     with temp_cwd():
+        # Create a fake virtualenv folder structure
+        (Path.cwd() / ".venv" / "bin").mkdir(parents=True)
+        (Path.cwd() / ".venv" / "bin" / "activate").touch()
         with ZeoClient(**kwargs) as client:
             yield client
 
@@ -21,32 +24,32 @@ class TestZeoClient(PloneXTestCase):
 
     def test_constructor(self):
         """Test the constructor for the zeosclient object"""
-        with temp_cwd() as temp_dir:
-            zeo = ZeoClient()
-
-            self.assertEqual(zeo.target, Path(temp_dir))
-            self.assertEqual(zeo.tmp_folder, Path(temp_dir) / "tmp")
-            self.assertEqual(zeo.var_folder, Path(temp_dir) / "var")
-            self.assertIsNone(zeo.zope_conf)
-            self.assertIsNone(zeo.wsgi_ini)
-            self.assertIsNone(zeo.interpreter)
-            self.assertIsNone(zeo.instance)
+        with temp_client() as client:
+            client = ZeoClient()
+            cwd = Path.cwd()
+            self.assertEqual(client.target, Path(cwd))
+            self.assertEqual(client.tmp_folder, Path(cwd) / "tmp" / "zeoclient")
+            self.assertEqual(client.var_folder, Path(cwd) / "var")
+            self.assertIsNone(client.zope_conf)
+            self.assertIsNone(client.wsgi_ini)
+            self.assertIsNone(client.interpreter)
+            self.assertIsNone(client.instance)
 
     def test_constructor_with_params(self):
         """Test the constructor with parameters"""
         with temp_cwd() as temp_dir:
-            zeo = ZeoClient(
-                temp_dir / "another_place",
+            client = ZeoClient(
+                target=temp_dir / "another_place",
                 tmp_folder=temp_dir / "another_tmp",
                 var_folder=temp_dir / "another_var",
             )
-            self.assertEqual(zeo.target, temp_dir / "another_place")
-            self.assertEqual(zeo.tmp_folder, temp_dir / "another_tmp")
-            self.assertEqual(zeo.var_folder, temp_dir / "another_var")
-            self.assertIsNone(zeo.zope_conf)
-            self.assertIsNone(zeo.wsgi_ini)
-            self.assertIsNone(zeo.interpreter)
-            self.assertIsNone(zeo.instance)
+            self.assertEqual(client.target, temp_dir / "another_place")
+            self.assertEqual(client.tmp_folder, temp_dir / "another_tmp")
+            self.assertEqual(client.var_folder, temp_dir / "another_var")
+            self.assertIsNone(client.zope_conf)
+            self.assertIsNone(client.wsgi_ini)
+            self.assertIsNone(client.interpreter)
+            self.assertIsNone(client.instance)
 
     def test_zope_conf(self):
         """Test the zope.conf file"""
@@ -60,7 +63,7 @@ class TestZeoClient(PloneXTestCase):
         with temp_client() as client:
             self.assertEqual(
                 client.command,
-                [client.conf_folder / "instance", "fg"],
+                [client.instance, "fg"],
             )
 
     def test_broken_config_files(self):
@@ -86,4 +89,22 @@ class TestZeoClient(PloneXTestCase):
         path = Path(__file__).parent / "sample_confs" / "zeoclient.yml"
         with temp_client(config_files=[str(path)]) as client:
             self.assertListEqual(client.config_files, [path])
-            self.assertDictEqual(client.options, {"foo": "bar", "http_port": 8080})
+            self.assertSetEqual(
+                set(client.options),
+                {
+                    "blobstorage",
+                    "foo",
+                    "http_address",
+                    "http_port",
+                    "zeo_address",
+                },
+            )
+            self.assertEqual(
+                client.options["blobstorage"], client.var_folder / "blobstorage"
+            )
+            self.assertEqual(client.options["foo"], "bar")
+            self.assertEqual(client.options["http_address"], "0.0.0.0")
+            self.assertEqual(client.options["http_port"], 8080)
+            self.assertEqual(
+                client.options["zeo_address"], client.var_folder / "zeosocket.sock"
+            )

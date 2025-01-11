@@ -32,3 +32,9 @@ INFO     Project initialized
 ```sh
 plonex dependencies
 ```
+
+## Start your project
+
+```sh
+plonex supervisor start
+```

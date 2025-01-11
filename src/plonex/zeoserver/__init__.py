@@ -5,7 +5,7 @@ from plonex.base import BaseService
 from plonex.template import render
 
 
-@dataclass
+@dataclass(kw_only=True)
 class ZeoServerOption:
 
     address: Path
@@ -18,14 +18,14 @@ class ZeoServerOption:
     runzeo_path: Path
 
 
-@dataclass
+@dataclass(kw_only=True)
 class RunZeoOption:
     python: Path
     instance_home: Path
     zeo_conf: Path
 
 
-@dataclass
+@dataclass(kw_only=True)
 class ZeoServer(BaseService):
     """This is a context manager that allows to run a ZEO server
 
@@ -43,43 +43,54 @@ class ZeoServer(BaseService):
     or kill the process with the signal 15
     """
 
-    name = "zeoserver"
-
+    name: str = "zeoserver"
     target: Path = field(default_factory=Path.cwd)
-    zeo_conf_template: str = "plonex.zeoserver.templates:zeo.conf.j2"
-    runzeo_template: str = "plonex.zeoserver.templates:runzeo.j2"
+
+    # This service has some folders
     tmp_folder: Path | None = None
     var_folder: Path | None = None
 
-    conf_folder: Path | None = field(init=False, default=None)
+    # You can override the templates used to generate the configuration files
+    zeo_conf_template: str = "plonex.zeoserver.templates:zeo.conf.j2"
+    runzeo_template: str = "plonex.zeoserver.templates:runzeo.j2"
+
     zeo_conf: Path | None = field(init=False, default=None)
     runzeo: Path | None = field(init=False, default=None)
 
     def __post_init__(self):
-        self.target = self._ensure_dir(self.target)
-        self.tmp_folder = self._ensure_dir(
-            self.tmp_folder or self.mkdtemp(self.target / "tmp")
-        )
-        self.var_folder = self._ensure_dir(self.var_folder or self.target / "var")
+        # Be sure that the required folders exist
+        if self.tmp_folder is None:
+            # We want a dedicated subfolder for this service
+            self.tmp_folder = self.target / "tmp" / self.name
+        if self.var_folder is None:
+            # This is not dedicated because it is usually shared with the ZEO server
+            self.var_folder = self.target / "var"
 
-    @BaseService.active_only
+        self.target = self._ensure_dir(self.target)
+        self.tmp_folder = self._ensure_dir(self.tmp_folder)
+        self.var_folder = self._ensure_dir(self.var_folder)
+
+    @BaseService.entered_only
     def make_zeo_conf(self):
         """Generate the ZEO configuration file"""
         options = ZeoServerOption(
             address=self.var_folder / "zeosocket.sock",
-            pidfile=self.tmp_folder / "zeoserver.pid",
+            pidfile=self.var_folder / f"{self.name}.pid",
             blob_dir=self.var_folder / "blobstorage",
             path=self.var_folder / "filestorage" / "Data.fs",
             log_path=self.var_folder / "log" / "zeoserver.log",
             tmp_folder=self.tmp_folder,
-            socket_name=self.tmp_folder / "zeoserver.sock",
+            socket_name=self.var_folder / "zeoserver.sock",
             runzeo_path=self.runzeo,
         )
+        # Ensure the folder exists
+        self._ensure_dir(options.blob_dir)
+        self._ensure_dir(options.path.parent)
         self.zeo_conf.write_text(render(self.zeo_conf_template, options))
         self.logger.info(f"Generated {self.zeo_conf}")
         self.logger.info(self.zeo_conf.read_text())
 
-    @BaseService.active_only
+    @BaseService.entered_only
     def make_runzeo(self):
         """Generate the runzeo script"""
         options = RunZeoOption(
@@ -96,8 +107,12 @@ class ZeoServer(BaseService):
 
     def __enter__(self):
         self = super().__enter__()
-        self.zeo_conf = self.conf_folder / "zeo.conf"
-        self.runzeo = self.conf_folder / "runzeo"
+        etc_folder = self.tmp_folder / "etc"
+        bin_folder = self.tmp_folder / "bin"
+        self._ensure_dir(bin_folder)
+        self._ensure_dir(etc_folder)
+        self.zeo_conf = etc_folder / "zeo.conf"
+        self.runzeo = bin_folder / "runzeo"
         self.make_zeo_conf()
         self.make_runzeo()
         return self
