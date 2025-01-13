@@ -85,6 +85,16 @@ class ZeoClient(BaseService):
     target: Path = field(default_factory=Path.cwd)
     config_files: list[str | Path] = field(default_factory=list)
 
+    # This control how the program runs
+    run_mode: Literal[
+        "console",
+        "fg",
+        "start",
+        "stop",
+        "status",
+        "debug",
+    ] = "console"  # This is the default for the supervisor program
+
     # You can override the templates used to generate the configuration files
     zope_conf_template: str = "plonex.zeoclient.templates:zope.conf.j2"
     wsgi_ini_template: str = "plonex.zeoclient.templates:wsgi.ini.j2"
@@ -157,7 +167,9 @@ class ZeoClient(BaseService):
             instance_home=self._ensure_dir(self.tmp_folder),
             client_home=self._ensure_dir(self.var_folder / self.name),
         )
-        self.zope_conf.write_text(render(self.zope_conf_template, options))
+        with open(self.zope_conf, "w") as f:
+            f.write(render(self.zope_conf_template, options))
+            f.write("\n")
         self.logger.info(f"Generated {self.zope_conf}")
         self.logger.info(self.zope_conf.read_text())
 
@@ -215,7 +227,7 @@ class ZeoClient(BaseService):
 
     @property
     def command(self):
-        return [self.instance, "fg"]
+        return [self.instance, self.run_mode]
 
     @BaseService.entered_only
     def adduser(self, username: str, password: str):

@@ -63,7 +63,7 @@ class TestZeoClient(PloneXTestCase):
         with temp_client() as client:
             self.assertEqual(
                 client.command,
-                [client.instance, "fg"],
+                [client.instance, "console"],
             )
 
     def test_broken_config_files(self):

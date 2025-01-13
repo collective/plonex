@@ -12,6 +12,8 @@ read_expected = ReadExpected(Path(__file__).parent / "expected" / "zeoserver")
 @contextmanager
 def temp_zeo():
     with temp_cwd():
+        (Path.cwd() / ".venv" / "bin").mkdir(parents=True)
+        (Path.cwd() / ".venv" / "bin" / "activate").touch()
         with ZeoServer() as zeo:
             yield zeo
 

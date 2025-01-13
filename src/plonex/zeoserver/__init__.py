@@ -86,7 +86,9 @@ class ZeoServer(BaseService):
         # Ensure the folder exists
         self._ensure_dir(options.blob_dir)
         self._ensure_dir(options.path.parent)
-        self.zeo_conf.write_text(render(self.zeo_conf_template, options))
+        with self.zeo_conf.open("w") as f:
+            f.write(render(self.zeo_conf_template, options))
+            f.write("\n")
         self.logger.info(f"Generated {self.zeo_conf}")
         self.logger.info(self.zeo_conf.read_text())
 

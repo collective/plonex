@@ -41,7 +41,7 @@ class ReadExpected:
     expected_folder: Path
 
     def __call__(self, name, service):
-        text = (self.expected_folder / name).read_text().strip()
+        text = (self.expected_folder / name).read_text()
 
         # Replace the placeholders in the text
         if "CONF_PATH" in text:
