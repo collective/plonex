@@ -84,7 +84,9 @@ class Supervisor(BaseService):
             priority=1,
         )
         program_conf = self.programs_folder / "zeoserver.conf.example"
-        program_conf.write_text(render(self.program_conf_template, options))
+        with open(program_conf, "w") as f:
+            f.write(render(self.program_conf_template, options))
+            f.write("\n")
         self.logger.info("Generated %r", program_conf)
 
     def make_zeoclient_program_conf_example(self):
@@ -96,7 +98,9 @@ class Supervisor(BaseService):
             priority=2,
         )
         program_conf = self.programs_folder / "zeoclient.conf.example"
-        program_conf.write_text(render(self.program_conf_template, options))
+        with open(program_conf, "w") as f:
+            f.write(render(self.program_conf_template, options))
+            f.write("\n")
         self.logger.info("Generated %r", program_conf)
 
     def make_supervisord_conf(self):
@@ -107,9 +111,9 @@ class Supervisor(BaseService):
             pidfile=self.var_folder / "supervisord.pid",
             included_files=self.etc_folder / self.name / "*.conf",
         )
-        self.supervisord_conf.write_text(
-            render(self.supervisord_conf_template, options)
-        )
+        with open(self.supervisord_conf, "w") as f:
+            f.write(render(self.supervisord_conf_template, options))
+            f.write("\n")
         self.logger.info(f"Generated {self.supervisord_conf}")
 
     def check_if_running(self):
