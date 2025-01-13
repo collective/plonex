@@ -186,7 +186,7 @@ class ZeoClient(BaseService):
     def make_instance(self):
         options = InstanceOptions(
             context=self,
-            python=self.executable,
+            python=self.virtualenv_dir / "bin" / "python",
             zope_conf_path=self.zope_conf,
             interpreter_path=self.interpreter,
             wsgi_ini_path=self.wsgi_ini,

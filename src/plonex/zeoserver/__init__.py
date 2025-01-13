@@ -94,7 +94,7 @@ class ZeoServer(BaseService):
     def make_runzeo(self):
         """Generate the runzeo script"""
         options = RunZeoOption(
-            python=self.executable,
+            python=self.virtualenv_dir / "bin" / "python",
             instance_home=self.target,
             zeo_conf=self.zeo_conf,
         )
