@@ -302,26 +302,17 @@ def main() -> None:
             zeoserver.run()
     elif args.action == "zeoclient":
         logger.debug("Starting ZEO Client")
+        zeoclient_action = getattr(args, "zeoclient_action", "console")
         # Get the configuration file
         config_files = getattr(args, "zeoclient_config", []) or []
         with ZeoClient(
             name=args.name,
             target=target,
             config_files=config_files,
+            run_mode=zeoclient_action,  # type: ignore
             cli_options={"http_port": args.port, "http_host": args.host},
         ) as zeoclient:
-            if args.zeoclient_action == "console":
-                zeoclient.run_console()
-            elif args.zeoclient_action == "start":
-                zeoclient.run_start()
-            elif args.zeoclient_action == "debug":
-                zeoclient.run_debug()
-            elif args.zeoclient_action == "stop":
-                zeoclient.run_stop()
-            elif args.zeoclient_action == "status":
-                zeoclient.run_status()
-            else:
-                zeoclient.run()
+            zeoclient.run()
 
     elif args.action == "adduser":
         config_files = getattr(args, "zeoclient_config", []) or []
