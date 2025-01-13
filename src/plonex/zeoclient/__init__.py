@@ -171,7 +171,6 @@ class ZeoClient(BaseService):
             f.write(render(self.zope_conf_template, options))
             f.write("\n")
         self.logger.info(f"Generated {self.zope_conf}")
-        self.logger.info(self.zope_conf.read_text())
 
     @BaseService.entered_only
     def make_wsgi_ini(self):
@@ -183,7 +182,6 @@ class ZeoClient(BaseService):
         )
         self.wsgi_ini.write_text(render(self.wsgi_ini_template, options))
         self.logger.info("Generated {self.wsgi_ini}")
-        self.logger.info(self.wsgi_ini.read_text())
 
     @BaseService.entered_only
     def make_interpreter(self):
@@ -192,7 +190,6 @@ class ZeoClient(BaseService):
         )
         self.interpreter.write_text(render(self.interpreter_template, options))
         self.logger.info("Generated {self.interpreter}")
-        self.logger.info(self.interpreter.read_text())
 
     @BaseService.entered_only
     def make_instance(self):
@@ -205,7 +202,6 @@ class ZeoClient(BaseService):
         )
         self.instance.write_text(render(self.instance_template, options))
         self.logger.info("Generated {self.instance}")
-        self.logger.info(self.instance.read_text())
 
     def __enter__(self):
         self = super().__enter__()

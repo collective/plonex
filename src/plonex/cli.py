@@ -155,11 +155,19 @@ zeoclient_subparsers = zeoclient_parser.add_subparsers(
 # If not specified, the default action is start
 
 zeoclient_console_parser = zeoclient_subparsers.add_parser(
-    "console", help="Start the ZEO Client console"
+    "console", help="Start the ZEO Client console (default behavior)"
+)
+
+zeoclient_console_parser = zeoclient_subparsers.add_parser(
+    "fg", help="Start the ZEO Client in foreground"
 )
 
 zeoclient_start_parser = zeoclient_subparsers.add_parser(
-    "start", help="Start the ZEO Client"
+    "start", help="Start the ZEO Client in background"
+)
+
+zeoclient_stop_parser = zeoclient_subparsers.add_parser(
+    "stop", help="Stop the ZEO Client in background"
 )
 
 zeoclient_debug_parser = zeoclient_subparsers.add_parser(
@@ -302,7 +310,7 @@ def main() -> None:
             zeoserver.run()
     elif args.action == "zeoclient":
         logger.debug("Starting ZEO Client")
-        zeoclient_action = getattr(args, "zeoclient_action", "console")
+        zeoclient_action = getattr(args, "zeoclient_action", "") or "console"
         # Get the configuration file
         config_files = getattr(args, "zeoclient_config", []) or []
         with ZeoClient(
