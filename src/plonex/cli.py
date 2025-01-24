@@ -180,6 +180,10 @@ zeoclient_stop_parser = zeoclient_subparsers.add_parser(
     "stop", help="Stop the ZEO Client in background"
 )
 
+zeoclient_status_parser = zeoclient_subparsers.add_parser(
+    "status", help="Status of the ZEO Client in background"
+)
+
 zeoclient_debug_parser = zeoclient_subparsers.add_parser(
     "debug", help="Start the ZEO Client in debug mode"
 )
