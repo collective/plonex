@@ -97,6 +97,7 @@ class ZeoClient(BaseService):
 
     # You can override the templates used to generate the configuration files
     zope_conf_template: str = "plonex.zeoclient.templates:zope.conf.j2"
+    site_zcml_template: str = "plonex.zeoclient.templates:site.zcml.j2"
     wsgi_ini_template: str = "plonex.zeoclient.templates:wsgi.ini.j2"
     interpreter_template: str = "plonex.zeoclient.templates:interpreter.j2"
     instance_template: str = "plonex.zeoclient.templates:instance.j2"
@@ -173,6 +174,13 @@ class ZeoClient(BaseService):
         self.logger.info(f"Generated {self.zope_conf}")
 
     @BaseService.entered_only
+    def make_site_zcml(self):
+        with open(self.site_zcml, "w") as f:
+            f.write(render(self.site_zcml_template, {}))
+            f.write("\n")
+        self.logger.info(f"Generated {self.site_zcml}")
+
+    @BaseService.entered_only
     def make_wsgi_ini(self):
         options = WSGIOptions(
             context=self,
@@ -207,8 +215,9 @@ class ZeoClient(BaseService):
         self = super().__enter__()
         etc_folder = self.tmp_folder / "etc"
         bin_folder = self.tmp_folder / "bin"
-        self._ensure_dir(etc_folder)
+        self._ensure_dir(etc_folder / "package-includes")
         self._ensure_dir(bin_folder)
+        self.site_zcml = etc_folder / "site.zcml"
         self.zope_conf = etc_folder / "zope.conf"
         self.wsgi_ini = etc_folder / "wsgi.ini"
         self.interpreter = bin_folder / "interpreter"
@@ -216,6 +225,7 @@ class ZeoClient(BaseService):
         self.instance.touch()
         self.instance.chmod(0o755)
         self.make_zope_conf()
+        self.make_site_zcml()
         self.make_wsgi_ini()
         self.make_interpreter()
         self.make_instance()
