@@ -35,6 +35,16 @@ parser.add_argument(
     dest="target",
 )
 
+parser.add_argument(
+    "-V",
+    "--version",
+    action="store_true",
+    help="Show the version of the package",
+    required=False,
+    default=False,
+    dest="version",
+)
+
 action_subparsers = parser.add_subparsers(dest="action")
 
 init_parser = action_subparsers.add_parser(
@@ -288,6 +298,11 @@ def _check_folders(path: str) -> None:
 
 def main() -> None:
     args = parser.parse_args()
+
+    if args.version:
+        print(version("plonex"))
+        return
+
     if args.action == "init":
         _check_folders(path=args.target)
         logger.info("Project initialized")
