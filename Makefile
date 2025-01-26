@@ -11,4 +11,5 @@ all: .venv/bin/uv requirements.txt constraints.txt
 .PHONY: test
 test: all
 	.venv/bin/mypy src/plonex
+	find src/plonex -type d -name __pycache__ -exec rm -rf {} \; 2>/dev/null || true
 	.venv/bin/pytest -s --cov=plonex --cov-report=html
