@@ -156,12 +156,12 @@ zeoclient_subparsers = zeoclient_parser.add_subparsers(
 )
 
 # optional actions for the zeoclient are:
-# console
-# start
-# debug
-# stop
-# status
-# run
+# - console
+# - start
+# - debug
+# - stop
+# - status
+# - run
 # If not specified, the default action is start
 
 zeoclient_console_parser = zeoclient_subparsers.add_parser(
