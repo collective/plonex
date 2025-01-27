@@ -59,6 +59,12 @@ class ZeoServer(BaseService):
         self.target = self._ensure_dir(self.target)
         self.tmp_folder = self._ensure_dir(self.tmp_folder)
         self.var_folder = self._ensure_dir(self.var_folder)
+
+        # We also want to create the blobstorage and filestorage folders
+        self._ensure_dir(self.var_folder / "blobstorage")
+        self._ensure_dir(self.var_folder / "filestorage")
+        self._ensure_dir(self.var_folder / "log")
+
         if not self.pre_services:
             self.pre_services = [
                 TemplateService(

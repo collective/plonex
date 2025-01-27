@@ -1,6 +1,8 @@
+from functools import cached_property
 from functools import wraps
 from pathlib import Path
 from plonex import logger
+from rich.console import Console
 from tempfile import mkdtemp
 from typing import Callable
 
@@ -34,6 +36,19 @@ class BaseService:
         """ """
         self.tmp_folder = self.mkdtemp()
         self.target = self.mkdtemp()
+
+    @cached_property
+    def console(self) -> Console:
+        """A console object that can be used to interact with the user"""
+        return Console()
+
+    def ask_for_value(self, question: str, default: str = "") -> str:
+        """Ask the user for a value"""
+        if default:
+            question = f"{question} [{default}]"
+        if not question.endswith(":"):
+            question = f"{question}:"
+        return self.console.input(question) or default
 
     @staticmethod
     def _ensure_dir(path: str | Path) -> Path:

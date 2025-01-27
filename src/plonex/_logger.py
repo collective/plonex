@@ -10,6 +10,7 @@ logging.basicConfig(
     datefmt="[%X]",
     handlers=[
         RichHandler(
+            markup=True,
             show_path=False,
             show_time=False,
         ),

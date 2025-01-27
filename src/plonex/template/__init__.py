@@ -70,8 +70,8 @@ class TemplateService(BaseService):
             if self.target in self.target_path.parents
             else self.target_path
         )
-        self.logger.info(
-            "Rendered template %r -> %r",
+        self.logger.debug(
+            "Rendered template %s -> %s",
             relative_source_path,
             relative_target_path,
         )

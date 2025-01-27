@@ -4,14 +4,14 @@ from importlib.metadata import version
 from itertools import chain
 from pathlib import Path
 from plonex import logger
+from plonex.init import InitService
 from plonex.install import InstallService
 from plonex.supervisor import Supervisor
 from plonex.zeoclient import ZeoClient
 from plonex.zeoserver import ZeoServer
-from rich.console import Console
 from rich_argparse import RawTextRichHelpFormatter
 
-import requests
+import sys
 
 
 parser = ArgumentParser(
@@ -34,6 +34,27 @@ parser.add_argument(
     default=Path.cwd(),
     dest="target",
 )
+
+parser.add_argument(
+    "-v",
+    "--verbose",
+    action="store_true",
+    help="Increase verbosity",
+    required=False,
+    default=False,
+    dest="verbose",
+)
+
+parser.add_argument(
+    "-q",
+    "--quiet",
+    action="store_true",
+    help="Decrease verbosity",
+    required=False,
+    default=False,
+    dest="quiet",
+)
+
 
 parser.add_argument(
     "-V",
@@ -227,79 +248,6 @@ dependencies_parser = action_subparsers.add_parser(
 autocomplete(parser)
 
 
-def _ask_for_plone_version() -> str:
-    console = Console()
-    return (
-        console.input("Please select the Plone version (default: 6.0-latest):")
-        or "6.0-latest"
-    )
-
-
-def _check_folders(path: str) -> None:
-    """Check that we have the necessary folders"""
-    plone_version = None
-
-    expected_folders = [
-        Path(f"{path}/tmp"),
-        Path(f"{path}/etc"),
-        Path(f"{path}/etc/constraints.d"),
-        Path(f"{path}/etc/requirements.d"),
-        Path(f"{path}/var"),
-        Path(f"{path}/var/blobstorage"),
-        Path(f"{path}/var/cache"),
-        Path(f"{path}/var/filestorage"),
-        Path(f"{path}/var/log"),
-    ]
-
-    for folder in expected_folders:
-        if not folder.exists():
-            logger.info(f"Creating {folder}")
-            folder.mkdir(parents=True)
-        else:
-            logger.debug(f"{folder} already exists")
-
-    # Ensure that in the etc folder we have a plonex.yml file
-    etc_folder = Path(f"{path}/etc")
-    plonex_config = etc_folder / "plonex.yml"
-    if not plonex_config.exists():
-        logger.info(f"Creating {plonex_config}")
-        plonex_version = version("plonex")
-        plonex_config.write_text(
-            "\n".join(
-                (
-                    "---",
-                    f'plonex_version: "{plonex_version}"',
-                    "",
-                )
-            )
-        )
-
-    # Ensure we have the requirements.d/000-plonex.txt
-    # and constraints.d/000-plonex.txt files
-    requirements_d = etc_folder / "requirements.d"
-    if not (requirements_d / "000-plonex.txt").exists():
-        requirements_txt = "\n".join(
-            (
-                "Plone",
-                "plone.recipe.zope2instance",
-                "supervisor",
-            )
-        )
-        logger.info("Creating %s", requirements_d / "000-plonex.txt")
-        (requirements_d / "000-plonex.txt").write_text(requirements_txt)
-
-    constraints_d = etc_folder / "constraints.d"
-    if not (constraints_d / "000-plonex.txt").exists():
-        if plone_version is None:
-            plone_version = _ask_for_plone_version()
-        logger.info("Fetching the constraints.txt file for Plone %s", plone_version)
-        constraints_txt = requests.get(
-            f"https://dist.plone.org/release/{plone_version}/constraints.txt"
-        ).text
-        logger.info("Creating %s", constraints_d / "000-plonex.txt")
-        (constraints_d / "000-plonex.txt").write_text(constraints_txt)
-
-
 def main() -> None:
     args = parser.parse_args()
 
@@ -307,9 +255,15 @@ def main() -> None:
         print(version("plonex"))
         return
 
+    if args.verbose:
+        logger.setLevel("DEBUG")
+    elif args.quiet:
+        logger.setLevel("WARNING")
+
     if args.action == "init":
-        _check_folders(path=args.target)
-        logger.info("Project initialized")
+        with InitService(target=args.target) as init:
+            init.run()
+        logger.info("Project initialized in %s", args.target)
         return
 
     target = Path(args.target)
@@ -318,10 +272,10 @@ def main() -> None:
             break
     else:
         logger.error(
-            "Could not find the etc/plonex.yml file. "
-            "Please run plonex init in the project root"
+            "Could not find the `etc/plonex.yml` file please run `plonex init %s`",
+            args.target,
         )
-        return
+        sys.exit(1)
 
     if args.action == "zeoserver":
         logger.debug("Starting ZEO Server")
