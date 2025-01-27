@@ -5,7 +5,15 @@ import logging
 
 FORMAT: str = "%(message)s"
 logging.basicConfig(
-    level=logging.INFO, format=FORMAT, datefmt="[%X]", handlers=[RichHandler()]
+    level=logging.INFO,
+    format=FORMAT,
+    datefmt="[%X]",
+    handlers=[
+        RichHandler(
+            show_path=False,
+            show_time=False,
+        ),
+    ],
 )
 
 logger: logging.Logger = logging.getLogger("plonex")
