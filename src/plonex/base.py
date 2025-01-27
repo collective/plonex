@@ -4,6 +4,7 @@ from plonex import logger
 from tempfile import mkdtemp
 from typing import Callable
 
+import logging
 import subprocess
 import sys
 
@@ -17,8 +18,12 @@ class BaseService:
     be stored.
     """
 
-    name = "base"
-    logger = logger
+    name: str = "base"
+    logger: logging.Logger = logger
+    pre_services: None | list = None
+    post_services: None | list = None
+    options: None | dict = None
+
     _entered = False
 
     def __init__(self):
@@ -95,6 +100,9 @@ class BaseService:
         return wrapper
 
     def __enter__(self):
+        for pre_service in self.pre_services or []:
+            with pre_service:
+                pre_service.run()
         self._entered = True
         return self
 
@@ -104,6 +112,7 @@ class BaseService:
 
     @entered_only
     def run(self):
+        """Run the command"""
         command = self.command
         self.logger.debug("Running %r", command)
         try:
@@ -112,6 +121,9 @@ class BaseService:
             self.logger.info("Stopping %r", command)
 
     def __exit__(self, exc_type, exc_value, traceback):
+        for post_service in self.post_services or []:
+            with post_service:
+                post_service.run()
         self._entered = False
 
 

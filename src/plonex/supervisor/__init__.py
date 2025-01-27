@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
 from plonex.base import BaseService
-from plonex.template import render
+from plonex.template import TemplateService
 
 import subprocess
 
@@ -46,12 +46,13 @@ class Supervisor(BaseService):
     tmp_folder: Path | None = None
     var_folder: Path | None = None
 
-    # Location of the supervisord configuration file
-    supervisord_conf: Path | None = None
-
     # You can override the templates used to generate the configuration files
-    supervisord_conf_template: str = "plonex.supervisor.templates:supervisord.conf.j2"
-    program_conf_template: str = "plonex.supervisor.templates:program.conf.j2"
+    supervisord_conf_template: str = (
+        "resource://plonex.supervisor.templates:supervisord.conf.j2"
+    )
+    program_conf_template: str = (
+        "resource://plonex.supervisor.templates:program.conf.j2"
+    )
 
     def __post_init__(self):
         # Be sure that the required folders exist
@@ -72,83 +73,50 @@ class Supervisor(BaseService):
         self.log_folder = self._ensure_dir(self.log_folder)
         self.tmp_folder = self._ensure_dir(self.tmp_folder)
         self.var_folder = self._ensure_dir(self.var_folder)
-        if self.supervisord_conf is None:
-            self.supervisord_conf = self.etc_folder / "supervisord.conf"
 
-    def make_zeoserver_program_conf_example(self):
-        options = ProgramConf(
-            program="zeoserver",
-            command="plonex zeoserver",
-            process_name="zeoserver",
-            directory=str(self.target),
-            priority=1,
-        )
-        program_conf = self.programs_folder / "zeoserver.conf.example"
-        with open(program_conf, "w") as f:
-            f.write(render(self.program_conf_template, options))
-            f.write("\n")
-        self.logger.info("Generated %r", program_conf)
-
-    def make_zeoclient_program_conf_example(self):
-        options = ProgramConf(
-            program="zeoclient",
-            command="plonex zeoclient",
-            process_name="zeoclient",
-            directory=str(self.target),
-            priority=2,
-        )
-        program_conf = self.programs_folder / "zeoclient.conf.example"
-        with open(program_conf, "w") as f:
-            f.write(render(self.program_conf_template, options))
-            f.write("\n")
-        self.logger.info("Generated %r", program_conf)
-
-    def make_supervisord_conf(self):
-        options = SupervisordConfOptions(
-            target=self.target,
-            var_folder=self.var_folder,
-            log_folder=self.log_folder,
-            pidfile=self.var_folder / "supervisord.pid",
-            included_files=self.etc_folder / self.name / "*.conf",
-        )
-        with open(self.supervisord_conf, "w") as f:
-            f.write(render(self.supervisord_conf_template, options))
-            f.write("\n")
-        self.logger.info(f"Generated {self.supervisord_conf}")
-
-    def check_if_running(self):
-        command = [
-            str(self.virtualenv_dir / "bin" / "supervisorctl"),
-            "-c",
-            str(self.supervisord_conf),
-            "status",
-        ]
-        exit_code = subprocess.run(
-            command,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        ).returncode
-        self.logger.info("Supervisorctl returns %r", exit_code)
-        if exit_code:
-            return False
-        return True
-
-    def __enter__(self):
-        if self.check_if_running():
-            self._entered = True
-            return self
-        self = super().__enter__()
-        self.make_supervisord_conf()
-        self.make_zeoserver_program_conf_example()
-        self.make_zeoclient_program_conf_example()
-        return self
+        if not self.pre_services:
+            self.pre_services = [
+                TemplateService(
+                    source_path=self.supervisord_conf_template,
+                    target_path=self.etc_folder / "supervisord.conf",
+                    options=SupervisordConfOptions(
+                        target=self.target,
+                        var_folder=self.var_folder,
+                        log_folder=self.log_folder,
+                        pidfile=self.var_folder / "supervisord.pid",
+                        included_files=str(self.etc_folder / self.name / "*.conf"),
+                    ),
+                ),
+                TemplateService(
+                    source_path=self.program_conf_template,
+                    target_path=self.programs_folder / "zeoserver.conf.example",
+                    options=ProgramConf(
+                        program="zeoserver",
+                        command="plonex zeoserver",
+                        process_name="zeoserver",
+                        directory=str(self.target),
+                        priority=1,
+                    ),
+                ),
+                TemplateService(
+                    source_path=self.program_conf_template,
+                    target_path=self.programs_folder / "zeoclient.conf.example",
+                    options=ProgramConf(
+                        program="zeoclient",
+                        command="plonex zeoclient",
+                        process_name="zeoclient",
+                        directory=str(self.target),
+                        priority=2,
+                    ),
+                ),
+            ]
 
     @property
     def command(self) -> list[str]:
         return [
             str(self.virtualenv_dir / "bin" / "supervisord"),
             "-c",
-            str(self.supervisord_conf),
+            str(self.target / "etc" / "supervisord.conf"),
         ]
 
     def run_status(self):
@@ -156,7 +124,7 @@ class Supervisor(BaseService):
             [
                 str(self.virtualenv_dir / "bin" / "supervisorctl"),
                 "-c",
-                str(self.supervisord_conf),
+                str(self.target / "etc" / "supervisord.conf"),
                 "status",
             ]
         )
@@ -166,7 +134,7 @@ class Supervisor(BaseService):
             [
                 str(self.virtualenv_dir / "bin" / "supervisorctl"),
                 "-c",
-                str(self.supervisord_conf),
+                str(self.target / "etc" / "supervisord.conf"),
                 "shutdown",
             ]
         )
@@ -176,7 +144,31 @@ class Supervisor(BaseService):
             [
                 str(self.virtualenv_dir / "bin" / "supervisorctl"),
                 "-c",
-                str(self.supervisord_conf),
+                str(self.target / "etc" / "supervisord.conf"),
                 "restart all",
             ]
         )
+
+    def run_reread(self):
+        subprocess.run(
+            [
+                str(self.virtualenv_dir / "bin" / "supervisorctl"),
+                "-c",
+                str(self.target / "etc" / "supervisord.conf"),
+                "reread",
+            ]
+        )
+
+    def run_update(self):
+        subprocess.run(
+            [
+                str(self.virtualenv_dir / "bin" / "supervisorctl"),
+                "-c",
+                str(self.target / "etc" / "supervisord.conf"),
+                "update",
+            ]
+        )
+
+    def reread_update(self):
+        self.run_reread()
+        self.run_update()

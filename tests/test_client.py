@@ -27,44 +27,37 @@ class TestZeoClient(PloneXTestCase):
         with temp_client() as client:
             client = ZeoClient()
             cwd = Path.cwd()
-            self.assertEqual(client.target, Path(cwd))
-            self.assertEqual(client.tmp_folder, Path(cwd) / "tmp" / "zeoclient")
-            self.assertEqual(client.var_folder, Path(cwd) / "var")
-            self.assertIsNone(client.zope_conf)
-            self.assertIsNone(client.wsgi_ini)
-            self.assertIsNone(client.interpreter)
-            self.assertIsNone(client.instance)
+
+            # We have some folders
+            self.assertEqual(client.target, cwd)
+            self.assertEqual(client.tmp_folder, cwd / "tmp" / "zeoclient")
+            self.assertEqual(client.var_folder, cwd / "var")
+
+            # that have been created
+            self.assertTrue(client.target.exists())
+            self.assertTrue(client.tmp_folder.exists())
+            self.assertTrue(client.var_folder.exists())
 
     def test_constructor_with_params(self):
         """Test the constructor with parameters"""
         with temp_cwd() as temp_dir:
-            client = ZeoClient(
+            (temp_dir / "another_place" / ".venv" / "bin").mkdir(parents=True)
+            (temp_dir / "another_place" / ".venv" / "bin" / "activate").touch()
+            with ZeoClient(
                 target=temp_dir / "another_place",
                 tmp_folder=temp_dir / "another_tmp",
                 var_folder=temp_dir / "another_var",
-            )
-            self.assertEqual(client.target, temp_dir / "another_place")
-            self.assertEqual(client.tmp_folder, temp_dir / "another_tmp")
-            self.assertEqual(client.var_folder, temp_dir / "another_var")
-            self.assertIsNone(client.zope_conf)
-            self.assertIsNone(client.wsgi_ini)
-            self.assertIsNone(client.interpreter)
-            self.assertIsNone(client.instance)
+            ) as client:
+                self.assertEqual(client.target, temp_dir / "another_place")
+                self.assertEqual(client.tmp_folder, temp_dir / "another_tmp")
+                self.assertEqual(client.var_folder, temp_dir / "another_var")
 
     def test_zope_conf(self):
         """Test the zope.conf file"""
         with temp_client() as client:
-            self.assertTrue(client.zope_conf.exists())
+            zope_conf = client.tmp_folder / "etc" / "zope.conf"
             expected = read_expected("test_zope_conf", client)
-            self.assertEqual(client.zope_conf.read_text(), expected)
-
-    def test_command(self):
-        """Test the command method"""
-        with temp_client() as client:
-            self.assertEqual(
-                client.command,
-                [client.instance, "console"],
-            )
+            self.assertEqual(zope_conf.read_text(), expected)
 
     def test_broken_config_files(self):
         """Test the config files method with a broken file"""
@@ -96,6 +89,7 @@ class TestZeoClient(PloneXTestCase):
                     "foo",
                     "http_address",
                     "http_port",
+                    "zcml_additional",
                     "zeo_address",
                 },
             )

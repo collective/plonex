@@ -2,27 +2,18 @@ from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
 from plonex.base import BaseService
-from plonex.template import render
+from plonex.template import TemplateService
 
 
-@dataclass(kw_only=True)
-class ZeoServerOption:
+_undefined = object()
 
-    address: Path
-    pidfile: Path
-    blob_dir: Path
-    path: Path
-    log_path: Path
-    tmp_folder: Path
-    socket_name: Path
-    runzeo_path: Path
-
-
-@dataclass(kw_only=True)
-class RunZeoOption:
-    python: Path
-    instance_home: Path
-    zeo_conf: Path
+default_options = {
+    "http_port": 8080,
+    "http_address": "0.0.0.0",
+    "zeo_address": _undefined,
+    "blobstorage": _undefined,
+    "zcml_additional": _undefined,
+}
 
 
 @dataclass(kw_only=True)
@@ -50,12 +41,11 @@ class ZeoServer(BaseService):
     tmp_folder: Path | None = None
     var_folder: Path | None = None
 
-    # You can override the templates used to generate the configuration files
-    zeo_conf_template: str = "plonex.zeoserver.templates:zeo.conf.j2"
-    runzeo_template: str = "plonex.zeoserver.templates:runzeo.j2"
+    # The service has some options
+    options: dict = field(init=False, default_factory=default_options.copy)
 
-    zeo_conf: Path | None = field(init=False, default=None)
-    runzeo: Path | None = field(init=False, default=None)
+    # Command line options will win over the config file options
+    cli_options: dict = field(default_factory=dict)
 
     def __post_init__(self):
         # Be sure that the required folders exist
@@ -69,56 +59,36 @@ class ZeoServer(BaseService):
         self.target = self._ensure_dir(self.target)
         self.tmp_folder = self._ensure_dir(self.tmp_folder)
         self.var_folder = self._ensure_dir(self.var_folder)
-
-    @BaseService.entered_only
-    def make_zeo_conf(self):
-        """Generate the ZEO configuration file"""
-        options = ZeoServerOption(
-            address=self.var_folder / "zeosocket.sock",
-            pidfile=self.var_folder / f"{self.name}.pid",
-            blob_dir=self.var_folder / "blobstorage",
-            path=self.var_folder / "filestorage" / "Data.fs",
-            log_path=self.var_folder / "log" / "zeoserver.log",
-            tmp_folder=self.tmp_folder,
-            socket_name=self.var_folder / "zeoserver.sock",
-            runzeo_path=self.runzeo,
-        )
-        # Ensure the folder exists
-        self._ensure_dir(options.blob_dir)
-        self._ensure_dir(options.path.parent)
-        with self.zeo_conf.open("w") as f:
-            f.write(render(self.zeo_conf_template, options))
-            f.write("\n")
-        self.logger.info(f"Generated {self.zeo_conf}")
-        self.logger.info(self.zeo_conf.read_text())
-
-    @BaseService.entered_only
-    def make_runzeo(self):
-        """Generate the runzeo script"""
-        options = RunZeoOption(
-            python=self.virtualenv_dir / "bin" / "python",
-            instance_home=self.target,
-            zeo_conf=self.zeo_conf,
-        )
-        self.runzeo.write_text(
-            render(self.runzeo_template, options),
-        )
-        self.runzeo.chmod(0o755)
-        self.logger.info(f"Generated {self.runzeo}")
-        self.logger.info(self.runzeo.read_text())
-
-    def __enter__(self):
-        self = super().__enter__()
-        etc_folder = self.tmp_folder / "etc"
-        bin_folder = self.tmp_folder / "bin"
-        self._ensure_dir(bin_folder)
-        self._ensure_dir(etc_folder)
-        self.zeo_conf = etc_folder / "zeo.conf"
-        self.runzeo = bin_folder / "runzeo"
-        self.make_zeo_conf()
-        self.make_runzeo()
-        return self
+        if not self.pre_services:
+            self.pre_services = [
+                TemplateService(
+                    source_path="resource://plonex.zeoserver.templates:zeo.conf.j2",
+                    target_path=self.tmp_folder / "etc" / "zeo.conf",
+                    options={
+                        "address": self.var_folder / "zeosocket.sock",
+                        "pidfile": self.var_folder / f"{self.name}.pid",
+                        "blob_dir": self.var_folder / "blobstorage",
+                        "path": self.var_folder / "filestorage" / "Data.fs",
+                        "log_path": self.var_folder / "log" / "zeoserver.log",
+                        "tmp_folder": self.tmp_folder,
+                        "socket_name": self.var_folder / "zeoserver.sock",
+                        "runzeo": self.tmp_folder / "bin" / "runzeo",
+                    },
+                ),
+                TemplateService(
+                    source_path="resource://plonex.zeoserver.templates:runzeo.j2",
+                    target_path=self.tmp_folder / "bin" / "runzeo",
+                    options={
+                        "python": self.virtualenv_dir / "bin" / "python",
+                        "instance_home": self.target,
+                        "zeo_conf": self.tmp_folder / "etc" / "zeo.conf",
+                    },
+                    mode=0o700,
+                ),
+            ]
 
     @property
     def command(self):
-        return [str(self.runzeo)]
+        return [
+            str(self.tmp_folder / "bin" / "runzeo"),
+        ]

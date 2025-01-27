@@ -2,9 +2,8 @@ from contextlib import chdir
 from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
-from plonex.base import BaseOptions
 from plonex.base import BaseService
-from plonex.template import render
+from plonex.template import TemplateService
 from typing import Literal
 
 import subprocess
@@ -13,52 +12,12 @@ import yaml
 
 _undefined = object()
 
-
-@dataclass(kw_only=True)
-class ZopeConfOptions(BaseOptions):
-
-    context: "ZeoClient"
-    instance_home: Path
-    client_home: Path
-    environment_vars: dict[str, str] = field(default_factory=dict)
-    debug_mode: Literal["on", "off"] = "off"
-    security_policy_implementation: Literal["PYTHON", "C"] = "C"
-    verbose_security: Literal["on", "off"] = "off"
-
-
-@dataclass(kw_only=True)
-class WSGIOptions:
-
-    context: "ZeoClient"
-    zope_conf: Path
-    var_folder: Path
-    name: str = "instance"
-    fast_listen: bool = False
-    threads: int = 3
-
-
-@dataclass(kw_only=True)
-class InterpreterOptions:
-
-    context: "ZeoClient"
-    python: Path
-
-
-@dataclass(kw_only=True)
-class InstanceOptions:
-
-    context: "ZeoClient"
-    python: Path
-    zope_conf_path: Path
-    interpreter_path: Path
-    wsgi_ini_path: Path
-
-
 default_options = {
     "http_port": 8080,
     "http_address": "0.0.0.0",
     "zeo_address": _undefined,
     "blobstorage": _undefined,
+    "zcml_additional": _undefined,
 }
 
 
@@ -95,21 +54,9 @@ class ZeoClient(BaseService):
         "debug",
     ] = "console"  # This is the default for the supervisor program
 
-    # You can override the templates used to generate the configuration files
-    zope_conf_template: str = "plonex.zeoclient.templates:zope.conf.j2"
-    site_zcml_template: str = "plonex.zeoclient.templates:site.zcml.j2"
-    wsgi_ini_template: str = "plonex.zeoclient.templates:wsgi.ini.j2"
-    interpreter_template: str = "plonex.zeoclient.templates:interpreter.j2"
-    instance_template: str = "plonex.zeoclient.templates:instance.j2"
-
     # This service has some folders
     tmp_folder: Path | None = None
     var_folder: Path | None = None
-
-    zope_conf: Path | None = field(init=False, default=None)
-    wsgi_ini: Path | None = field(init=False, default=None)
-    interpreter: Path | None = field(init=False, default=None)
-    instance: Path | None = field(init=False, default=None)
 
     # The service has some options
     options: dict = field(init=False, default_factory=default_options.copy)
@@ -160,85 +107,104 @@ class ZeoClient(BaseService):
         if self.options["blobstorage"] is _undefined:
             self.options["blobstorage"] = self.var_folder / "blobstorage"
 
-    @BaseService.entered_only
-    def make_zope_conf(self):
-        """Generate the zope.conf file for this ZEO client"""
-        options = ZopeConfOptions(
-            context=self,
-            instance_home=self._ensure_dir(self.tmp_folder),
-            client_home=self._ensure_dir(self.var_folder / self.name),
-        )
-        with open(self.zope_conf, "w") as f:
-            f.write(render(self.zope_conf_template, options))
-            f.write("\n")
-        self.logger.info(f"Generated {self.zope_conf}")
+        if not self.pre_services:
+            # We need to have the following structure in the tmp folder:
+            # - etc/zope.conf
+            # - etc/site.zcml
+            # - etc/wsgi.ini
+            # - bin/interpreter
+            # - bin/instance
+            self.pre_services = [
+                TemplateService(
+                    source_path="resource://plonex.zeoclient.templates:zope.conf.j2",
+                    target_path=self.tmp_folder / "etc" / "zope.conf",
+                    options={
+                        "context": self,
+                        "instance_home": self._ensure_dir(self.tmp_folder),
+                        "client_home": self._ensure_dir(self.var_folder / self.name),
+                        "debug_mode": self.options.get("debug_mode")
+                        or ("on" if self.run_mode in ("debug", "fg") else "off"),
+                        "security_policy_implementation": self.options.get(
+                            "security_policy_implementation"
+                        )
+                        or ("python" if self.run_mode in ("debug", "fg") else "C"),
+                        "environment_vars": self.options.get("environment_vars", {}),
+                        "verbose_security": self.options.get("verbose_security")
+                        or ("on" if self.run_mode in ("debug", "fg") else "off"),
+                        "blobstorage": self.options["blobstorage"],
+                        "zeo_address": self.options["zeo_address"],
+                    },
+                ),
+                TemplateService(
+                    source_path="resource://plonex.zeoclient.templates:site.zcml.j2",
+                    target_path=self.tmp_folder / "etc" / "site.zcml",
+                ),
+                TemplateService(
+                    source_path="resource://plonex.zeoclient.templates:wsgi.ini.j2",
+                    target_path=self.tmp_folder / "etc" / "wsgi.ini",
+                    options={
+                        "context": self,
+                        "name": f"instance-{self.options['http_port']}",
+                        "zope_conf": self.tmp_folder / "etc" / "zope.conf",
+                        "var_folder": self.var_folder,
+                        "http_port": self.options["http_port"],
+                        "http_address": self.options["http_address"],
+                        "fast_listen": self.options.get("fast_listen", "on"),
+                        "threads": self.options.get("threads", 4),
+                    },
+                ),
+                TemplateService(
+                    source_path="resource://plonex.zeoclient.templates:interpreter.j2",
+                    target_path=self.tmp_folder / "bin" / "interpreter",
+                    options={
+                        "context": self,
+                        "python": Path(self.virtualenv_dir / "bin" / "python"),
+                    },
+                ),
+                TemplateService(
+                    source_path="resource://plonex.zeoclient.templates:instance.j2",
+                    target_path=self.tmp_folder / "bin" / "instance",
+                    options={
+                        "context": self,
+                        "python": self.virtualenv_dir / "bin" / "python",
+                        "zope_conf_path": self.tmp_folder / "etc" / "zope.conf",
+                        "interpreter_path": self.tmp_folder / "bin" / "interpreter",
+                        "wsgi_ini_path": self.tmp_folder / "etc" / "wsgi.ini",
+                    },
+                    mode=0o700,
+                ),
+            ]
 
-    @BaseService.entered_only
-    def make_site_zcml(self):
-        with open(self.site_zcml, "w") as f:
-            f.write(render(self.site_zcml_template, {}))
-            f.write("\n")
-        self.logger.info(f"Generated {self.site_zcml}")
-
-    @BaseService.entered_only
-    def make_wsgi_ini(self):
-        options = WSGIOptions(
-            context=self,
-            name=f"instance-{self.options['http_port']}",
-            zope_conf=self.zope_conf,
-            var_folder=self.var_folder,
-        )
-        self.wsgi_ini.write_text(render(self.wsgi_ini_template, options))
-        self.logger.info("Generated {self.wsgi_ini}")
-
-    @BaseService.entered_only
-    def make_interpreter(self):
-        options = InterpreterOptions(
-            context=self, python=Path(self.virtualenv_dir / "bin" / "python")
-        )
-        self.interpreter.write_text(render(self.interpreter_template, options))
-        self.logger.info("Generated {self.interpreter}")
-
-    @BaseService.entered_only
-    def make_instance(self):
-        options = InstanceOptions(
-            context=self,
-            python=self.virtualenv_dir / "bin" / "python",
-            zope_conf_path=self.zope_conf,
-            interpreter_path=self.interpreter,
-            wsgi_ini_path=self.wsgi_ini,
-        )
-        self.instance.write_text(render(self.instance_template, options))
-        self.logger.info("Generated {self.instance}")
-
-    def __enter__(self):
-        self = super().__enter__()
-        etc_folder = self.tmp_folder / "etc"
-        bin_folder = self.tmp_folder / "bin"
-        self._ensure_dir(etc_folder / "package-includes")
-        self._ensure_dir(bin_folder)
-        self.site_zcml = etc_folder / "site.zcml"
-        self.zope_conf = etc_folder / "zope.conf"
-        self.wsgi_ini = etc_folder / "wsgi.ini"
-        self.interpreter = bin_folder / "interpreter"
-        self.instance = etc_folder / "instance"
-        self.instance.touch()
-        self.instance.chmod(0o755)
-        self.make_zope_conf()
-        self.make_site_zcml()
-        self.make_wsgi_ini()
-        self.make_interpreter()
-        self.make_instance()
-        return self
+            # Check zcml_additional
+            zcml_additional = self.options["zcml_additional"]
+            if zcml_additional is not _undefined:
+                if not isinstance(zcml_additional, list):
+                    raise ValueError("zcml_additional should be a list of templates")
+                for template in zcml_additional:
+                    target_path = Path(
+                        self.tmp_folder / "etc" / "package-includes" / template.name
+                    ).with_suffix(".zcml")
+                    self.pre_services.append(
+                        TemplateService(
+                            source_path=template,
+                            target_path=target_path,
+                        )
+                    )
 
     @property
     def command(self):
-        return [self.instance, self.run_mode]
+        # return [self.instance, self.run_mode]
+        return [str(self.tmp_folder / "bin" / "instance"), self.run_mode]
 
     @BaseService.entered_only
     def adduser(self, username: str, password: str):
         with chdir(self.target):  # type: ignore
-            command = [str(self.instance), "adduser", username, password]
+            command = [
+                str(self.tmp_folder / "bin" / "instance"),  # type: ignore
+                "adduser",
+                username,
+                password,
+            ]
             self.logger.info("Running %r", command)
             try:
                 subprocess.run(command, check=True)
