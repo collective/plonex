@@ -119,6 +119,11 @@ class Supervisor(BaseService):
             str(self.target / "etc" / "supervisord.conf"),
         ]
 
+    @BaseService.entered_only
+    def initialize_configuration(self):
+        self.logger.info("Creating the supervisor configuration")
+
+    @BaseService.entered_only
     def run_status(self):
         subprocess.run(
             [
@@ -129,6 +134,7 @@ class Supervisor(BaseService):
             ]
         )
 
+    @BaseService.entered_only
     def run_stop(self):
         subprocess.run(
             [
@@ -139,6 +145,7 @@ class Supervisor(BaseService):
             ]
         )
 
+    @BaseService.entered_only
     def run_restart(self):
         subprocess.run(
             [
@@ -149,6 +156,7 @@ class Supervisor(BaseService):
             ]
         )
 
+    @BaseService.entered_only
     def run_reread(self):
         subprocess.run(
             [
@@ -159,6 +167,7 @@ class Supervisor(BaseService):
             ]
         )
 
+    @BaseService.entered_only
     def run_update(self):
         subprocess.run(
             [
@@ -169,6 +178,7 @@ class Supervisor(BaseService):
             ]
         )
 
+    @BaseService.entered_only
     def reread_update(self):
         self.run_reread()
         self.run_update()
