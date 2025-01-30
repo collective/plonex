@@ -1,3 +1,4 @@
+from contextlib import chdir
 from functools import cached_property
 from functools import wraps
 from pathlib import Path
@@ -61,7 +62,7 @@ class BaseService:
             path.mkdir(parents=True)
         elif not path.is_dir():
             raise ValueError(f"{path} is not a directory")
-        return path
+        return path.absolute()
 
     def mkdtemp(self, dir=None) -> Path:
         """Wrapper for mkdtemp that creates a temporary folder with a prefix
@@ -93,7 +94,7 @@ class BaseService:
                 "No virtualenv found in %r. You may want to run `plonex init`", dir
             )
             sys.exit(1)
-        return dir
+        return dir.absolute()
 
     @staticmethod
     def entered_only(method: Callable) -> Callable:
@@ -129,11 +130,13 @@ class BaseService:
     def run(self):
         """Run the command"""
         command = self.command
-        self.logger.debug("Running %r", command)
-        try:
-            subprocess.run(command, check=True)
-        except KeyboardInterrupt:
-            self.logger.info("Stopping %r", command)
+        self.logger.debug("Entering %s", self.target)
+        with chdir(self.target):
+            try:
+                self.logger.debug("Running %r", command)
+                subprocess.run(command, check=True)
+            except KeyboardInterrupt:
+                self.logger.info("Stopping %r", command)
 
     def __exit__(self, exc_type, exc_value, traceback):
         for post_service in self.post_services or []:

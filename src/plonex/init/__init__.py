@@ -1,9 +1,12 @@
 from dataclasses import dataclass
 from importlib.metadata import version
 from plonex.base import BaseService
+from plonex.install import InstallService
+from plonex.supervisor import Supervisor
 from plonex.template import TemplateService
 
 import requests
+import subprocess
 
 
 @dataclass(kw_only=True)
@@ -62,3 +65,32 @@ class InitService(BaseService):
                         },
                     )
                 )
+
+    def run(self):
+        """Run the init command"""
+        with InstallService(target=self.target) as install:
+            install.run(save_constraints=True)
+        with Supervisor(target=self.target) as supervisor:
+            supervisor.initialize_configuration()
+        self.logger.info("Project initialized in %s", self.target)
+        gitignore = self.target / ".gitignore"
+        if not gitignore.exists():
+            gitignore.write_text(
+                "\n".join(
+                    (
+                        "/.venv",
+                        "/tmp",
+                        "/var",
+                    )
+                )
+                + "\n"
+            )
+            self.logger.debug("Initializing a .gitignore file")
+        git_repo = self.target / ".git"
+        if not git_repo.exists():
+            self.logger.debug("Initializing a git repository")
+            subprocess.run(["git", "init", self.target], cwd=self.target, check=True)
+            subprocess.run(["git", "add", self.target], cwd=self.target, check=True)
+            subprocess.run(
+                ["git", "commit", "-m", "plonex init"], cwd=self.target, check=True
+            )

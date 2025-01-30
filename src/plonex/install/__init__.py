@@ -152,7 +152,7 @@ class InstallService(BaseService):
         return self
 
     @BaseService.entered_only
-    def run(self):
+    def run(self, save_constraints: bool = False):
         # Check if we have a virtualenv and if not create one
         self.ensure_virtualenv()
         super().run()
@@ -168,22 +168,27 @@ class InstallService(BaseService):
         ).stdout.decode()
 
         # Save the installed packages to a temporary file
-        with open(self.tmp_folder / "installed.txt", "w") as file:
+        with open(self.tmp_folder / "installed.txt", "w") as file:  # type: ignore
             file.write(installed)
 
         installed = RequirementsFile.from_file(file.name).requirements
 
         # XXX: This is an hack because the parser
         # does not return normalized package names
-        missing = {req.dumps().lower().replace("_", "-") for req in installed} - {
+        missing = {req.dumps().lower().replace("_", "-") for req in installed} - {  # type: ignore  # noqa:E501
             req.dumps().lower().replace("_", "-") for req in constraints
         }
 
         if missing:
-            self.logger.warning(f"Missing constraints: {sorted(missing)}")
-            console = Console()
-            console.print(
-                f"You may want to add the following constraints to a file "
-                f"in the {self.constraints_d_folder}:"
-            )
-            console.print(*sorted(missing), sep="\n")
+            if save_constraints:
+                (
+                    self.target / "etc" / "constraints.d" / "001-autoinstalled.txt"
+                ).write_text("\n".join(sorted(missing)) + "\n")
+            else:
+                self.logger.warning(f"Missing constraints: {sorted(missing)}")
+                console = Console()
+                console.print(
+                    f"You may want to add the following constraints to a file "
+                    f"in the {self.constraints_d_folder}:"
+                )
+                console.print(*sorted(missing), sep="\n")

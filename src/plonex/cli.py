@@ -263,7 +263,6 @@ def main() -> None:
     if args.action == "init":
         with InitService(target=args.target) as init:
             init.run()
-        logger.info("Project initialized in %s", args.target)
         return
 
     target = Path(args.target)
