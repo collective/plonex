@@ -238,6 +238,15 @@ pack_parser = action_subparsers.add_parser(
     "pack", help="Pack the DB", formatter_class=parser.formatter_class
 )
 
+pack_parser.add_argument(
+    "-d",
+    "--days",
+    type=int,
+    help="Number of days to pack",
+    required=False,
+    default=7,
+)
+
 dependencies_parser = action_subparsers.add_parser(
     "dependencies",
     help="Install the dependencies",
@@ -319,13 +328,15 @@ def main() -> None:
             elif args.supervisor_action == "graceful":
                 logger.info("TODO: Manage the graceful restart of the services")
     elif args.action == "backup":
-        logger.info("TODO: Manage the backup of the services")
+        with ZeoServer(target=target) as zeoserver:
+            zeoserver.run_backup()
         pass
     elif args.action == "restore":
         logger.info("TODO: Manage the restore of the services")
         pass
     elif args.action == "pack":
-        logger.info("TODO: Manage the pack of DB")
+        with ZeoServer(target=target) as zeoserver:
+            zeoserver.run_pack(days=args.days)
         pass
     elif args.action == "dependencies":
         with InstallService(target=target) as install:

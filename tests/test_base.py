@@ -93,7 +93,7 @@ class TestBaseService(unittest.TestCase):
             self.assertEqual(
                 service.logger.infos,
                 [
-                    ("Stopping %r", ["true"]),
+                    ("Stopping %r", "true"),
                 ],
             )
 

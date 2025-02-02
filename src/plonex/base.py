@@ -10,6 +10,7 @@ from typing import Callable
 import logging
 import subprocess
 import sys
+import time
 
 
 class BaseService:
@@ -127,16 +128,27 @@ class BaseService:
         return ["true"]  # pragma: no cover
 
     @entered_only
+    def run_command(self, command: list[str | Path | int]):
+        """Run a command"""
+        self.logger.debug("Entering %s", self.target)
+        command_list: list[str] = list(map(str, command))
+        command_str: str = " ".join(command_list)
+        with chdir(self.target):
+            try:
+                self.logger.debug("Running %r", command_str)
+                start_time = time.time()
+                subprocess.run(command_list, check=True)
+            except KeyboardInterrupt:
+                self.logger.info("Stopping %r", command_str)
+            finally:
+                stop_time = time.time()
+                self.logger.debug("Time taken: %.1f seconds", stop_time - start_time)
+
+    @entered_only
     def run(self):
         """Run the command"""
         command = self.command
-        self.logger.debug("Entering %s", self.target)
-        with chdir(self.target):
-            try:
-                self.logger.debug("Running %r", command)
-                subprocess.run(command, check=True)
-            except KeyboardInterrupt:
-                self.logger.info("Stopping %r", command)
+        self.run_command(command)
 
     def __exit__(self, exc_type, exc_value, traceback):
         for post_service in self.post_services or []:

@@ -40,7 +40,6 @@ class ZeoServer(BaseService):
     # This service has some folders
     tmp_folder: Path | None = None
     var_folder: Path | None = None
-
     # The service has some options
     options: dict = field(init=False, default_factory=default_options.copy)
 
@@ -98,3 +97,29 @@ class ZeoServer(BaseService):
         return [
             str(self.tmp_folder / "bin" / "runzeo"),
         ]
+
+    def run_pack(self, days: int = 7):
+        """Run the zeo pack command"""
+        zeopack = self.virtualenv_dir / "bin" / "zeopack"
+        address = self.var_folder / "zeosocket.sock"  # type: ignore
+        days = 7
+        self.logger.info("Running zeopack")
+        self.run_command([zeopack, "-u", address, "-d", days])
+        self.logger.info("Completed zeopack")
+
+    def run_backup(self):
+        """Use repozo to backup the database"""
+        repozo = self.virtualenv_dir / "bin" / "repozo"
+        backup_folder = self._ensure_dir(self.var_folder / "backup")
+        self.logger.info("Running backup")
+        self.run_command(
+            [
+                repozo,
+                "-Bv",
+                "-r",
+                backup_folder,
+                "-f",
+                self.var_folder / "filestorage" / "Data.fs",
+            ]
+        )
+        self.logger.info("Completed backup")
