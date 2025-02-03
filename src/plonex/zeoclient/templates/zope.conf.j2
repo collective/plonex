@@ -28,3 +28,7 @@ default-zpublisher-encoding utf-8
     mount-point /
 </zodb_db>
 python-check-interval 10000
+{% for template in options["context"].zope_conf_additional %}
+# {{ template.source_path }}
+{{ template.render_template() }}
+{% endfor %}

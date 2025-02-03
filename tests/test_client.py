@@ -57,7 +57,7 @@ class TestZeoClient(PloneXTestCase):
         with temp_client() as client:
             zope_conf = client.tmp_folder / "etc" / "zope.conf"
             expected = read_expected("test_zope_conf", client)
-            self.assertEqual(zope_conf.read_text(), expected)
+            self.assertEqual(zope_conf.read_text().rstrip(), expected.rstrip())
 
     def test_broken_config_files(self):
         """Test the config files method with a broken file"""
@@ -91,6 +91,7 @@ class TestZeoClient(PloneXTestCase):
                     "http_port",
                     "zcml_additional",
                     "zeo_address",
+                    "zope_conf_additional",
                 },
             )
             self.assertEqual(
@@ -101,4 +102,37 @@ class TestZeoClient(PloneXTestCase):
             self.assertEqual(client.options["http_port"], 8080)
             self.assertEqual(
                 client.options["zeo_address"], client.var_folder / "zeosocket.sock"
+            )
+
+    def test_zcml_additional(self):
+        """Test the zcml_additional method"""
+        sample_folder = Path(__file__).parent / "sample_confs" / "additional_zcmls"
+        zcml_additional = [
+            sample_folder / "foo.zcml.j2",
+            sample_folder / "bar.zcml.j2",
+        ]
+        with temp_client(
+            cli_options={"zcml_additional": zcml_additional, "bar_value": "baz"},
+        ) as client:
+            packages_include_folder = client.tmp_folder / "etc" / "package-includes"
+            self.assertIn(
+                "<!-- baz --/>", (packages_include_folder / "bar.zcml").read_text()
+            )
+
+    def test_zope_conf_additional(self):
+        sample_folder = Path(__file__).parent / "sample_confs" / "additional_zope_confs"
+        zope_conf_additionals = [
+            sample_folder / "bar.conf.j2",
+            sample_folder / "foo.conf.j2",
+        ]
+        with temp_client(
+            cli_options={
+                "zope_conf_additional": zope_conf_additionals,
+                "bar_value": "baz",
+            }
+        ) as client:
+            zope_conf = client.tmp_folder / "etc" / "zope.conf"
+            self.assertIn(
+                (f"# {zope_conf_additionals[0]}\n" f"%import bar\n"),
+                zope_conf.read_text(),
             )

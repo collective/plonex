@@ -10,9 +10,9 @@ from plonex.base import BaseService
 @dataclass(kw_only=True)
 class TemplateService(BaseService):
 
-    source_path: Path | str
-    target_path: Path | str
     name: str = ""
+    source_path: Path | str
+    target_path: Path | str | None = None
     options: dict = field(default_factory=dict)
     mode: int = 0o600
     target: Path = field(default_factory=Path.cwd)
@@ -39,26 +39,20 @@ class TemplateService(BaseService):
         if not self.source_path.exists():
             raise FileNotFoundError(f"Template {self.source_path} does not exist")
 
-        self.target_path = Path(self.target_path).absolute()
-        self.target = self._ensure_dir(self.target.absolute())
         if not self.name:
             self.name = self.source_path.stem
+
+        if self.target_path is not None:
+            self.target_path = Path(self.target_path).absolute()
+            self.target = self._ensure_dir(self.target.absolute())
 
     def run(self):
         """Render the template"""
         if not self.target_path.parent.exists():
             self.target_path.parent.mkdir(parents=True)
 
-        if not self.target_path.exists():
-            self.target_path.touch(mode=self.mode)
+        self.target_path.write_text(self.render_template())
         self.target_path.chmod(self.mode)
-
-        # template = Template(self.source_path.read_text(), undefined=StrictUndefined)
-        template = self.environment.from_string(self.source_path.read_text())
-
-        self.target_path.write_text(
-            template.render(options=self.options, keep_trailing_newline=True)
-        )
 
         relative_source_path = (
             self.source_path.relative_to(self.source)
@@ -75,3 +69,8 @@ class TemplateService(BaseService):
             relative_source_path,
             relative_target_path,
         )
+
+    def render_template(self):
+        """Just render the template and return the result"""
+        template = self.environment.from_string(self.source_path.read_text())
+        return template.render(options=self.options, keep_trailing_newline=True)

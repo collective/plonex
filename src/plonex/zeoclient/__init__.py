@@ -18,6 +18,7 @@ default_options = {
     "zeo_address": _undefined,
     "blobstorage": _undefined,
     "zcml_additional": _undefined,
+    "zope_conf_additional": _undefined,
 }
 
 
@@ -181,15 +182,40 @@ class ZeoClient(BaseService):
                 if not isinstance(zcml_additional, list):
                     raise ValueError("zcml_additional should be a list of templates")
                 for template in zcml_additional:
+                    # Find the proper target path
+                    if template.suffix == ".j2":
+                        suffix = ""
                     target_path = Path(
                         self.tmp_folder / "etc" / "package-includes" / template.name
-                    ).with_suffix(".zcml")
+                    ).with_suffix(suffix)
+                    if not target_path.suffix == ".zcml":
+                        target_path = target_path.with_suffix(".zcml")
+
                     self.pre_services.append(
                         TemplateService(
                             source_path=template,
                             target_path=target_path,
+                            options={"context": self},
                         )
                     )
+
+    @property
+    def zope_conf_additional(self) -> list[TemplateService]:
+        """List the templates in the zope_conf_additional option"""
+        zope_conf_additional = self.options["zope_conf_additional"]
+        if zope_conf_additional is _undefined:
+            return []
+
+        if not isinstance(zope_conf_additional, list):
+            raise ValueError("zope_conf_additional should be a list of templates")
+
+        return [
+            TemplateService(
+                source_path=template,
+                options={"context": self},
+            )
+            for template in zope_conf_additional
+        ]
 
     @property
     def command(self):
