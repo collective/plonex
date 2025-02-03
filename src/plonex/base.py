@@ -155,19 +155,3 @@ class BaseService:
             with post_service:
                 post_service.run()
         self._entered = False
-
-
-class BaseOptions:
-    """Base class for options that can be accessed as attributes or from the context"""
-
-    def __getattribute__(self, name):
-        """This looks for the attribute in the context options"""
-        try:
-            return super().__getattribute__(name)
-        except AttributeError:
-            try:
-                return self.context.options[name]
-            except KeyError:
-                raise AttributeError(
-                    f"{name} not found in {self} or {self.context.options}"
-                )
