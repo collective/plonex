@@ -133,6 +133,11 @@ class TestZeoClient(PloneXTestCase):
         ) as client:
             zope_conf = client.tmp_folder / "etc" / "zope.conf"
             self.assertIn(
-                (f"# {zope_conf_additionals[0]}\n" f"%import bar\n"),
+                "".join(
+                    (
+                        f"# {zope_conf_additionals[0]}\n",
+                        "%import bar\n",
+                    )
+                ),
                 zope_conf.read_text(),
             )
