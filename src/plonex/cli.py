@@ -7,6 +7,7 @@ from plonex import logger
 from plonex.init import InitService
 from plonex.install import InstallService
 from plonex.supervisor import Supervisor
+from plonex.test import TestService
 from plonex.zeoclient import ZeoClient
 from plonex.zeoserver import ZeoServer
 from rich_argparse import RawTextRichHelpFormatter
@@ -254,6 +255,12 @@ dependencies_parser = action_subparsers.add_parser(
 )
 
 
+test_parser = action_subparsers.add_parser(
+    "test",
+    help="Run the tests for the given package",
+    formatter_class=parser.formatter_class,
+)
+
 autocomplete(parser)
 
 
@@ -342,6 +349,10 @@ def main() -> None:
     elif args.action == "dependencies":
         with InstallService(target=target) as install:
             install.run()
+    elif args.action == "test":
+        with TestService() as test:
+            test.run()
+
     elif args.action is None:
         parser.print_help()
 
