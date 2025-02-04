@@ -179,11 +179,16 @@ class InstallService(BaseService):
             req.dumps().lower().replace("_", "-") for req in constraints
         }
 
+        missing = {req for req in missing if not req.startswith("--editable")}
+
         if missing:
             if save_constraints:
-                (
+                autoinstalled_file = (
                     self.target / "etc" / "constraints.d" / "001-autoinstalled.txt"
-                ).write_text("\n".join(sorted(missing)) + "\n")
+                )
+                if autoinstalled_file.exists():
+                    missing |= set(autoinstalled_file.read_text().splitlines())
+                autoinstalled_file.write_text("\n".join(sorted(missing)) + "\n")
             else:
                 self.logger.warning(f"Missing constraints: {sorted(missing)}")
                 console = Console()
