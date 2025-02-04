@@ -1,4 +1,5 @@
 from contextlib import chdir
+from dataclasses import field
 from functools import cached_property
 from functools import wraps
 from pathlib import Path
@@ -6,11 +7,13 @@ from plonex import logger
 from rich.console import Console
 from tempfile import mkdtemp
 from typing import Callable
+from typing import ClassVar
 
 import logging
 import subprocess
 import sys
 import time
+import yaml
 
 
 class BaseService:
@@ -23,10 +26,14 @@ class BaseService:
     """
 
     name: str = "base"
+    target: Path = field(default_factory=Path.cwd)
     logger: logging.Logger = logger
     pre_services: None | list = None
     post_services: None | list = None
-    options: None | dict = None
+
+    cli_options: dict = field(default_factory=dict)
+    config_files: list[str | Path] = field(default_factory=list)
+    options_defaults: ClassVar[dict] = {}
 
     _entered = False
 
@@ -38,6 +45,57 @@ class BaseService:
         """ """
         self.tmp_folder = self.mkdtemp()
         self.target = self.mkdtemp()
+
+    @cached_property
+    def plonex_options(self) -> dict:
+        """Return the options from the plonex.yml file"""
+        plonex_yml = self.target / "etc" / "plonex.yml"
+        if not plonex_yml.exists():
+            self.logger.warning("No plonex.yml file found in %r", self.target)
+            return {}
+        return yaml.safe_load(plonex_yml.read_text()) or {}
+
+    @cached_property
+    def config_files_options_mapping(self) -> dict:
+        """Return the options from the config files"""
+        mapping = {}
+        for path in self.config_files:
+            path = Path(path).absolute()
+            if not path.exists():
+                self.logger.warning("Config file %r does not exist", path)
+                file_options = {}
+            else:
+                file_options = yaml.safe_load(path.read_text())
+                if not isinstance(file_options, dict):
+                    self.logger.error("The config file %r should contain a dict", path)
+                    file_options = {}
+            mapping[path] = file_options
+        return mapping
+
+    @cached_property
+    def config_files_options(self) -> dict:
+        """Return the options from the config files"""
+        options = {}
+        for file_options in self.config_files_options_mapping.values():
+            options.update(file_options)
+        return options
+
+    @cached_property
+    def options(self) -> dict:
+        """Return the options for this service.
+
+        Options can be specified in multiple ways (and in this order):
+
+        1. In the command line (max priority)
+        2. In config files
+        3. In the plonex.yml file
+        4. In the class definition options_default (lowest priority)
+        """
+        options = self.options_defaults.copy()
+        options.update(self.plonex_options)
+        options.update(self.config_files_options)
+        options.update(self.cli_options)
+        return options
 
     @cached_property
     def console(self) -> Console:

@@ -1,25 +1,17 @@
 from contextlib import chdir
 from dataclasses import dataclass
 from dataclasses import field
+from functools import cached_property
 from pathlib import Path
 from plonex.base import BaseService
 from plonex.template import TemplateService
+from typing import ClassVar
 from typing import Literal
 
 import subprocess
-import yaml
 
 
 _undefined = object()
-
-default_options = {
-    "http_port": 8080,
-    "http_address": "0.0.0.0",
-    "zeo_address": _undefined,
-    "blobstorage": _undefined,
-    "zcml_additional": _undefined,
-    "zope_conf_additional": _undefined,
-}
 
 
 @dataclass(kw_only=True)
@@ -43,6 +35,7 @@ class ZeoClient(BaseService):
     # Those are the most important parameters passed to the constructor
     name: str = "zeoclient"
     target: Path = field(default_factory=Path.cwd)
+    cli_options: dict = field(default_factory=dict)
     config_files: list[str | Path] = field(default_factory=list)
 
     # This control how the program runs
@@ -59,11 +52,27 @@ class ZeoClient(BaseService):
     tmp_folder: Path | None = None
     var_folder: Path | None = None
 
-    # The service has some options
-    options: dict = field(init=False, default_factory=default_options.copy)
+    options_defaults: ClassVar[dict] = {
+        "http_port": 8080,
+        "http_address": "0.0.0.0",
+        "zeo_address": _undefined,
+        "blobstorage": _undefined,
+        "zcml_additional": _undefined,
+        "zope_conf_additional": _undefined,
+    }
 
-    # Command line options will win over the config file options
-    cli_options: dict = field(default_factory=dict)
+    @cached_property
+    def options(self) -> dict:
+        """Checks the default options and fix _undefined values"""
+        options = super().options
+
+        if options["zeo_address"] is _undefined:
+            options["zeo_address"] = self.var_folder / "zeosocket.sock"  # type: ignore
+
+        if options["blobstorage"] is _undefined:
+            options["blobstorage"] = self.var_folder / "blobstorage"  # type: ignore
+
+        return options
 
     def __post_init__(self):
         # Be sure that the required folders exist
@@ -77,36 +86,6 @@ class ZeoClient(BaseService):
         self.target = self._ensure_dir(self.target)
         self.tmp_folder = self._ensure_dir(self.tmp_folder)
         self.var_folder = self._ensure_dir(self.var_folder)
-
-        # Ensure self.config_files is a list of Paths
-        self.config_files = [
-            Path(file) if isinstance(file, str) else file for file in self.config_files
-        ]
-
-        # We will read the config files and update the default options
-        for path in self.config_files:
-            if not path.is_file():
-                self.logger.error("Config file %r is not valid", path)
-            else:
-                with path.open() as stream:
-                    self.logger.info("Reading %r", path)
-                    new_options = yaml.safe_load(stream)
-                    if not isinstance(new_options, dict):
-                        self.logger.error(
-                            "The config file %r should contain a dict", path
-                        )
-                    else:
-                        self.options.update(new_options)
-
-        # Command line options will win over the config file options
-        self.options.update(self.cli_options)
-
-        # Ensure that the required undefined options are set
-        if self.options["zeo_address"] is _undefined:
-            self.options["zeo_address"] = self.var_folder / "zeosocket.sock"
-
-        if self.options["blobstorage"] is _undefined:
-            self.options["blobstorage"] = self.var_folder / "blobstorage"
 
         if not self.pre_services:
             # We need to have the following structure in the tmp folder:

@@ -276,7 +276,8 @@ def main() -> None:
 
     target = Path(args.target)
     for folder in chain([target], target.parents):
-        if (folder / "etc" / "plonex.yml").exists():
+        plonex_yml = folder / "etc" / "plonex.yml"
+        if plonex_yml.exists():
             break
     else:
         logger.error(
