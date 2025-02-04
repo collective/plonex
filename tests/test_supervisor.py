@@ -5,6 +5,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from plonex.supervisor import Supervisor
 
+import inspect
+
 
 read_expected = ReadExpected(Path(__file__).parent / "expected" / "supervisor")
 
@@ -24,6 +26,25 @@ def temp_supervisor(**kwargs):
 
 
 class TestSupervisor(PloneXTestCase):
+
+    def test_init_signature(self):
+        """Test the class init method
+
+        We want to be sure that our dataclass accepts a predefined list of arguments
+        """
+        signature = inspect.signature(Supervisor.__init__)
+        self.assertListEqual(
+            list(signature.parameters),
+            [
+                "self",
+                "name",
+                "target",
+                "cli_options",
+                "config_files",
+                "supervisord_conf_template",
+                "program_conf_template",
+            ],
+        )
 
     def test_constructor(self):
         """Test the constructor for the zeosclient object"""

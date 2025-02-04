@@ -11,7 +11,7 @@ import unittest
 
 
 @dataclass(kw_only=True)
-class DummyLogger:
+class DummyLogger(logging.Logger):
 
     debugs: list = field(default_factory=list)
     infos: list = field(default_factory=list)

@@ -11,37 +11,34 @@ import subprocess
 @dataclass(kw_only=True)
 class InstallService(BaseService):
 
-    name = "install"
-
-    target: Path = field(default_factory=Path.cwd)
-    etc_folder: Path | None = None
-    tmp_folder: Path | None = None
-    var_folder: Path | None = None
-
-    requirements_d_folder: Path | None = None
-    constraints_d_folder: Path | None = None
-
-    requirements_txt: Path | None = field(init=False, default=None)
-    constrainst_txt: Path | None = field(init=False, default=None)
-
+    name: str = "install"
     dont_ask: bool = False
+
+    etc_folder: Path = field(init=False)
+    tmp_folder: Path = field(init=False)
+    var_folder: Path = field(init=False)
+
+    requirements_d_folder: Path = field(init=False)
+    constraints_d_folder: Path = field(init=False)
+    requirements_txt: Path = field(init=False)
+    constrainst_txt: Path = field(init=False)
 
     def __post_init__(self):
         self.target = self._ensure_dir(self.target.absolute())
-        self.etc_folder = self._ensure_dir(self.etc_folder or self.target / "etc")
-        self.tmp_folder = self._ensure_dir(self.tmp_folder or self.target / "tmp")
-        self.var_folder = self._ensure_dir(self.var_folder or self.target / "var")
-
+        self.etc_folder = self._ensure_dir(self.target / "etc")
+        self.tmp_folder = self._ensure_dir(self.target / "tmp")
+        self.var_folder = self._ensure_dir(self.target / "var")
         self.requirements_d_folder = self._ensure_dir(
-            self.requirements_d_folder or self.etc_folder / "requirements.d"
+            self.etc_folder / "requirements.d"
         )
-        self.constraints_d_folder = self._ensure_dir(
-            self.constraints_d_folder or self.etc_folder / "constraints.d"
-        )
+        self.constraints_d_folder = self._ensure_dir(self.etc_folder / "constraints.d")
 
     @property
     def default_python(self):
         """Check with python executable is available"""
+        if "python" in self.options:
+            return self.options["python"]
+
         for python in ["python3", "python"]:
             which = subprocess.run(
                 ["which", python],

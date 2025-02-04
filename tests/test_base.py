@@ -1,10 +1,12 @@
 from .utils import DummyLogger
 from .utils import temp_cwd
 from dataclasses import dataclass
+from dataclasses import field
 from pathlib import Path
 from plonex.base import BaseService
 from unittest import mock
 
+import inspect
 import sys
 import unittest
 
@@ -21,9 +23,7 @@ if sys.version_info < (3, 11):
 @dataclass(kw_only=True)
 class DummyService(BaseService):
 
-    def __init__(self):
-        super().__init__()
-        self.logger = DummyLogger()
+    logger: DummyLogger = field(default_factory=DummyLogger)
 
 
 class TestBaseService(unittest.TestCase):
@@ -32,6 +32,23 @@ class TestBaseService(unittest.TestCase):
         super().setUp()
         self.service = BaseService()
         self.temp_dir = self.enterContext(temp_cwd())
+
+    def test_init_signature(self):
+        """Test the class init method
+
+        We want to be sure that our dataclass accepts a predefined list of arguments
+        """
+        signature = inspect.signature(BaseService.__init__)
+        self.assertListEqual(
+            list(signature.parameters),
+            [
+                "self",
+                "name",
+                "target",
+                "cli_options",
+                "config_files",
+            ],
+        )
 
     def test_ensure_dir_with_path(self):
         """Test the ensure path method"""

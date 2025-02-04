@@ -1,4 +1,5 @@
 from contextlib import chdir
+from dataclasses import dataclass
 from dataclasses import field
 from functools import cached_property
 from functools import wraps
@@ -16,6 +17,7 @@ import time
 import yaml
 
 
+@dataclass(kw_only=True)
 class BaseService:
     """Base class for a context manager that runs a command.
 
@@ -25,26 +27,17 @@ class BaseService:
     be stored.
     """
 
-    name: str = "base"
-    target: Path = field(default_factory=Path.cwd)
-    logger: logging.Logger = logger
-    pre_services: None | list = None
-    post_services: None | list = None
-
-    cli_options: dict = field(default_factory=dict)
-    config_files: list[str | Path] = field(default_factory=list)
     options_defaults: ClassVar[dict] = {}
 
-    _entered = False
+    name: str = "base"
+    target: Path = field(default_factory=Path.cwd)
+    cli_options: dict = field(default_factory=dict)
+    config_files: list[str | Path] = field(default_factory=list)
 
-    def __init__(self):
-        # This is a workaround to use this class as a base class for dataclasses
-        self.__post_init__()
-
-    def __post_init__(self):
-        """ """
-        self.tmp_folder = self.mkdtemp()
-        self.target = self.mkdtemp()
+    pre_services: None | list = field(default=None, init=False)
+    post_services: None | list = field(default=None, init=False)
+    logger: logging.Logger = field(default=logger, init=False)
+    _entered: bool = field(default=False, init=False)
 
     @cached_property
     def plonex_options(self) -> dict:

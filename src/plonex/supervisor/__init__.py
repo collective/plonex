@@ -37,16 +37,8 @@ class ProgramConf:
 @dataclass(kw_only=True)
 class Supervisor(BaseService):
 
-    name = "supervisor"
+    name: str = "supervisor"
 
-    target: Path = field(default_factory=Path.cwd)
-
-    etc_folder: Path | None = None
-    log_folder: Path | None = None
-    tmp_folder: Path | None = None
-    var_folder: Path | None = None
-
-    # You can override the templates used to generate the configuration files
     supervisord_conf_template: str = (
         "resource://plonex.supervisor.templates:supervisord.conf.j2"
     )
@@ -54,16 +46,19 @@ class Supervisor(BaseService):
         "resource://plonex.supervisor.templates:program.conf.j2"
     )
 
+    etc_folder: Path = field(init=False)
+    log_folder: Path = field(init=False)
+    tmp_folder: Path = field(init=False)
+    var_folder: Path = field(init=False)
+
+    # You can override the templates used to generate the configuration files
+
     def __post_init__(self):
         # Be sure that the required folders exist
-        if self.etc_folder is None:
-            self.etc_folder = self.target / "etc"
-        if self.tmp_folder is None:
-            self.tmp_folder = self.target / "tmp" / self.name
-        if self.var_folder is None:
-            self.var_folder = self.target / "var"
-        if self.log_folder is None:
-            self.log_folder = self.var_folder / "log"
+        self.etc_folder = self.target / "etc"
+        self.tmp_folder = self.target / "tmp" / self.name
+        self.var_folder = self.target / "var"
+        self.log_folder = self.var_folder / "log"
 
         self.programs_folder = self.etc_folder / self.name
 

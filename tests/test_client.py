@@ -6,6 +6,8 @@ from pathlib import Path
 from plonex.zeoclient import ZeoClient
 from unittest import mock
 
+import inspect
+
 
 read_expected = ReadExpected(Path(__file__).parent / "expected" / "zeoclient")
 
@@ -23,6 +25,26 @@ def temp_client(**kwargs):
 
 
 class TestZeoClient(PloneXTestCase):
+
+    def test_init_signature(self):
+        """Test the class init method
+
+        We want to be sure that our dataclass accepts a predefined list of arguments
+        """
+        signature = inspect.signature(ZeoClient.__init__)
+        self.assertListEqual(
+            list(signature.parameters),
+            [
+                "self",
+                "name",
+                "target",
+                "cli_options",
+                "config_files",
+                "run_mode",
+                "tmp_folder",
+                "var_folder",
+            ],
+        )
 
     def test_constructor(self):
         """Test the constructor for the zeosclient object"""

@@ -5,6 +5,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from plonex.zeoserver import ZeoServer
 
+import inspect
+
 
 read_expected = ReadExpected(Path(__file__).parent / "expected" / "zeoserver")
 
@@ -19,6 +21,25 @@ def temp_zeo():
 
 
 class TestZeoServer(PloneXTestCase):
+
+    def test_init_signature(self):
+        """Test the class init method
+
+        We want to be sure that our dataclass accepts a predefined list of arguments
+        """
+        signature = inspect.signature(ZeoServer.__init__)
+        self.assertListEqual(
+            list(signature.parameters),
+            [
+                "self",
+                "name",
+                "target",
+                "cli_options",
+                "config_files",
+                "tmp_folder",
+                "var_folder",
+            ],
+        )
 
     def test_constructor(self):
         """Test the constructor for the zeoserver object"""

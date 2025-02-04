@@ -1,6 +1,5 @@
 from contextlib import chdir
 from dataclasses import dataclass
-from dataclasses import field
 from functools import cached_property
 from pathlib import Path
 from plonex.base import BaseService
@@ -32,11 +31,7 @@ class ZeoClient(BaseService):
     or kill the process with the signal 15
     """
 
-    # Those are the most important parameters passed to the constructor
     name: str = "zeoclient"
-    target: Path = field(default_factory=Path.cwd)
-    cli_options: dict = field(default_factory=dict)
-    config_files: list[str | Path] = field(default_factory=list)
 
     # This control how the program runs
     run_mode: Literal[

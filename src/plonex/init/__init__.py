@@ -1,7 +1,5 @@
 from dataclasses import dataclass
-from dataclasses import field
 from importlib.metadata import version
-from pathlib import Path
 from plonex.base import BaseService
 from plonex.install import InstallService
 from plonex.supervisor import Supervisor
@@ -16,7 +14,6 @@ class InitService(BaseService):
     """This context manager starts up the project with a minimal configuration"""
 
     name: str = "init"
-    target: Path = field(default_factory=Path.cwd)
     plone_version: str = ""
 
     def __post_init__(self):
