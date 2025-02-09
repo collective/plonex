@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from dataclasses import field
 from functools import cached_property
 from functools import wraps
+from jinja2 import BaseLoader
+from jinja2 import Environment
 from pathlib import Path
 from plonex import logger
 from rich.console import Console
@@ -88,7 +90,22 @@ class BaseService:
         options.update(self.plonex_options)
         options.update(self.config_files_options)
         options.update(self.cli_options)
-        return options
+
+        # FIXME: This should probably done in a more sane way
+        # The goal is to resolve the variables inside the options
+        # Maybe the ansible code has something that can be reused
+        options_as_yaml_text = yaml.dump(options)
+        env = Environment(loader=BaseLoader())
+        counter = 0
+        while counter < 10:
+            resolved_options = env.from_string(options_as_yaml_text).render(
+                keep_training_newline=True, **options
+            )
+            if resolved_options == options_as_yaml_text:
+                break
+            options_as_yaml_text = resolved_options
+
+        return yaml.safe_load(resolved_options)
 
     @cached_property
     def console(self) -> Console:

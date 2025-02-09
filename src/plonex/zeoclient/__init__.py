@@ -1,10 +1,8 @@
 from contextlib import chdir
 from dataclasses import dataclass
-from functools import cached_property
 from pathlib import Path
 from plonex.base import BaseService
 from plonex.template import TemplateService
-from typing import ClassVar
 from typing import Literal
 
 import subprocess
@@ -47,27 +45,16 @@ class ZeoClient(BaseService):
     tmp_folder: Path | None = None
     var_folder: Path | None = None
 
-    options_defaults: ClassVar[dict] = {
-        "http_port": 8080,
-        "http_address": "0.0.0.0",
-        "zeo_address": _undefined,
-        "blobstorage": _undefined,
-        "zcml_additional": _undefined,
-        "zope_conf_additional": _undefined,
-    }
-
-    @cached_property
-    def options(self) -> dict:
-        """Checks the default options and fix _undefined values"""
-        options = super().options
-
-        if options["zeo_address"] is _undefined:
-            options["zeo_address"] = self.var_folder / "zeosocket.sock"  # type: ignore
-
-        if options["blobstorage"] is _undefined:
-            options["blobstorage"] = self.var_folder / "blobstorage"  # type: ignore
-
-        return options
+    @property
+    def options_defaults(self):
+        return {
+            "http_port": 8080,
+            "http_address": "0.0.0.0",
+            "zeo_address": str(self.var_folder / "zeosocket.sock"),
+            "blobstorage": str(self.var_folder / "blobstorage"),
+            "zcml_additional": [],
+            "zope_conf_additional": [],
+        }
 
     def __post_init__(self):
         # Be sure that the required folders exist
@@ -152,34 +139,30 @@ class ZeoClient(BaseService):
 
             # Check zcml_additional
             zcml_additional = self.options["zcml_additional"]
-            if zcml_additional is not _undefined:
-                if not isinstance(zcml_additional, list):
-                    raise ValueError("zcml_additional should be a list of templates")
-                for template in zcml_additional:
-                    # Find the proper target path
-                    if template.suffix == ".j2":
-                        suffix = ""
-                    target_path = Path(
-                        self.tmp_folder / "etc" / "package-includes" / template.name
-                    ).with_suffix(suffix)
-                    if not target_path.suffix == ".zcml":
-                        target_path = target_path.with_suffix(".zcml")
+            if not isinstance(zcml_additional, list):
+                raise ValueError("zcml_additional should be a list of templates")
+            for template in map(Path, zcml_additional):
+                # Find the proper target path
+                if template.suffix == ".j2":
+                    suffix = ""
+                target_path = Path(
+                    self.tmp_folder / "etc" / "package-includes" / template.name
+                ).with_suffix(suffix)
+                if not target_path.suffix == ".zcml":
+                    target_path = target_path.with_suffix(".zcml")
 
-                    self.pre_services.append(
-                        TemplateService(
-                            source_path=template,
-                            target_path=target_path,
-                            options={"context": self},
-                        )
+                self.pre_services.append(
+                    TemplateService(
+                        source_path=template,
+                        target_path=target_path,
+                        options={"context": self},
                     )
+                )
 
     @property
     def zope_conf_additional(self) -> list[TemplateService]:
         """List the templates in the zope_conf_additional option"""
         zope_conf_additional = self.options["zope_conf_additional"]
-        if zope_conf_additional is _undefined:
-            return []
-
         if not isinstance(zope_conf_additional, list):
             raise ValueError("zope_conf_additional should be a list of templates")
 

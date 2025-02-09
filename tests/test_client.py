@@ -121,21 +121,21 @@ class TestZeoClient(PloneXTestCase):
                 },
             )
             self.assertEqual(
-                client.options["blobstorage"], client.var_folder / "blobstorage"
+                client.options["blobstorage"], str(client.var_folder / "blobstorage")
             )
             self.assertEqual(client.options["foo"], "bar")
             self.assertEqual(client.options["http_address"], "0.0.0.0")
             self.assertEqual(client.options["http_port"], 8080)
             self.assertEqual(
-                client.options["zeo_address"], client.var_folder / "zeosocket.sock"
+                client.options["zeo_address"], str(client.var_folder / "zeosocket.sock")
             )
 
     def test_zcml_additional(self):
         """Test the zcml_additional method"""
         sample_folder = Path(__file__).parent / "sample_confs" / "additional_zcmls"
         zcml_additional = [
-            sample_folder / "foo.zcml.j2",
-            sample_folder / "bar.zcml.j2",
+            str(sample_folder / "foo.zcml.j2"),
+            str(sample_folder / "bar.zcml.j2"),
         ]
         with temp_client(
             cli_options={"zcml_additional": zcml_additional, "bar_value": "baz"},
@@ -148,8 +148,8 @@ class TestZeoClient(PloneXTestCase):
     def test_zope_conf_additional(self):
         sample_folder = Path(__file__).parent / "sample_confs" / "additional_zope_confs"
         zope_conf_additionals = [
-            sample_folder / "bar.conf.j2",
-            sample_folder / "foo.conf.j2",
+            str(sample_folder / "bar.conf.j2"),
+            str(sample_folder / "foo.conf.j2"),
         ]
         with temp_client(
             cli_options={

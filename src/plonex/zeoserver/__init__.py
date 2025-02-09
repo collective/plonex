@@ -12,7 +12,6 @@ default_options = {
     "http_address": "0.0.0.0",
     "zeo_address": _undefined,
     "blobstorage": _undefined,
-    "zcml_additional": _undefined,
 }
 
 
