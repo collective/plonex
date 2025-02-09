@@ -35,6 +35,37 @@ plonex dependencies
 
 ## Start your project
 
+After initializing your project, you can find an `etc/supervisor` directory
+with a couple of example files:
+
+```sh
+$ ls etc/supervisor
+zeoclient.conf.example
+zeoserver.conf.example
+```
+
+You can use them to decide which services are managed by supervisor.
+
+For example to start the `zeoserver` service when supervisor starts, you can just copy the example file:
+
+```sh
+cp etc/supervisor/zeoserver.conf.example etc/supervisor/zeoserver.conf
+```
+
+If you want you can modify the file to suit your needs.
+
+All the files with the extension `.conf` in the `etc/supervisor` directory will be loaded by supervisor.
+
+Once you are ready, you can start supervisor with:
+
 ```sh
 plonex supervisor start
+```
+
+## Add an admin user
+
+You can add an admin user with the `adduser` command, e.g.:
+
+```sh
+$ plonex adduser admin $ADMIN_PASSWORD
 ```
