@@ -46,7 +46,7 @@ class InitService(BaseService):
             if not (self.target / "etc" / "constraints.d" / "000-plonex.txt").exists():
                 if not self.plone_version:
                     self.plone_version = self.ask_for_value(
-                        "Please select the Plone version", "6.0-latest"
+                        "Please select the Plone version", "6.1-latest"
                     )
                 self.logger.info(
                     "Fetching the constraints.txt file for Plone %s", self.plone_version
