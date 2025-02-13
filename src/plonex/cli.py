@@ -254,6 +254,15 @@ dependencies_parser = action_subparsers.add_parser(
     formatter_class=parser.formatter_class,
 )
 
+dependencies_parser.add_argument(
+    "-p",
+    "--persist",
+    help="Persist the constraints",
+    required=False,
+    dest="persist_constraints",
+    default=False,
+    action="store_true",
+)
 
 test_parser = action_subparsers.add_parser(
     "test",
@@ -348,7 +357,9 @@ def main() -> None:
         pass
     elif args.action == "dependencies":
         with InstallService(target=target) as install:
-            install.run()
+            install.run(
+                save_constraints=args.persist_constraints,
+            )
     elif args.action == "test":
         with TestService() as test:
             test.run()
