@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from dataclasses import field
+from datetime import datetime
 from pathlib import Path
 from pip_requirements_parser import RequirementsFile  # type: ignore
 from plonex.base import BaseService
@@ -79,6 +80,19 @@ class InstallService(BaseService):
                 ],
                 check=True,
             )
+
+    @BaseService.entered_only
+    def add_packages(self, packages: list):
+        """Add a list of packages to the requirements"""
+        now = datetime.now()
+        time_marker = now.strftime("%Y%m%d-%H%M%S")
+        lines = [
+            "# Packages added by plonex install",
+        ]
+        lines.extend(sorted(packages))
+        (self.requirements_d_folder / f"999-add-package-{time_marker}.txt").write_text(
+            "\n".join(lines) + "\n"
+        )
 
     @BaseService.entered_only
     def install_package(self, package: str):

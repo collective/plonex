@@ -92,6 +92,19 @@ init_parser.add_argument(
     nargs="?",
 )
 
+install_parser = action_subparsers.add_parser(
+    "install",
+    help="Add one or more packages to your requirements and install them",
+    formatter_class=parser.formatter_class,
+)
+
+install_parser.add_argument(
+    "package",
+    type=str,
+    help="Packages to install",
+    nargs="+",
+)
+
 supervisor_parser = action_subparsers.add_parser(
     "supervisor", help="Manage supervisor", formatter_class=parser.formatter_class
 )
@@ -363,8 +376,12 @@ def main() -> None:
     elif args.action == "test":
         with TestService() as test:
             test.run()
-
-    elif args.action is None:
+    elif args.action == "install":
+        with InstallService() as install:
+            install.add_packages(args.package)
+        with InstallService() as install:
+            install.run()
+    else:
         parser.print_help()
 
 
