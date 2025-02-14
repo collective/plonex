@@ -4,6 +4,7 @@ from plonex.base import BaseService
 from plonex.install import InstallService
 from plonex.supervisor import Supervisor
 from plonex.template import TemplateService
+from typing import ClassVar
 
 import requests
 import subprocess
@@ -15,6 +16,9 @@ class InitService(BaseService):
 
     name: str = "init"
     plone_version: str = ""
+    options_defaults: ClassVar[dict] = {
+        "plonex_version": version("plonex"),
+    }
 
     def __post_init__(self):
         self.target = self._ensure_dir(self.target)
@@ -30,9 +34,7 @@ class InitService(BaseService):
                         name="plonex",
                         source_path="resource://plonex.init.templates:plonex.yml.j2",
                         target_path=etc_folder / "plonex.yml",
-                        options={
-                            "plonex_version": version("plonex"),
-                        },
+                        options=self.options,
                     )
                 )
             if not (etc_folder / "requirements.d" / "000-plonex.txt").exists():
