@@ -3,6 +3,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from plonex.base import BaseService
 from plonex.template import TemplateService
+from random import choice
+from string import ascii_letters
+from string import digits
+from string import punctuation
 from typing import Literal
 
 import subprocess
@@ -174,22 +178,36 @@ class ZeoClient(BaseService):
             for template in zope_conf_additional
         ]
 
+    def _generate_password(self):
+        """Generate a random password"""
+        return "".join(choice(ascii_letters + digits + punctuation) for _ in range(16))
+
     @property
     def command(self):
         # return [self.instance, self.run_mode]
         return [str(self.tmp_folder / "bin" / "instance"), self.run_mode]
 
     @BaseService.entered_only
-    def adduser(self, username: str, password: str):
+    def adduser(self, username: str, password: str | None = None):
+        """Add a user to the Zope instance"""
+        is_password_generated = password is None
+        if password is None:
+            password = self._generate_password()
+
+        zope_conf = self.tmp_folder / "etc" / "zope.conf"  # type: ignore
+
         with chdir(self.target):  # type: ignore
             command = [
-                str(self.tmp_folder / "bin" / "instance"),  # type: ignore
-                "adduser",
+                str(self.virtualenv_dir / "bin" / "addzopeuser"),  # type: ignore
+                "-c",
+                zope_conf,
                 username,
-                password,
+                str(password),
             ]
-            self.logger.info("Running %r", command)
+            self.logger.debug("Running %r", command)
             try:
-                subprocess.run(command, check=True)
+                subprocess.run(command)
             except KeyboardInterrupt:
                 self.logger.info("Stopping %r", command)
+        if is_password_generated:
+            print(f"Please take note of the {username} password: {password}")

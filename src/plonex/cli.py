@@ -225,7 +225,9 @@ zeoclient_debug_parser = zeoclient_subparsers.add_parser(
 
 
 adduser_parser = action_subparsers.add_parser(
-    "adduser", help="Add a user", formatter_class=parser.formatter_class
+    "adduser",
+    help="Add a user. You need to provide at least a username, optionally a password",
+    formatter_class=parser.formatter_class,
 )
 
 adduser_parser.add_argument(
@@ -238,7 +240,7 @@ adduser_parser.add_argument(
     action="append",
 )
 adduser_parser.add_argument("username", type=str, help="Username")
-adduser_parser.add_argument("password", type=str, help="Password")
+adduser_parser.add_argument("password", type=str, help="Password", nargs="?")
 
 backup_parser = action_subparsers.add_parser(
     "backup", help="Backup the services", formatter_class=parser.formatter_class
