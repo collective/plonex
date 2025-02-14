@@ -35,8 +35,7 @@ plonex dependencies
 
 ## Start your project
 
-After initializing your project, you can find an `etc/supervisor` directory
-with a couple of example files:
+After initializing your project, you can find an `etc/supervisor` directory with a couple of example files:
 
 ```sh
 $ ls etc/supervisor
@@ -68,4 +67,14 @@ You can add an admin user with the `adduser` command, e.g.:
 
 ```sh
 $ plonex adduser admin $ADMIN_PASSWORD
+[ale@flo bar]$ plonex adduser admin admin
+User admin created.
+```
+
+## Add a package
+
+If you want to add a package to your project, you can use the `add` command:
+
+```sh
+$ plonex install collective.pdbpp
 ```
