@@ -169,7 +169,7 @@ class InstallService(BaseService):
         super().run()
         # Run pip freeze and compare the output with the constraints
         # to see if we are missing something
-        self.logger.info("Checking if all constraints are met")
+        self.logger.debug("Checking if all constraints are met")
 
         constraints = RequirementsFile.from_file(self.constrainst_txt).requirements
         installed = subprocess.run(
@@ -194,11 +194,16 @@ class InstallService(BaseService):
 
         if missing:
             if save_constraints:
+                now = datetime.now().strftime("%Y%m%d-%H%M%S")
                 autoinstalled_file = (
-                    self.target / "etc" / "constraints.d" / "001-autoinstalled.txt"
+                    self.target
+                    / "etc"
+                    / "constraints.d"
+                    / f"999-{now}-autoinstalled.txt"
                 )
                 if autoinstalled_file.exists():
                     missing |= set(autoinstalled_file.read_text().splitlines())
+                    self.logger.info(f"Adding new constraints to {autoinstalled_file}")
                 autoinstalled_file.write_text("\n".join(sorted(missing)) + "\n")
             else:
                 self.logger.warning(f"Missing constraints: {sorted(missing)}")
@@ -208,3 +213,6 @@ class InstallService(BaseService):
                     f"in the {self.constraints_d_folder}:"
                 )
                 console.print(*sorted(missing), sep="\n")
+                console.print(
+                    "Running  `plonex dependencies --persist` will do that for you."
+                )
