@@ -77,4 +77,31 @@ If you want to add a package to your project, you can use the `add` command:
 
 ```sh
 $ plonex install collective.pdbpp
+...
+```
+
+## Custom PyPI repository
+
+If you want to use a custom PyPI repository, you can add in you `pyproject.toml` file the following snippet:
+
+```toml
+[tool.uv]
+# Add command line parameters to the `pip` command, e.g.:
+# index-strategy = "unsafe-best-match"
+
+[[tool.uv.index]]
+# You need to have this env variables set if you need to be authenticated:
+# export UV_INDEX_PRIVATE_USERNAME=username
+# export UV_INDEX_PRIVATE_PASSWORD=password
+name = "private"
+url = "https://pypi.acme.org/simple"
+
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+```
+
+```
+--extra-index-url=https://pypi.acme.org/simple
 ```
