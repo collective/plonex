@@ -73,7 +73,7 @@ User admin created.
 
 ## Add a package
 
-If you want to add a package to your project, you can use the `add` command:
+If you want to add a package to your project, you can use the `install` command:
 
 ```sh
 $ plonex install collective.pdbpp

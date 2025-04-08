@@ -127,7 +127,7 @@ class InstallService(BaseService):
         included_files = []
         constraints = {}
         for file in self.constraints_d_folder.iterdir():
-            requirements = RequirementsFile.from_file(file, include_nested=True)
+            requirements = RequirementsFile.from_file(str(file), include_nested=True)
             for requirement in requirements.requirements:
                 constraints[str(requirement.name), str(requirement.marker)] = (
                     requirement
