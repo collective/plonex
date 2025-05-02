@@ -105,3 +105,21 @@ url = "https://pypi.org/simple"
 ```
 --extra-index-url=https://pypi.acme.org/simple
 ```
+
+## Zope instance configuration
+
+You can customize the Zope instance configuration by setting some options.
+
+### Zope instances environment variables
+
+You can set environment variables for the Zope instances by setting the `environment_vars` variable.
+
+Note in this example how you can reuse existing variables
+
+```yaml
+environment_vars:
+  PTS_LANGUAGES: it
+  TZ: Europe/Rome
+  zope_i18n_allowed_languages: '{{ environment_vars["PTS_LANGUAGES"] }}'
+  zope_i18n_compile_mo_files: true
+```
