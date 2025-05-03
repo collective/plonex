@@ -51,6 +51,25 @@ class BaseService:
         return yaml.safe_load(plonex_yml.read_text()) or {}
 
     @cached_property
+    def additional_plonex_options(self) -> dict:
+        """Return the options from all the found  plonex.*.yml files (if any).
+
+        Precedence is given in alphabetical order.
+        """
+        mapping = {}
+        for path in self.target.glob("etc/plonex.*.yml"):
+            if not path.exists():
+                self.logger.warning("Config file %r does not exist", path)
+                file_options = {}
+            else:
+                file_options = yaml.safe_load(path.read_text())
+                if not isinstance(file_options, dict):
+                    self.logger.error("The config file %r should contain a dict", path)
+                    file_options = {}
+            mapping[path] = file_options
+        return mapping
+
+    @cached_property
     def config_files_options_mapping(self) -> dict:
         """Return the options from the config files"""
         mapping = {}
@@ -83,11 +102,17 @@ class BaseService:
 
         1. In the command line (max priority)
         2. In config files
-        3. In the plonex.yml file
-        4. In the class definition options_default (lowest priority)
+        3. In the plonex.*.yml files (if any)
+        4. In the plonex.yml file
+        5. In the class definition options_default (lowest priority)
         """
         options = self.options_defaults.copy()
         options.update(self.plonex_options)
+        for path, file_options in self.additional_plonex_options.items():
+            if not isinstance(file_options, dict):
+                self.logger.error("The config file %r should contain a dict", path)
+                continue
+            options.update(file_options)
         options.update(self.config_files_options)
         options.update(self.cli_options)
 

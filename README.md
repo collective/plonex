@@ -106,9 +106,27 @@ url = "https://pypi.org/simple"
 --extra-index-url=https://pypi.acme.org/simple
 ```
 
+## Setting options/variables
+
+You can set options in multiple ways.
+
+1. In the command line (max priority)
+2. In config files
+3. In some `etc/plonex.*.yml` file (if any of them exists, precedence is given by alphabetical order)
+4. In the `etc/plonex.yml` file
+5. In the class definition options_default (lowest priority)
+
 ## Zope instance configuration
 
 You can customize the Zope instance configuration by setting some options.
+
+### Zope instance port
+
+You can set the Zope default zope instance port by setting the `http_port` variable.
+
+```yaml
+http_port: 8080
+```
 
 ### Zope instances environment variables
 
