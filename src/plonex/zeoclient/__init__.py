@@ -9,7 +9,9 @@ from string import digits
 from string import punctuation
 from typing import Literal
 
+import os
 import subprocess
+import sys
 
 
 _undefined = object()
@@ -164,6 +166,13 @@ class ZeoClient(BaseService):
                 )
 
     @property
+    def pid_file(self) -> Path:
+        """Return the pid file for the ZEO client"""
+        if not self.var_folder:
+            raise ValueError("var_folder is not set")
+        return self.var_folder / self.name / "Z4.pid"
+
+    @property
     def zope_conf_additional(self) -> list[TemplateService]:
         """List the templates in the zope_conf_additional option"""
         zope_conf_additional = self.options["zope_conf_additional"]
@@ -184,7 +193,19 @@ class ZeoClient(BaseService):
 
     @property
     def command(self):
-        # return [self.instance, self.run_mode]
+        """Before runniong check if the pid file is present and used"""
+        if self.pid_file.exists():
+            pid = self.pid_file.read_text()
+            try:
+                if os.kill(int(pid), 0) is None:
+                    self.logger.error(
+                        "The pid file %s exists and the process is running",
+                        self.pid_file,
+                    )
+                    sys.exit(0)
+            except OSError:
+                pass
+
         return [str(self.tmp_folder / "bin" / "instance"), self.run_mode]
 
     @BaseService.entered_only
