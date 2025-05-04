@@ -230,7 +230,11 @@ class BaseService:
             try:
                 self.logger.debug("Running %r", command_str)
                 start_time = time.time()
-                subprocess.run(command_list, check=True)
+                try:
+                    subprocess.run(command_list, check=True)
+                except subprocess.CalledProcessError as e:
+                    self.logger.error(e)
+                    sys.exit(e.returncode)
             except KeyboardInterrupt:
                 self.logger.info("Stopping %r", command_str)
             finally:
