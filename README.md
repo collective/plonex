@@ -116,6 +116,18 @@ You can set options in multiple ways.
 4. In the `etc/plonex.yml` file
 5. In the class definition options_default (lowest priority)
 
+### Log level
+
+You can set the log level by setting the `log_level` variable, e.g.:
+
+```yaml
+log_level: INFO
+```
+
+Valid values are: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.
+
+This value is ignored if you pass the `-v/--verbose` or the `-q/--quiet` option in the command line.
+
 ## Zope instance configuration
 
 You can customize the Zope instance configuration by setting some options.

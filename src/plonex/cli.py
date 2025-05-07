@@ -317,6 +317,24 @@ def main() -> None:
         )
         sys.exit(1)
 
+    if not args.verbose and not args.quiet:
+        # Check if the log_level is set in the configuration file
+        with InitService(target=target) as init:
+            log_level = init.options.get("log_level")
+            if log_level:
+                log_level = log_level.upper()
+                if log_level not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
+                    logger.error(
+                        (
+                            "Invalid log level %r "
+                            "in the configuration file. Accepted values are: %r"
+                        ),
+                        log_level,
+                        ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"),
+                    )
+                else:
+                    logger.setLevel(log_level.upper())
+
     if args.action == "zeoserver":
         logger.debug("Starting ZEO Server")
         with ZeoServer(target=target) as zeoserver:

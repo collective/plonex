@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from dataclasses import field
 from importlib.metadata import version
 from plonex.base import BaseService
 from plonex.install import InstallService
@@ -20,7 +19,6 @@ class InitService(BaseService):
     options_defaults: ClassVar[dict] = {
         "plonex_version": version("plonex"),
     }
-    plonex_options: dict = field(default_factory=dict, init=False)
 
     def __post_init__(self):
         self.target = self._ensure_dir(self.target)
