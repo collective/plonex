@@ -142,7 +142,8 @@ class TestZeoClient(PloneXTestCase):
         ) as client:
             packages_include_folder = client.tmp_folder / "etc" / "package-includes"
             self.assertIn(
-                "<!-- baz --/>", (packages_include_folder / "bar.zcml").read_text()
+                "<!-- baz --/>",
+                (packages_include_folder / "bar-configure.zcml").read_text(),
             )
 
     def test_zope_conf_additional(self):

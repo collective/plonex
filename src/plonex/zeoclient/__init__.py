@@ -106,6 +106,9 @@ class ZeoClient(BaseService):
                 TemplateService(
                     source_path="resource://plonex.zeoclient.templates:site.zcml.j2",
                     target_path=self.tmp_folder / "etc" / "site.zcml",
+                    options={
+                        "zcml_folder": str(self.tmp_folder / "etc"),
+                    },
                 ),
                 TemplateService(
                     source_path="resource://plonex.zeoclient.templates:wsgi.ini.j2",
@@ -147,15 +150,33 @@ class ZeoClient(BaseService):
             zcml_additional = self.options["zcml_additional"]
             if not isinstance(zcml_additional, list):
                 raise ValueError("zcml_additional should be a list of templates")
+
+            packages_includes = Path(self.tmp_folder / "etc" / "package-includes")
+            # Remove existing files
+            if packages_includes.exists():
+                for file in packages_includes.iterdir():
+                    if file.is_file():
+                        file.unlink()
+
             for template in map(Path, zcml_additional):
                 # Find the proper target path
+                target_path = packages_includes / template.name
                 if template.suffix == ".j2":
-                    suffix = ""
-                target_path = Path(
-                    self.tmp_folder / "etc" / "package-includes" / template.name
-                ).with_suffix(suffix)
+                    # If the template is a j2 template, we need to remove the suffix
+                    target_path = target_path.with_suffix("")
+
                 if not target_path.suffix == ".zcml":
                     target_path = target_path.with_suffix(".zcml")
+
+                # The target path should either end in:
+                # 1. -configure.zcml
+                # 2. -overrides.zcml
+                if not target_path.name.endswith(
+                    ("-configure.zcml", "-overrides.zcml")
+                ):
+                    target_path = target_path.with_name(
+                        f"{target_path.stem}-configure.zcml"
+                    )
 
                 self.pre_services.append(
                     TemplateService(
