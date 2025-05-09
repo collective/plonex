@@ -152,7 +152,12 @@ environment_vars:
   TZ: Europe/Rome
   zope_i18n_allowed_languages: '{{ environment_vars["PTS_LANGUAGES"] }}'
   zope_i18n_compile_mo_files: true
+  CHAMELEON_CACHE: "{{ var_folder }}/cache/chameleon"
+  CHAMELEON_RELOAD: true
+  CHAMELEON_DEBUG: true
 ```
+
+Also note the usage of the undocument (FIXME!!) `var_folder` variable.
 
 ### Zope instance additional zcml
 

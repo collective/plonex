@@ -54,6 +54,7 @@ class ZeoClient(BaseService):
     @property
     def options_defaults(self):
         return {
+            "var_folder": str(self.var_folder),
             "http_port": 8080,
             "http_address": "0.0.0.0",
             "zeo_address": str(self.var_folder / "zeosocket.sock"),
@@ -152,11 +153,22 @@ class ZeoClient(BaseService):
                 raise ValueError("zcml_additional should be a list of templates")
 
             packages_includes = Path(self.tmp_folder / "etc" / "package-includes")
+
+            # FIXME: this should be a preservice
             # Remove existing files
             if packages_includes.exists():
                 for file in packages_includes.iterdir():
                     if file.is_file():
                         file.unlink()
+
+            # FIXME: this should be a preservice
+            chameleon_cache = self.options.get("environment_vars").get(
+                "CHAMELEON_CACHE"
+            )
+            if chameleon_cache:
+                chameleon_cache = Path(chameleon_cache).mkdir(
+                    parents=True, exist_ok=True
+                )
 
             for template in map(Path, zcml_additional):
                 # Find the proper target path
