@@ -15,9 +15,9 @@ class InitService(BaseService):
     """This context manager starts up the project with a minimal configuration"""
 
     name: str = "init"
-    plone_version: str = ""
     options_defaults: ClassVar[dict] = {
         "plonex_version": version("plonex"),
+        "plone_version": "6.1-latest",
     }
 
     def __post_init__(self):
@@ -46,12 +46,9 @@ class InitService(BaseService):
                     )
                 )
             if not (self.target / "etc" / "constraints.d" / "000-plonex.txt").exists():
-                if not self.plone_version:
-                    self.plone_version = self.ask_for_value(
-                        "Please select the Plone version", "6.1-latest"
-                    )
                 self.logger.info(
-                    "Fetching the constraints.txt file for Plone %s", self.plone_version
+                    "Fetching the constraints.txt file for Plone %s",
+                    self.options["plone_version"],
                 )
 
                 self.pre_services.append(
@@ -61,7 +58,7 @@ class InitService(BaseService):
                         target_path=etc_folder / "constraints.d" / "000-plonex.txt",
                         options={
                             "constraints": requests.get(
-                                f"https://dist.plone.org/release/{self.plone_version}/constraints.txt"  # noqa: E501
+                                f"https://dist.plone.org/release/{self.options['plone_version']}/constraints.txt"  # noqa: E501
                             ).text,
                         },
                     )

@@ -162,7 +162,7 @@ class ZeoClient(BaseService):
                         file.unlink()
 
             # FIXME: this should be a preservice
-            chameleon_cache = self.options.get("environment_vars").get(
+            chameleon_cache = self.options.get("environment_vars", {}).get(
                 "CHAMELEON_CACHE"
             )
             if chameleon_cache:

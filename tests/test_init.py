@@ -28,12 +28,5 @@ class TestInit(PloneXTestCase):
         signature = inspect.signature(InitService.__init__)
         self.assertListEqual(
             list(signature.parameters),
-            [
-                "self",
-                "name",
-                "target",
-                "cli_options",
-                "config_files",
-                "plone_version",
-            ],
+            ["self", "name", "target", "cli_options", "config_files"],
         )

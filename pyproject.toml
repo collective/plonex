@@ -19,12 +19,13 @@ maintainers = [
 dependencies = [
     "argcomplete",
     "Jinja2",
-    "PyYAML",
     "pip-requirements-parser",
+    "PyYAML",
     "requests",
-    "types-requests",
     "rich-argparse",
     "types-PyYAML",
+    "types-requests",
+    "types-setuptools",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
