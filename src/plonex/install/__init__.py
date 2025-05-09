@@ -54,7 +54,7 @@ class InstallService(BaseService):
     def ensure_virtualenv(self):
         """Ensure that we have a virtualenv"""
         if not (self.target / ".venv" / "bin" / "activate").exists():
-            if self.get("python") or self.dont_ask:
+            if self.options.get("python") or self.dont_ask:
                 python_path = self.default_python
             else:
                 console = Console()
