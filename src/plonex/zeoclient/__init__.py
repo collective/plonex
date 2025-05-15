@@ -227,7 +227,7 @@ class ZeoClient(BaseService):
     @property
     def command(self):
         """Before runniong check if the pid file is present and used"""
-        if self.pid_file.exists():
+        if self.run_mode != "stop" and self.pid_file.exists():
             pid = self.pid_file.read_text()
             try:
                 if os.kill(int(pid), 0) is None:
