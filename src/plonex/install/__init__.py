@@ -6,8 +6,14 @@ from pip_requirements_parser import RequirementsFile  # type: ignore
 from plonex.base import BaseService
 from rich.console import Console
 
+import re
 import subprocess
 import tomllib
+
+
+def name_as_pep503(name: str) -> str:
+    """Return a package name that is compatible with PEP 503"""
+    return re.sub(r"[-_.]+", "-", name).lower()
 
 
 @dataclass(kw_only=True)
@@ -173,8 +179,7 @@ class InstallService(BaseService):
                         e,
                     )
 
-                packages.add(name)
-
+                packages.add(name_as_pep503(name))
         return packages
 
     def make_constraints_txt(self):
@@ -185,10 +190,9 @@ class InstallService(BaseService):
         for file in self.constraints_d_folder.iterdir():
             requirements = RequirementsFile.from_file(str(file), include_nested=True)
             for requirement in requirements.requirements:
-                if requirement.name not in developed_packages:
-                    constraints[str(requirement.name), str(requirement.marker)] = (
-                        requirement
-                    )
+                name = name_as_pep503(str(requirement.name))
+                if name not in developed_packages:
+                    constraints[name, str(requirement.marker)] = requirement
 
         merged_constraints = included_files + [
             requirement.dumps() for _, requirement in sorted(constraints.items())
