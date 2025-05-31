@@ -175,7 +175,7 @@ zeoclient_parser.add_argument(
     type=int,
     help="Port to run the ZEO Client (default: 8080)",
     required=False,
-    default=8080,
+    default=0,
 )
 
 zeoclient_parser.add_argument(
@@ -183,7 +183,7 @@ zeoclient_parser.add_argument(
     type=str,
     help="Host to run the ZEO Client (default: 0.0.0.0)",
     required=False,
-    default="0.0.0.0",
+    default="",
 )
 
 zeoclient_subparsers = zeoclient_parser.add_subparsers(
@@ -344,12 +344,17 @@ def main() -> None:
         zeoclient_action = getattr(args, "zeoclient_action", "") or "console"
         # Get the configuration file
         config_files = getattr(args, "zeoclient_config", []) or []
+        cli_options = {}
+        if args.host:
+            cli_options["http_host"] = args.host
+        if args.port:
+            cli_options["http_port"] = args.port
         with ZeoClient(
             name=args.name,
             target=target,
             config_files=config_files,
             run_mode=zeoclient_action,  # type: ignore
-            cli_options={"http_port": args.port, "http_host": args.host},
+            cli_options=cli_options,
         ) as zeoclient:
             zeoclient.run()
 
