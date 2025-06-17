@@ -16,6 +16,10 @@ class SupervisordConfOptions:
     pidfile: Path
     included_files: str
 
+    def get(self, key: str, default=None):
+        """Allow access to the options as if they were attributes."""
+        return getattr(self, key, default)
+
 
 @dataclass(kw_only=True)
 class ProgramConf:
@@ -32,6 +36,10 @@ class ProgramConf:
     process_name: str
     directory: str
     priority: int
+
+    def get(self, key: str, default=None):
+        """Allow access to the options as if they were attributes."""
+        return getattr(self, key, default)
 
 
 @dataclass(kw_only=True)

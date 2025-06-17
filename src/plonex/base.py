@@ -210,6 +210,26 @@ class BaseService:
         return wrapper
 
     def __enter__(self):
+        """Load the environment variables before entering the context manager."""
+        if self.options.get("environment_vars"):
+            import os
+
+            for key, value in self.options["environment_vars"].items():
+                if isinstance(value, str):
+                    value = value.format(**self.options)
+                else:
+                    value = str(value)
+                self.logger.debug("Setting environment variable %s=%s", key, value)
+                if key in os.environ:
+                    old = os.environ[key]
+                    if old != value:
+                        self.logger.info(
+                            "Overriding existing environment variable %r: %r -> %r",
+                            key,
+                            old,
+                            value,
+                        )
+                os.environ[key] = str(value)
         for pre_service in self.pre_services or []:
             with pre_service:
                 pre_service.run()
