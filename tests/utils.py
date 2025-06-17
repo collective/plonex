@@ -11,17 +11,31 @@ import unittest
 
 
 @dataclass(kw_only=True)
-class DummyLogger(logging.Logger):
+class DummyLogger:
 
     debugs: list = field(default_factory=list)
     infos: list = field(default_factory=list)
+    warnings: list = field(default_factory=list)
     errors: list = field(default_factory=list)
+
+    # These value are set in the logging.Logger.__init_
+    # name: str = "dummy_logger"
+    # level: int = logging.DEBUG
+    # parent: None = None  # type: ignore
+    # propagate: bool = True
+    # disabled: bool = False
+    # filters: list = field(default_factory=list)
+    # handlers: list = field(default_factory=list)
+    # _cache: dict = field(default_factory=dict)
 
     def debug(self, *args):
         self.debugs.append(args)
 
     def info(self, *args):
         self.infos.append(args)
+
+    def warning(self, *args):
+        self.warnings.append(args)
 
     def error(self, *args):
         self.errors.append(args)
