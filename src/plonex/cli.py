@@ -4,6 +4,7 @@ from importlib.metadata import version
 from itertools import chain
 from pathlib import Path
 from plonex import logger
+from plonex.describe import DescribeService
 from plonex.init import InitService
 from plonex.install import InstallService
 from plonex.supervisor import Supervisor
@@ -76,6 +77,12 @@ init_parser = action_subparsers.add_parser(
         "This will create the necessary folders and configuration files."
     ),
     help=("Initialize the project in the specified target folder."),
+    formatter_class=parser.formatter_class,
+)
+
+describe_parser = action_subparsers.add_parser(
+    "describe",
+    help="Describe the current project configuration",
     formatter_class=parser.formatter_class,
 )
 
@@ -334,6 +341,11 @@ def main() -> None:
                     )
                 else:
                     logger.setLevel(log_level.upper())
+
+    if args.action == "describe":
+        with DescribeService(target=target) as describe:
+            describe.run()
+        return
 
     if args.action == "zeoserver":
         logger.debug("Starting ZEO Server")

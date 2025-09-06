@@ -27,6 +27,17 @@ INFO     Creating foo/etc/plonex.yml
 INFO     Project initialized
 ```
 
+## Describe your project
+
+You can describe your project with the `describe` command:
+
+```sh
+plonex describe
+```
+
+By default this will create a markdown file in `var/plonex_description/index.md` and render it on the console.
+For the moment this displays only basic information about your project, but in the future it will be extended to include more useful information.
+
 ## Install your packages
 
 ```sh
