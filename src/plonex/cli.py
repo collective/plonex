@@ -313,13 +313,20 @@ def main() -> None:
         return
 
     target = Path(args.target)
+    if not target.exists():
+        logger.error("The target folder %r does not exist", args.target)
+        sys.exit(1)
+
     for folder in chain([target], target.parents):
         plonex_yml = folder / "etc" / "plonex.yml"
         if plonex_yml.exists():
             break
     else:
         logger.error(
-            "Could not find the `etc/plonex.yml` file please run `plonex init %s`",
+            (
+                "Could not find the `etc/plonex.yml` file please run `plonex init %s` "
+                "or specify a different target with the `--target` option."
+            ),
             args.target,
         )
         sys.exit(1)
