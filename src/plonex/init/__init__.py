@@ -58,7 +58,8 @@ class InitService(BaseService):
                         target_path=etc_folder / "constraints.d" / "000-plonex.txt",
                         options={
                             "constraints": requests.get(
-                                f"https://dist.plone.org/release/{self.options['plone_version']}/constraints.txt"  # noqa: E501
+                                f"https://dist.plone.org/release/{self.options['plone_version']}/constraints.txt",  # noqa: E501
+                                timeout=30,
                             ).text,
                         },
                     )
