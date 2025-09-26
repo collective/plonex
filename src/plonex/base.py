@@ -112,7 +112,50 @@ class BaseService:
             if not isinstance(file_options, dict):
                 self.logger.error("The config file %r should contain a dict", path)
                 continue
-            options.update(file_options)
+
+            for key in file_options:
+                # If the key starts with + or - we want to modify an existing value
+                # We will pick the right strategy based
+                # on the type of the existing value
+                # Supported types are list and dicts
+                if key.startswith("+") and key[1:] in options:
+                    real_key = key[1:]
+                    if isinstance(options[real_key], list):
+                        options[real_key].extend(file_options[key])
+                    elif isinstance(options[real_key], dict):
+                        options[real_key].update(file_options[key])
+                    else:
+                        self.logger.error(
+                            "Cannot add to option %r of type %r option %r of type %r",
+                            real_key,
+                            type(options[real_key]),
+                            key,
+                            type(file_options[key]),
+                        )
+                elif key.startswith("-") and key[1:] in options:
+                    real_key = key[1:]
+                    if isinstance(options[real_key], list):
+                        for item in file_options[key]:
+                            try:
+                                options[real_key].remove(item)
+                            except ValueError:
+                                self.logger.warning(
+                                    "Cannot remove item %r from option %r",
+                                    item,
+                                    real_key,
+                                )
+                    elif isinstance(options[real_key], dict):
+                        for item in file_options[key]:
+                            try:
+                                del options[real_key][item]
+                            except KeyError:
+                                self.logger.warning(
+                                    "Cannot remove item %r from option %r",
+                                    item,
+                                    real_key,
+                                )
+                else:
+                    options[key] = file_options[key]
         options.update(self.config_files_options)
         options.update(self.cli_options)
 
