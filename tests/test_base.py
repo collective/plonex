@@ -23,7 +23,7 @@ if sys.version_info < (3, 11):
 @dataclass(kw_only=True)
 class DummyService(BaseService):
 
-    logger: DummyLogger = field(default_factory=DummyLogger)
+    logger: DummyLogger = field(default_factory=DummyLogger)  # type: ignore
 
 
 class TestBaseService(unittest.TestCase):
@@ -117,3 +117,39 @@ class TestBaseService(unittest.TestCase):
     def test_executable_dir(self):
         """Test the executable_dir property"""
         self.assertEqual(BaseService().executable_dir, Path(sys.executable).parent)
+
+    def test_additional_plonex_options(self):
+        """Test that we can add additional options from etc/plonex.*.yml files"""
+
+        etc_path = self.temp_dir / "etc"
+        etc_path.mkdir()
+        plonex_path = etc_path / "plonex.test.yml"
+        plonex_path.write_text(
+            """---
+test_option: 42
+"""
+        )
+
+        self.assertDictEqual(BaseService().options, {"test_option": 42})
+        self.assertDictEqual(
+            BaseService(cli_options={"test_option": 44}).options, {"test_option": 44}
+        )
+
+    def test_additional_plonex_options_bogus(self):
+        """Test that we can add additional options from etc/plonex.*.yml files"""
+
+        etc_path = self.temp_dir / "etc"
+        etc_path.mkdir()
+        plonex_path = etc_path / "plonex.test.yml"
+        plonex_path.write_text(
+            """---
+ - test_option:
+    - 42
+"""
+        )
+        service = DummyService()
+        self.assertDictEqual(service.options, {})
+        self.assertListEqual(
+            service.logger.errors,
+            [("The config file %r should contain a dict", plonex_path)],
+        )

@@ -51,7 +51,7 @@ class BaseService:
         return yaml.safe_load(plonex_yml.read_text()) or {}
 
     @cached_property
-    def additional_plonex_options(self) -> dict:
+    def additional_plonex_options(self) -> dict[Path, dict]:
         """Return the options from all the found  plonex.*.yml files (if any).
 
         Precedence is given in alphabetical order.
@@ -129,6 +129,9 @@ class BaseService:
             if resolved_options == options_as_yaml_text:
                 break
             options_as_yaml_text = resolved_options
+            counter += 1
+        else:
+            self.logger.error("Too many iterations while resolving options")
 
         return yaml.safe_load(resolved_options)
 
