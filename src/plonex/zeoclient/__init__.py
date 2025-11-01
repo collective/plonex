@@ -10,6 +10,7 @@ from string import punctuation
 from typing import Literal
 
 import os
+import sh  # type: ignore [import-untyped]
 import subprocess
 import sys
 
@@ -265,3 +266,19 @@ class ZeoClient(BaseService):
                 self.logger.info("Stopping %r", command)
         if is_password_generated:
             print(f"Please take note of the {username} password: {password}")
+
+    @BaseService.entered_only
+    def run_script(self, script_args: list[str]):
+        """Run a script with the Zope instance"""
+        instance_path = self.tmp_folder / "bin" / "instance"  # type: ignore [operator]
+        try:
+            out = sh.Command(instance_path)("run", *script_args)
+        except Exception as e:
+            self.logger.error(e)
+            try:
+                # Try to get stderr from sh exception
+                self.logger.error(e.stderr.decode())  # type: ignore [attr-defined]
+            except AttributeError:
+                pass
+        else:
+            self.logger.info(out)

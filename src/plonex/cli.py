@@ -230,6 +230,16 @@ zeoclient_debug_parser = zeoclient_subparsers.add_parser(
     "debug", help="Start the ZEO Client in debug mode"
 )
 
+run_parser = action_subparsers.add_parser(
+    "run", help="Run an instance script", formatter_class=parser.formatter_class
+)
+
+run_parser.add_argument(
+    "args",
+    nargs="*",
+    help="Arguments to pass to the script",
+)
+
 
 adduser_parser = action_subparsers.add_parser(
     "adduser",
@@ -376,7 +386,9 @@ def main() -> None:
             cli_options=cli_options,
         ) as zeoclient:
             zeoclient.run()
-
+    elif args.action == "run":
+        with ZeoClient(target=target) as zeoclient:
+            zeoclient.run_script(args.args or [])
     elif args.action == "adduser":
         config_files = getattr(args, "zeoclient_config", []) or []
         with ZeoClient(target=target, config_files=config_files) as zeoclient:

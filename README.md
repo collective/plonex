@@ -183,3 +183,11 @@ zcml_additional:
 If the file ends in `-overrides.zcml`, it will be loaded after the default zcml files and override the existing configuration.
 
 Your extra zcml files will be threated as jinja2 templates, so you can use any variable known to the instance to render them.
+
+## Run a script
+
+You can run a script in the context of a zeo client with the `run` command:
+
+```sh
+plonex zeoclient run path/to/script.py [args ...]
+```

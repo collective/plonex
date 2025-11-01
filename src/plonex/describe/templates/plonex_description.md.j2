@@ -25,3 +25,15 @@ The markdown version of this file is located at `{{ context.var_folder / "plonex
 > `{{ log_level }}`
 >
 > ---
+
+
+## Developed packages
+
+{%- if context.developed_packages %}
+The following packages are developed in this project:
+{%- for package in context.developed_packages %}
+- `{{ package }}`
+{%- endfor %}
+{%- else %}
+No developed packages found.
+{%- endif %}

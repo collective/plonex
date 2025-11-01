@@ -3,6 +3,7 @@ from dataclasses import field
 from datetime import datetime
 from pathlib import Path
 from plonex.base import BaseService
+from plonex.install import InstallService
 from plonex.template import TemplateService
 from rich.console import Console
 from rich.markdown import Markdown
@@ -28,13 +29,19 @@ class DescribeService(BaseService):
                 source_path=self.describe_template,
                 target_path=self.describe_folder / "index.md",
                 options={"context": self},
-            )
+            ),
         ]
 
     @property
     def now(self):
         now = datetime.now()
         return now.strftime("%Y-%m-%d %H:%M:%S")
+
+    @property
+    def developed_packages(self) -> list[str]:
+        """Return a list of developed packages"""
+        with InstallService() as install_service:
+            return sorted(install_service.developed_packages())
 
     def run(self):
         # Use rich to describe info about this project

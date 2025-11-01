@@ -23,6 +23,7 @@ dependencies = [
     "PyYAML",
     "requests",
     "rich-argparse",
+    "sh",
     "types-PyYAML",
     "types-requests",
     "types-setuptools",
