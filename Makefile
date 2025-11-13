@@ -1,3 +1,6 @@
+.PHONY: all
+all: help
+
 .PHONY: test
 test: install  ## Run the tests
 	.venv/bin/mypy src/plonex
@@ -28,13 +31,7 @@ pre-commit: all  ## Install pre-commit hooks
 
 .PHONY: clean
 clean:  ## Remove all generated files
-	rm -rf \
-	    .coverage \
-	    .venv \
-	    node_modules \
-	    scripts.log \
-	    tmp \
-	    var
+	rm -rf .coverage .venv tmp var
 
 
 .PHONY: help

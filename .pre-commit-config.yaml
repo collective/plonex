@@ -54,3 +54,28 @@ repos:
       - id: codespell
         files: ^.*\.(py|c|h|md|rst|yml)$
         args: ["--ignore-words", ".codespellignore"]
+
+  # Markdown formatter (like black for Markdown)
+  - repo: https://github.com/executablebooks/mdformat
+    rev: 0.7.22
+    hooks:
+      - id: mdformat
+        files: \.md$
+        additional_dependencies:
+          - mdformat-gfm # GitHub-flavored Markdown
+          - mdformat-frontmatter # YAML/TOML frontmatter
+          - mdformat-toc # automatic table of contents
+          - mdformat-admon # admonitions so it doesn't mess them up
+
+  # Markdown lint
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.45.0
+    hooks:
+      - id: markdownlint
+        files: \.md$
+
+  # Lint Makefiles
+  - repo: https://github.com/mrtazz/checkmake
+    rev: 0.2.2
+    hooks:
+      - id: checkmake

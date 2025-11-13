@@ -113,7 +113,7 @@ name = "pypi"
 url = "https://pypi.org/simple"
 ```
 
-```
+```shell
 --extra-index-url=https://pypi.acme.org/simple
 ```
 
@@ -122,10 +122,10 @@ url = "https://pypi.org/simple"
 You can set options in multiple ways.
 
 1. In the command line (max priority)
-2. In config files
-3. In some `etc/plonex.*.yml` file (if any of them exists, precedence is given by alphabetical order)
-4. In the `etc/plonex.yml` file
-5. In the class definition options_default (lowest priority)
+1. In config files
+1. In some `etc/plonex.*.yml` file (if any of them exists, precedence is given by alphabetical order)
+1. In the `etc/plonex.yml` file
+1. In the class definition options_default (lowest priority)
 
 ### Log level
 
@@ -145,7 +145,8 @@ You can customize the Zope instance configuration by setting some options.
 
 ### Zope instance port
 
-You can set the Zope default zope instance port by setting the `http_port` variable.
+You can set the Zope default zope instance port by setting
+the `http_port` variable.
 
 ```yaml
 http_port: 8080
@@ -153,7 +154,8 @@ http_port: 8080
 
 ### Zope instances environment variables
 
-You can set environment variables for the Zope instances by setting the `environment_vars` variable.
+You can set environment variables for the Zope instances
+by setting the `environment_vars` variable.
 
 Note in this example how you can reuse existing variables
 
@@ -172,7 +174,8 @@ Also note the usage of the undocument (FIXME!!) `var_folder` variable.
 
 ### Zope instance additional zcml
 
-If you want to load additional zcml files, you can set the `zcml_additional` variable.
+If you want to load additional zcml files,
+you can set the `zcml_additional` variable.
 
 ```yaml
 zcml_additional:
@@ -180,9 +183,11 @@ zcml_additional:
   - etc/extra-overrides.zcml
 ```
 
-If the file ends in `-overrides.zcml`, it will be loaded after the default zcml files and override the existing configuration.
+If the file ends in `-overrides.zcml`, it will be loaded
+after the default zcml files and override the existing configuration.
 
-Your extra zcml files will be threated as jinja2 templates, so you can use any variable known to the instance to render them.
+Your extra zcml files will be threated as jinja2 templates,
+so you can use any variable known to the instance to render them.
 
 ## Run a script
 
