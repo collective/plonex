@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools >= 61.0"]
-build-backend = "setuptools.build_meta"
+requires = ["uv_build >= 0.9.8"]
+build-backend = "uv_build"
 
 [project]
 name = "plonex"
@@ -37,6 +37,8 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
@@ -55,7 +57,7 @@ test = ["mypy", "pytest", "pytest-cov", "supervisor"]
 
 [tool.black]
 line-length = 88
-target-version = ['py39', 'py310', 'py311', 'py312']
+target-version = ['py39', 'py310', 'py311', 'py312', 'py313', 'py314']
 
 [tool.flake8]
 max-line-length = 88
