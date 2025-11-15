@@ -1,8 +1,0 @@
-#!/bin/sh
-PYTHON="{{ options.python }}"
-INSTANCE_HOME="{{ options.instance_home }}"
-CONFIG_FILE="{{ options.zeo_conf }}"
-ZODB3_HOME=$(${PYTHON} -c 'import ZEO; print(ZEO.__path__[0])')
-
-export INSTANCE_HOME
-exec "$PYTHON" -m ZEO.runzeo -C "$CONFIG_FILE" ${1+"$@"}

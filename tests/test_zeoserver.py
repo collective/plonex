@@ -96,5 +96,9 @@ class TestZeoServer(PloneXTestCase):
         with temp_zeo() as zeo:
             self.assertEqual(
                 zeo.command,
-                [str(zeo.tmp_folder / "bin" / "runzeo")],
+                [
+                    str(zeo.virtualenv_dir / "bin" / "runzeo"),
+                    "-C",
+                    str(zeo.tmp_folder / "etc" / "zeo.conf"),
+                ],
             )

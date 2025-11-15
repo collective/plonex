@@ -19,18 +19,3 @@
     format %(asctime)s %(message)s
   </logfile>
 </eventlog>
-
-<runner>
-  program {{ options.runzeo }}
-  socket-name {{ options.socket_name }}
-  daemon true
-  forever false
-  backoff-limit 10
-  exit-codes 0, 2
-  directory $INSTANCE
-  default-to-interactive true
-
-  # This logfile should match the one in the zeo.conf file.
-  # It is used by zdctl's logtail command, zdrun/zdctl doesn't write it.
-  logfile {{ options.log_path }}
-</runner>

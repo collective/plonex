@@ -76,25 +76,16 @@ class ZeoServer(BaseService):
                         "log_path": self.var_folder / "log" / "zeoserver.log",
                         "tmp_folder": self.tmp_folder,
                         "socket_name": self.var_folder / "zeoserver.sock",
-                        "runzeo": self.tmp_folder / "bin" / "runzeo",
                     },
-                ),
-                TemplateService(
-                    source_path="resource://plonex.zeoserver.templates:runzeo.j2",
-                    target_path=self.tmp_folder / "bin" / "runzeo",
-                    options={
-                        "python": self.virtualenv_dir / "bin" / "python",
-                        "instance_home": self.target,
-                        "zeo_conf": self.tmp_folder / "etc" / "zeo.conf",
-                    },
-                    mode=0o700,
-                ),
+                )
             ]
 
     @property
     def command(self):
         return [
-            str(self.tmp_folder / "bin" / "runzeo"),
+            str(self.virtualenv_dir / "bin" / "runzeo"),
+            "-C",
+            str(self.tmp_folder / "etc" / "zeo.conf"),
         ]
 
     def run_pack(self, days: int = 7):
