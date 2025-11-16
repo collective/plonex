@@ -46,18 +46,18 @@ classifiers = [
 plonex = "plonex:cli.main"
 
 [project.urls]
-Homepage = "https://tbd"
-Documentation = "https://tbd"
-Repository = "https://tbd"
-Issues = "https://tbd"
-Changelog = "https://tbd"
+Homepage = "https://github.com/collective/plonex"
+Documentation = "https://github.com/collective/plonex/wiki"
+Repository = "https://github.com/collective/plonex"
+Issues = "https://github.com/collective/plonex/issues"
+Changelog = "https://github.com/collective/plonex/CHANGELOG.md"
 
 [project.optional-dependencies]
 test = ["mypy", "pytest", "pytest-cov", "supervisor"]
 
 [tool.black]
 line-length = 88
-target-version = ['py39', 'py310', 'py311', 'py312', 'py313', 'py314']
+target-version = 'py39'
 
 [tool.flake8]
 max-line-length = 88
