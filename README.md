@@ -123,6 +123,8 @@ You can set options in multiple ways.
 
 1. In the command line (max priority)
 1. In config files
+1. In a `etc/plonex-$servicename.*.yml`
+1. In a `etc/plonex-$servicename.yml`
 1. In some `etc/plonex.*.yml` file (if any of them exists, precedence is given by alphabetical order)
 1. In the `etc/plonex.yml` file
 1. In the class definition options_default (lowest priority)
@@ -186,7 +188,7 @@ zcml_additional:
 If the file ends in `-overrides.zcml`, it will be loaded
 after the default zcml files and override the existing configuration.
 
-Your extra zcml files will be threated as jinja2 templates,
+Your extra zcml files will be treated as jinja2 templates,
 so you can use any variable known to the instance to render them.
 
 ## Run a script
@@ -195,4 +197,54 @@ You can run a script in the context of a zeo client with the `run` command:
 
 ```sh
 plonex zeoclient run path/to/script.py [args ...]
+```
+
+### Robot tests helpers
+
+#### Robot server
+
+You can run a robot server with the `robotserver` command:
+
+```sh
+plonex robotserver
+```
+
+This will start a robot server connected to the Zope instance.
+You can browse the test server here on `http://127.0.0.2:55001/plone`.
+
+By the default the robot server will use the layer: `Products.CMFPlone.testing.PRODUCTS_CMFPLONE_ROBOT_TESTING`.
+
+You can change the layer by passing the `-l/--layer` option:
+
+```sh
+plonex robotserver --layer=My.Project.testing.MY_ROBOT_TESTING
+```
+
+#### Robot tests
+
+You can run robot tests with the `robottest` command:
+
+```sh
+plonex robottest path/to/tests/*.robot
+```
+
+By default:
+
+- this will run robot tests against the Zope instance running on `http://127.0.0.2:55001/plone` to match the robotserver configuration.
+- it will use the browser `firefox`
+- it will run all the tests found in the specified paths.
+
+You can change the defaults by passing options. Refer to the help message for more information:
+
+```sh
+$ plonex robottest --help
+Usage: plonex [options] robottest [-h] [-b BROWSER] [-t TEST] paths [paths ...]
+
+Positional Arguments:
+  paths                 Paths to the Robot Test files
+
+Options:
+  -h, --help            show this help message and exit
+  -b, --browser BROWSER Browser to use for the tests (default: firefox)
+  -t, --test TEST       Name of the test(s) to run. It supports regular expressions.
 ```

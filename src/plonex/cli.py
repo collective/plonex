@@ -7,6 +7,8 @@ from plonex import logger
 from plonex.describe import DescribeService
 from plonex.init import InitService
 from plonex.install import InstallService
+from plonex.robotserver import RobotServer
+from plonex.robottest import RobotTest
 from plonex.supervisor import Supervisor
 from plonex.test import TestService
 from plonex.zeoclient import ZeoClient
@@ -84,6 +86,55 @@ describe_parser = action_subparsers.add_parser(
     "describe",
     help="Describe the current project configuration",
     formatter_class=parser.formatter_class,
+)
+
+robot_server_parser = action_subparsers.add_parser(
+    "robotserver",
+    help="Start the Robot Server",
+    formatter_class=parser.formatter_class,
+)
+
+robot_server_parser.add_argument(
+    "-l",
+    "--layer",
+    type=str,
+    help="Testing layer to use",
+    required=False,
+    default="Products.CMFPlone.testing.PRODUCTS_CMFPLONE_ROBOT_TESTING",
+    dest="layer",
+)
+
+robot_test_parser = action_subparsers.add_parser(
+    "robottest",
+    help="Run Robot Tests",
+    formatter_class=parser.formatter_class,
+)
+
+robot_test_parser.add_argument(
+    "paths",
+    type=str,
+    help="Paths to the Robot Test files",
+    nargs="+",
+)
+
+robot_test_parser.add_argument(
+    "-b",
+    "--browser",
+    type=str,
+    help="Browser to use for the tests (default: firefox)",
+    required=False,
+    default="firefox",
+    dest="browser",
+)
+
+robot_test_parser.add_argument(
+    "-t",
+    "--test",
+    type=str,
+    help="Name of the test(s) to run. It supports regular expressions.",
+    required=False,
+    default="",
+    dest="test",
 )
 
 # init will accept one and only one positional target argument,
@@ -362,6 +413,21 @@ def main() -> None:
     if args.action == "describe":
         with DescribeService(target=target) as describe:
             describe.run()
+        return
+
+    if args.action == "robotserver":
+        with RobotServer(target=target, layer=args.layer) as robotserver:
+            robotserver.run()
+        return
+
+    if args.action == "robottest":
+        with RobotTest(
+            target=target,
+            paths=args.paths,
+            browser=args.browser,
+            test=args.test,
+        ) as robottest:
+            robottest.run()
         return
 
     if args.action == "zeoserver":

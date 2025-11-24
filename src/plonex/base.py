@@ -57,7 +57,11 @@ class BaseService:
         Precedence is given in alphabetical order.
         """
         mapping = {}
-        for path in self.target.glob("etc/plonex.*.yml"):
+        paths = list(self.target.glob("etc/plonex.*.yml"))
+        paths += list(self.target.glob(f"etc/plonex-{self.name}.yml"))
+        paths += list(self.target.glob(f"etc/plonex-{self.name}.*.yml"))
+
+        for path in paths:
             if not path.exists():
                 self.logger.warning("Config file %r does not exist", path)
                 file_options = {}
