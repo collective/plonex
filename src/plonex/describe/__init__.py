@@ -41,7 +41,7 @@ class DescribeService(BaseService):
     def developed_packages(self) -> list[str]:
         """Return a list of developed packages"""
         with InstallService() as install_service:
-            return sorted(install_service.developed_packages())
+            return sorted(install_service.developed_packages_and_paths())
 
     def run(self):
         # Use rich to describe info about this project

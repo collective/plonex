@@ -158,7 +158,7 @@ class InstallService(BaseService):
 
         return path.absolute().name
 
-    def developed_packages(self):
+    def developed_packages(self) -> set[str]:
         """Try to understand which packages are under development"""
         packages = set()
         for file in self.requirements_d_folder.iterdir():
@@ -180,6 +180,31 @@ class InstallService(BaseService):
                     )
 
                 packages.add(name_as_pep503(name))
+        return packages
+
+    def developed_packages_and_paths(self) -> set[str]:
+        """Try to understand which packages are under development"""
+        packages = set()
+        for file in self.requirements_d_folder.iterdir():
+            requirements = RequirementsFile.from_file(str(file), include_nested=True)
+            editable_requirements = (
+                requirement
+                for requirement in requirements.requirements
+                if requirement.is_editable
+            )
+            for requirement in editable_requirements:
+                try:
+                    name = self.resolve_package_name_from_path(requirement)
+                except Exception as e:
+                    name = requirement.link.filename
+                    self.logger.warning(
+                        "Could not resolve package name for requirement %r: %s",
+                        requirement,
+                        e,
+                    )
+                packages.add(
+                    f"{name_as_pep503(name)} → {Path(requirement.link.path).absolute()}"
+                )
         return packages
 
     def make_constraints_txt(self):
