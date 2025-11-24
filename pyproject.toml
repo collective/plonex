@@ -55,10 +55,6 @@ Changelog = "https://github.com/collective/plonex/CHANGELOG.md"
 [project.optional-dependencies]
 test = ["mypy", "pytest", "pytest-cov", "supervisor"]
 
-[tool.black]
-line-length = 88
-target-version = 'py39'
-
 [tool.flake8]
 max-line-length = 88
 
