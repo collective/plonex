@@ -265,7 +265,7 @@ class BaseService:
                     value = value.format(**self.options)
                 else:
                     value = str(value)
-                self.logger.debug("Setting environment variable %s=%s", key, value)
+                self.logger.debug("Setting environment variable %r", key)
                 if key in os.environ:
                     old = os.environ[key]
                     if old != value:
