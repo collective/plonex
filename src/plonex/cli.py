@@ -13,6 +13,7 @@ from plonex.supervisor import Supervisor
 from plonex.test import TestService
 from plonex.zeoclient import ZeoClient
 from plonex.zeoserver import ZeoServer
+from plonex.zopetest import ZopeTest
 from rich_argparse import RawTextRichHelpFormatter
 
 import sys
@@ -128,6 +129,28 @@ robot_test_parser.add_argument(
 )
 
 robot_test_parser.add_argument(
+    "-t",
+    "--test",
+    type=str,
+    help="Name of the test(s) to run. It supports regular expressions.",
+    required=False,
+    default="",
+    dest="test",
+)
+
+zope_test_parser = action_subparsers.add_parser(
+    "zopetest",
+    help="Run Zope Tests",
+    formatter_class=parser.formatter_class,
+)
+
+zope_test_parser.add_argument(
+    "package",
+    type=str,
+    help="Package to test",
+)
+
+zope_test_parser.add_argument(
     "-t",
     "--test",
     type=str,
@@ -428,6 +451,15 @@ def main() -> None:
             test=args.test,
         ) as robottest:
             robottest.run()
+        return
+
+    if args.action == "zopetest":
+        with ZopeTest(
+            target=target,
+            package=args.package,
+            test=args.test,
+        ) as zopetest:
+            zopetest.run()
         return
 
     if args.action == "zeoserver":

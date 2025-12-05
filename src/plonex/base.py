@@ -315,6 +315,8 @@ class BaseService:
     def run(self):
         """Run the command"""
         command = self.command
+        if not command:
+            return
         self.run_command(command)
 
     def __exit__(self, exc_type, exc_value, traceback):

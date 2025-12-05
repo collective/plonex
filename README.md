@@ -199,6 +199,35 @@ You can run a script in the context of a zeo client with the `run` command:
 plonex zeoclient run path/to/script.py [args ...]
 ```
 
+## Run tests
+
+You can run tests with the `test` command:
+
+```sh
+plonex zopetest [-t TEST] package
+```
+
+For example to run all the tests in the `plone.api` package that match the name `test_get`, run:
+
+```sh
+$ plonex -q zopetest -t test_get plone.api
+Running plone.api.tests.base.PloneApiLayer:Integration tests:
+  Set up plone.testing.zca.LayerCleanup in 0.000 seconds.
+  Set up plone.testing.zope.Startup in 0.040 seconds.
+  Set up plone.app.testing.layers.PloneFixture in 1.146 seconds.
+  Set up plone.api.tests.base.PloneApiLayer in 0.528 seconds.
+  Set up plone.api.tests.base.PloneApiLayer:Integration in 0.000 seconds.
+  Running:
+
+  Ran 80 tests with 0 failures, 0 errors, 0 skipped in 2.326 seconds.
+Tearing down left over layers:
+  Tear down plone.api.tests.base.PloneApiLayer:Integration in 0.000 seconds.
+  Tear down plone.api.tests.base.PloneApiLayer in 0.001 seconds.
+  Tear down plone.app.testing.layers.PloneFixture in 0.007 seconds.
+  Tear down plone.testing.zope.Startup in 0.001 seconds.
+  Tear down plone.testing.zca.LayerCleanup in 0.000 seconds.
+```
+
 ### Robot tests helpers
 
 #### Robot server
