@@ -4,7 +4,7 @@ from pathlib import Path
 from plonex.base import BaseService
 from plonex.template import TemplateService
 
-import subprocess
+import sh
 
 
 @dataclass(kw_only=True)
@@ -115,12 +115,35 @@ class Supervisor(BaseService):
             ]
 
     @property
+    def supervisord(self) -> sh.Command:
+        """Return the supervisord command to run."""
+        return sh.Command(str(self.virtualenv_dir / "bin" / "supervisord"))
+
+    @property
+    def supervisorctl(self) -> sh.Command:
+        """Return the supervisord command to run."""
+        return sh.Command(str(self.virtualenv_dir / "bin" / "supervisorctl"))
+
+    @property
+    def supervisord_conf(self) -> Path:
+        """Return the path to the supervisord.conf file."""
+        return self.etc_folder / "supervisord.conf"
+
+    @property
     def command(self) -> list[str]:
         return [
             str(self.virtualenv_dir / "bin" / "supervisord"),
             "-c",
-            str(self.target / "etc" / "supervisord.conf"),
+            str(self.supervisord_conf),
         ]
+
+    def is_running(self) -> bool:
+        """Check if supervisord is running."""
+        try:
+            self.supervisorctl("-c", str(self.supervisord_conf), "status")
+        except sh.ErrorReturnCode:
+            return False
+        return True
 
     @BaseService.entered_only
     def initialize_configuration(self):
@@ -128,60 +151,50 @@ class Supervisor(BaseService):
 
     @BaseService.entered_only
     def run_status(self):
-        subprocess.run(
-            [
-                str(self.virtualenv_dir / "bin" / "supervisorctl"),
-                "-c",
-                str(self.target / "etc" / "supervisord.conf"),
-                "status",
-            ]
-        )
+        if not self.is_running():
+            self.logger.info("supervisord is not running")
+            return
+        output = self.supervisorctl("-c", str(self.supervisord_conf), "status")
+        self.print(output)
 
     @BaseService.entered_only
     def run_stop(self):
-        subprocess.run(
-            [
-                str(self.virtualenv_dir / "bin" / "supervisorctl"),
-                "-c",
-                str(self.target / "etc" / "supervisord.conf"),
-                "shutdown",
-            ]
-        )
+        if not self.is_running():
+            self.logger.info("supervisord is not running")
+            return
+        output = self.supervisorctl("-c", str(self.supervisord_conf), "shutdown")
+        self.print(output)
 
     @BaseService.entered_only
     def run_restart(self):
-        subprocess.run(
-            [
-                str(self.virtualenv_dir / "bin" / "supervisorctl"),
-                "-c",
-                str(self.target / "etc" / "supervisord.conf"),
-                "restart all",
-            ]
-        )
+        if not self.is_running():
+            self.logger.info("supervisord is not running, starting it instead")
+            return self.run()
+        output = self.supervisorctl("-c", str(self.supervisord_conf), "restart", "all")
+        self.print(output)
 
     @BaseService.entered_only
     def run_reread(self):
-        subprocess.run(
-            [
-                str(self.virtualenv_dir / "bin" / "supervisorctl"),
-                "-c",
-                str(self.target / "etc" / "supervisord.conf"),
-                "reread",
-            ]
-        )
+        if not self.is_running():
+            self.logger.info("supervisord is not running")
+            return
+        output = self.supervisorctl("-c", str(self.supervisord_conf), "reread")
+        self.print(output)
 
     @BaseService.entered_only
     def run_update(self):
-        subprocess.run(
-            [
-                str(self.virtualenv_dir / "bin" / "supervisorctl"),
-                "-c",
-                str(self.target / "etc" / "supervisord.conf"),
-                "update",
-            ]
-        )
+        if not self.is_running():
+            self.logger.info("supervisord is not running")
+            return
+        output = self.supervisorctl("-c", str(self.supervisord_conf), "update")
+        self.print(output)
 
     @BaseService.entered_only
     def reread_update(self):
-        self.run_reread()
-        self.run_update()
+        if not self.is_running():
+            self.logger.info("supervisord is not running")
+            return
+        output = self.run_reread()
+        self.print(output)
+        output = self.run_update()
+        self.print(output)

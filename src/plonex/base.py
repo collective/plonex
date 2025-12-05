@@ -187,6 +187,14 @@ class BaseService:
         """A console object that can be used to interact with the user"""
         return Console()
 
+    @cached_property
+    def print(self) -> Callable[..., None]:
+        """A print function that can be used to print to the console"""
+        if self.logger.isEnabledFor(logging.INFO):
+            return self.console.print
+        else:
+            return lambda *args, **kwargs: None
+
     def ask_for_value(self, question: str, default: str = "") -> str:
         """Ask the user for a value"""
         if default:

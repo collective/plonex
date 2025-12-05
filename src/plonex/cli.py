@@ -16,6 +16,7 @@ from plonex.zeoserver import ZeoServer
 from plonex.zopetest import ZopeTest
 from rich_argparse import RawTextRichHelpFormatter
 
+import logging
 import sys
 
 
@@ -387,9 +388,12 @@ def main() -> None:
         return
 
     if args.verbose:
-        logger.setLevel("DEBUG")
+        logger.setLevel(logging.DEBUG)
     elif args.quiet:
-        logger.setLevel("WARNING")
+        logger.setLevel(logging.WARNING)
+        logging.getLogger("sh").setLevel(logging.WARNING)
+    else:
+        logging.getLogger("sh").setLevel(logging.WARNING)
 
     if args.action == "init":
         with InitService(target=args.target) as init:
