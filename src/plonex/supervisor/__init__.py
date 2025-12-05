@@ -155,6 +155,10 @@ class Supervisor(BaseService):
             self.logger.info("supervisord is not running")
             return
         output = self.supervisorctl("-c", str(self.supervisord_conf), "status")
+        output = output.replace(" RUNNING ", " [green] RUNNING [/green] ")
+        output = output.replace(" STOPPED ", " [red] STOPPED [/red] ")
+        output = output.replace(" STARTING ", " [yellow] STARTING [/yellow] ")
+        output = output.replace(" FATAL ", " [bold red] FATAL [/bold red] ")
         self.print(output)
 
     @BaseService.entered_only
@@ -171,7 +175,9 @@ class Supervisor(BaseService):
             self.logger.info("supervisord is not running, starting it instead")
             return self.run()
         output = self.supervisorctl("-c", str(self.supervisord_conf), "restart", "all")
-        self.print(output)
+        output = output.replace(" started", "[green] started[/green]")
+        output = output.replace(" stopped", "[red] stopped[/red]")
+        self.print(output.rstrip())
 
     @BaseService.entered_only
     def run_reread(self):
