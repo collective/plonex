@@ -199,6 +199,32 @@ You can run a script in the context of a zeo client with the `run` command:
 plonex zeoclient run path/to/script.py [args ...]
 ```
 
+## Maintenance
+
+With plonex you can easily maintain your DB.
+
+### Pack
+
+To pack your ZODB database, you can use the `pack` command:
+
+```sh
+plonex zeoserver pack [--days DAYS]
+```
+
+### Backup
+
+To backup your ZODB database, you can use the `backup` command:
+
+```sh
+plonex zeoserver backup
+```
+
+TODO: backup blob with rsync.
+
+### Restore
+
+TODO: implement the restore command.
+
 ## Run tests
 
 You can run tests with the `test` command:
