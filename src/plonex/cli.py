@@ -397,6 +397,8 @@ def main() -> None:
     for folder in chain([target], target.parents):
         plonex_yml = folder / "etc" / "plonex.yml"
         if plonex_yml.exists():
+            target = folder.resolve()
+            logger.debug("Using target folder %r", str(target))
             break
     else:
         logger.error(
