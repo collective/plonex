@@ -3,7 +3,7 @@ from pathlib import Path
 from plonex.base import BaseService
 from textwrap import dedent
 
-import sh
+import sh  # type: ignore[import-untyped]
 
 
 @dataclass(kw_only=True)

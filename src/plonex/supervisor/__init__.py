@@ -4,7 +4,7 @@ from pathlib import Path
 from plonex.base import BaseService
 from plonex.template import TemplateService
 
-import sh
+import sh  # type: ignore[import-untyped]
 
 
 @dataclass(kw_only=True)
