@@ -194,30 +194,19 @@ supervisor_subparsers = supervisor_parser.add_subparsers(
     dest="supervisor_action", help="Supervisor actions"
 )
 
-# The possible actions for the supervisor are:
-#
-# - start
-# - stop
-# - restart
-# - status
-# - graceful
+supervisor_subparsers.add_parser(
+    "status",
+    help="Status of supervisor (default)",
+    formatter_class=parser.formatter_class,
+)
 supervisor_start_parser = supervisor_subparsers.add_parser(
     "start", help="Start supervisor"
-)
-supervisor_start_parser.add_argument(
-    "--foo",
-    action="help",
-    default="==SUPPRESS==",
-    help="Show this help message and exit",
 )
 supervisor_subparsers.add_parser(
     "stop", help="Stop supervisor", formatter_class=parser.formatter_class
 )
 supervisor_subparsers.add_parser(
     "restart", help="Restart supervisor", formatter_class=parser.formatter_class
-)
-supervisor_subparsers.add_parser(
-    "status", help="Status of supervisor", formatter_class=parser.formatter_class
 )
 supervisor_subparsers.add_parser(
     "graceful",
@@ -496,14 +485,7 @@ def main() -> None:
         with ZeoClient(target=target, config_files=config_files) as zeoclient:
             zeoclient.adduser(args.username, args.password)
     elif args.action == "supervisor":
-        supervisor_action = getattr(args, "supervisor_action", None)
-        if supervisor_action is None:
-            possible_actions = supervisor_parser._actions[-1].choices or []
-            logger.error(
-                "You must specify an action for the supervisor: %r",
-                tuple(possible_actions),
-            )
-            return
+        supervisor_action = getattr(args, "supervisor_action", None) or "status"
         with Supervisor(target=target) as supervisor:
             if supervisor_action == "start":
                 supervisor.run()
@@ -511,9 +493,9 @@ def main() -> None:
                 supervisor.run_stop()
             elif supervisor_action == "restart":
                 supervisor.run_restart()
-            elif args.supervisor_action == "status":
+            elif supervisor_action == "status":
                 supervisor.run_status()
-            elif args.supervisor_action == "graceful":
+            elif supervisor_action == "graceful":
                 logger.info("TODO: Manage the graceful restart of the services")
     elif args.action == "backup":
         with ZeoServer(target=target) as zeoserver:
