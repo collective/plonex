@@ -150,11 +150,15 @@ class Supervisor(BaseService):
         self.logger.info("Creating the supervisor configuration")
 
     @BaseService.entered_only
-    def run_status(self):
+    def get_status(self) -> str:
         if not self.is_running():
-            self.logger.info("supervisord is not running")
-            return
+            return "Supervisord is not running"
         output = self.supervisorctl("-c", str(self.supervisord_conf), "status")
+        return output
+
+    @BaseService.entered_only
+    def run_status(self):
+        output = self.get_status()
         output = output.replace(" RUNNING ", " [green] RUNNING [/green] ")
         output = output.replace(" STOPPED ", " [red] STOPPED [/red] ")
         output = output.replace(" STARTING ", " [yellow] STARTING [/yellow] ")

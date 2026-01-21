@@ -4,6 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from plonex.base import BaseService
 from plonex.install import InstallService
+from plonex.supervisor import Supervisor
 from plonex.template import TemplateService
 from rich.console import Console
 from rich.markdown import Markdown
@@ -42,6 +43,12 @@ class DescribeService(BaseService):
         """Return a list of developed packages"""
         with InstallService() as install_service:
             return sorted(install_service.developed_packages_and_paths())
+
+    @property
+    def supervisor_status(self) -> str:
+        """Return the status of the supervisor as a string"""
+        with Supervisor(target=self.target) as supervisor:
+            return supervisor.get_status()
 
     def run(self):
         # Use rich to describe info about this project
