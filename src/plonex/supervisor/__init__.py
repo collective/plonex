@@ -141,7 +141,10 @@ class Supervisor(BaseService):
         """Check if supervisord is running."""
         try:
             self.supervisorctl("-c", str(self.supervisord_conf), "status")
-        except sh.ErrorReturnCode:
+        except sh.ErrorReturnCode as e:
+            if e.exit_code == 3:
+                # Running but with failing processes
+                return True
             return False
         return True
 
@@ -153,7 +156,10 @@ class Supervisor(BaseService):
     def get_status(self) -> str:
         if not self.is_running():
             return "Supervisord is not running"
-        output = self.supervisorctl("-c", str(self.supervisord_conf), "status")
+        try:
+            output = self.supervisorctl("-c", str(self.supervisord_conf), "status")
+        except sh.ErrorReturnCode as e:
+            output = e.stdout.decode()
         return output
 
     @BaseService.entered_only
