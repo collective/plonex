@@ -11,6 +11,7 @@ from plonex.robotserver import RobotServer
 from plonex.robottest import RobotTest
 from plonex.supervisor import Supervisor
 from plonex.test import TestService
+from plonex.upgrade import UpgradeService
 from plonex.zeoclient import ZeoClient
 from plonex.zeoserver import ZeoServer
 from plonex.zopetest import ZopeTest
@@ -185,6 +186,12 @@ install_parser.add_argument(
     type=str,
     help="Packages to install",
     nargs="+",
+)
+
+upgrade_parser = action_subparsers.add_parser(
+    "upgrade",
+    help="Run Plone upgrade steps",
+    formatter_class=parser.formatter_class,
 )
 
 supervisor_parser = action_subparsers.add_parser(
@@ -523,6 +530,9 @@ def main() -> None:
             install.add_packages(args.package)
         with InstallService() as install:
             install.run()
+    elif args.action == "upgrade":
+        with UpgradeService(target=target) as upgrade:
+            upgrade.run()
     else:
         parser.print_help()
 
