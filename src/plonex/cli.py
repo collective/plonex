@@ -4,6 +4,7 @@ from importlib.metadata import version
 from itertools import chain
 from pathlib import Path
 from plonex import logger
+from plonex.compile import CompileService
 from plonex.describe import DescribeService
 from plonex.init import InitService
 from plonex.install import InstallService
@@ -82,6 +83,16 @@ init_parser = action_subparsers.add_parser(
         "This will create the necessary folders and configuration files."
     ),
     help=("Initialize the project in the specified target folder."),
+    formatter_class=parser.formatter_class,
+)
+
+compile_parser = action_subparsers.add_parser(
+    "compile",
+    description=(
+        "Compile the configuration files in to var files. "
+        "This will read the configuration files and generate the necessary var files."
+    ),
+    help="Compile the configuration files in to var files",
     formatter_class=parser.formatter_class,
 )
 
@@ -434,6 +445,10 @@ def main() -> None:
                     )
                 else:
                     logger.setLevel(log_level.upper())
+    if args.action == "compile":
+        with CompileService(target=target) as compile:
+            compile.run()
+        return
 
     if args.action == "describe":
         with DescribeService(target=target) as describe:
