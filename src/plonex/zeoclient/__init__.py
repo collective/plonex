@@ -54,15 +54,19 @@ class ZeoClient(BaseService):
 
     @property
     def options_defaults(self):
-        return {
-            "var_folder": str(self.var_folder),
-            "http_port": 8080,
-            "http_address": "0.0.0.0",
-            "zeo_address": str(self.var_folder / "zeosocket.sock"),
-            "blobstorage": str(self.var_folder / "blobstorage"),
-            "zcml_additional": [],
-            "zope_conf_additional": [],
-        }
+        options_defaults = super().options_defaults
+        options_defaults.update(
+            {
+                "var_folder": str(self.var_folder),
+                "http_port": 8080,
+                "http_address": "0.0.0.0",
+                "zeo_address": str(self.var_folder / "zeosocket.sock"),
+                "blobstorage": str(self.var_folder / "blobstorage"),
+                "zcml_additional": [],
+                "zope_conf_additional": [],
+            }
+        )
+        return options_defaults
 
     def __post_init__(self):
         # Be sure that the required folders exist

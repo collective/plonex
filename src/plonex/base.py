@@ -10,7 +10,6 @@ from plonex import logger
 from rich.console import Console
 from tempfile import mkdtemp
 from typing import Callable
-from typing import ClassVar
 
 import logging
 import subprocess
@@ -29,8 +28,6 @@ class BaseService:
     be stored.
     """
 
-    options_defaults: ClassVar[dict] = {}
-
     name: str = "base"
     target: Path = field(default_factory=Path.cwd)
     cli_options: dict = field(default_factory=dict)
@@ -40,6 +37,12 @@ class BaseService:
     post_services: None | list = field(default=None, init=False)
     logger: logging.Logger = field(default=logger, init=False)
     _entered: bool = field(default=False, init=False)
+
+    @cached_property
+    def options_defaults(self) -> dict:
+        return {
+            "target": self.target.absolute().as_posix(),
+        }
 
     @cached_property
     def plonex_options(self) -> dict:

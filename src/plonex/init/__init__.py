@@ -1,10 +1,10 @@
 from dataclasses import dataclass
+from functools import cached_property
 from importlib.metadata import version
 from plonex.base import BaseService
 from plonex.install import InstallService
 from plonex.supervisor import Supervisor
 from plonex.template import TemplateService
-from typing import ClassVar
 
 import requests
 import subprocess
@@ -15,10 +15,17 @@ class InitService(BaseService):
     """This context manager starts up the project with a minimal configuration"""
 
     name: str = "init"
-    options_defaults: ClassVar[dict] = {
-        "plonex_version": version("plonex"),
-        "plone_version": "6.1-latest",
-    }
+
+    @cached_property
+    def options_defaults(self) -> dict:
+        options_defaults = super().options_defaults
+        options_defaults.update(
+            {
+                "plonex_version": version("plonex"),
+                "plone_version": "6.1-latest",
+            }
+        )
+        return options_defaults
 
     def __post_init__(self):
         self.target = self._ensure_dir(self.target)

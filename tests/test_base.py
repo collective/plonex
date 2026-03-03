@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
 from plonex.base import BaseService
+from textwrap import dedent
 from unittest import mock
 
 import inspect
@@ -124,15 +125,24 @@ class TestBaseService(unittest.TestCase):
         etc_path = self.temp_dir / "etc"
         etc_path.mkdir()
         plonex_path = etc_path / "plonex.test.yml"
+
+        default_options = BaseService().options
+        self.assertDictEqual(default_options, {"target": str(self.temp_dir)})
+
         plonex_path.write_text(
-            """---
-test_option: 42
-"""
+            dedent(
+                """---
+            test_option: 42
+            """
+            )
         )
 
-        self.assertDictEqual(BaseService().options, {"test_option": 42})
         self.assertDictEqual(
-            BaseService(cli_options={"test_option": 44}).options, {"test_option": 44}
+            BaseService().options, {"test_option": 42, **default_options}
+        )
+        self.assertDictEqual(
+            BaseService(cli_options={"test_option": 44}).options,
+            {"test_option": 44, **default_options},
         )
 
     def test_additional_plonex_options_bogus(self):
@@ -140,15 +150,20 @@ test_option: 42
 
         etc_path = self.temp_dir / "etc"
         etc_path.mkdir()
+
+        default_options = BaseService().options
+
         plonex_path = etc_path / "plonex.test.yml"
         plonex_path.write_text(
-            """---
- - test_option:
-    - 42
-"""
+            dedent(
+                """---
+            - test_option:
+                - 42
+            """
+            )
         )
         service = DummyService()
-        self.assertDictEqual(service.options, {})
+        self.assertDictEqual(service.options, default_options)
         self.assertListEqual(
             service.logger.errors,
             [("The config file %r should contain a dict", plonex_path)],

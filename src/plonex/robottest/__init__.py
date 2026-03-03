@@ -14,12 +14,16 @@ class RobotTest(BaseService):
 
     @property
     def options_defaults(self):
-        return {
-            "environment_vars": {
-                "ZSERVER_HOST": "127.0.0.2",
-                "ZSERVER_PORT": "55001",
+        options_defaults = super().options_defaults
+        options_defaults.update(
+            {
+                "environment_vars": {
+                    "ZSERVER_HOST": "127.0.0.2",
+                    "ZSERVER_PORT": "55001",
+                }
             }
-        }
+        )
+        return options_defaults
 
     @property
     def command(self) -> list[str]:

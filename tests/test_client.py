@@ -119,6 +119,7 @@ class TestZeoClient(PloneXTestCase):
                     "zeo_address",
                     "zope_conf_additional",
                     "var_folder",
+                    "target",
                 },
             )
             self.assertEqual(
