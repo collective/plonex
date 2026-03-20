@@ -17,476 +17,498 @@ from plonex.zeoclient import ZeoClient
 from plonex.zeoserver import ZeoServer
 from plonex.zopetest import ZopeTest
 from rich_argparse import RawTextRichHelpFormatter
+from textwrap import dedent
 
 import logging
+import os
 import sys
 
 
-parser = ArgumentParser(
-    description="""Plone Deployment CLI.
-
-Activate autocomplete with:
-
-eval "$(register-python-argcomplete plonex)"
-""",
-    prog="plonex",
-    usage="%(prog)s [options]",
-    formatter_class=RawTextRichHelpFormatter,
-)
-parser.add_argument(
-    "-t",
-    "--target",
-    type=str,
-    help="Path to the target folder",
-    required=False,
-    default=Path.cwd(),
-    dest="target",
-)
-
-parser.add_argument(
-    "-v",
-    "--verbose",
-    action="store_true",
-    help="Increase verbosity",
-    required=False,
-    default=False,
-    dest="verbose",
-)
-
-parser.add_argument(
-    "-q",
-    "--quiet",
-    action="store_true",
-    help="Decrease verbosity",
-    required=False,
-    default=False,
-    dest="quiet",
-)
+def _group_subcommands_for_help(subs, groups: dict[str, list[str]]) -> None:
+    """Reorder subcommand help entries and inject category headers."""
+    choices_by_name = {action.dest: action for action in subs._choices_actions}
+    grouped = []
+    for title, names in groups.items():
+        grouped.append(subs._ChoicesPseudoAction(f"\n{title}", [], ""))
+        for name in names:
+            action = choices_by_name.get(name)
+            if action is not None:
+                grouped.append(action)
+    subs._choices_actions = grouped
 
 
-parser.add_argument(
-    "-V",
-    "--version",
-    action="store_true",
-    help="Show the version of the package",
-    required=False,
-    default=False,
-    dest="version",
-)
+def build_parser() -> ArgumentParser:
+    parser = ArgumentParser(
+        description=dedent(
+            """\
+            Plone Deployment CLI.
 
-action_subparsers = parser.add_subparsers(dest="action")
+            Activate autocomplete with:
 
-init_parser = action_subparsers.add_parser(
-    "init",
-    description=(
-        "Initialize the project in the specified target folder. "
-        "This will create the necessary folders and configuration files."
-    ),
-    help=("Initialize the project in the specified target folder."),
-    formatter_class=parser.formatter_class,
-)
+            eval "$(register-python-argcomplete plonex)"
+            """
+        ),
+        prog="plonex",
+        usage="%(prog)s [options]",
+        formatter_class=RawTextRichHelpFormatter,
+    )
+    fmt = parser.formatter_class
 
-compile_parser = action_subparsers.add_parser(
-    "compile",
-    description=(
-        "Compile the configuration files in to var files. "
-        "This will read the configuration files and generate the necessary var files."
-    ),
-    help="Compile the configuration files in to var files",
-    formatter_class=parser.formatter_class,
-)
+    parser.add_argument(
+        "-t",
+        "--target",
+        type=str,
+        help="Path to the target folder",
+        required=False,
+        default=Path.cwd(),
+        dest="target",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Increase verbosity",
+        required=False,
+        default=False,
+        dest="verbose",
+    )
+    parser.add_argument(
+        "-q",
+        "--quiet",
+        action="store_true",
+        help="Decrease verbosity",
+        required=False,
+        default=False,
+        dest="quiet",
+    )
+    parser.add_argument(
+        "-V",
+        "--version",
+        action="store_true",
+        help="Show the version of the package",
+        required=False,
+        default=False,
+        dest="version",
+    )
 
-describe_parser = action_subparsers.add_parser(
-    "describe",
-    help="Describe the current project configuration",
-    formatter_class=parser.formatter_class,
-)
+    subs = parser.add_subparsers(dest="action", title="Positional Arguments")
 
-robot_server_parser = action_subparsers.add_parser(
-    "robotserver",
-    help="Start the Robot Server",
-    formatter_class=parser.formatter_class,
-)
+    # --- init ---
+    init_parser = subs.add_parser(
+        "init",
+        description=(
+            "Initialize the project in the specified target folder. "
+            "This will create the necessary folders and configuration files."
+        ),
+        help="Initialize the project in the specified target folder.",
+        formatter_class=fmt,
+    )
+    init_parser.add_argument(
+        "target",
+        type=str,
+        help=(
+            "Path where the project will be initialized. "
+            "Defaults to the current working directory."
+        ),
+        default=str(Path.cwd()),
+        nargs="?",
+    )
 
-robot_server_parser.add_argument(
-    "-l",
-    "--layer",
-    type=str,
-    help="Testing layer to use",
-    required=False,
-    default="Products.CMFPlone.testing.PRODUCTS_CMFPLONE_ROBOT_TESTING",
-    dest="layer",
-)
+    # --- compile ---
+    subs.add_parser(
+        "compile",
+        description=(
+            "Compile the configuration files in to var files. "
+            "This will read the configuration files "
+            "and generate the necessary var files."
+        ),
+        help="Compile the configuration files in to var files",
+        formatter_class=fmt,
+    )
 
-robot_test_parser = action_subparsers.add_parser(
-    "robottest",
-    help="Run Robot Tests",
-    formatter_class=parser.formatter_class,
-)
+    # --- describe ---
+    subs.add_parser(
+        "describe",
+        help="Describe the current project configuration",
+        formatter_class=fmt,
+    )
 
-robot_test_parser.add_argument(
-    "paths",
-    type=str,
-    help="Paths to the Robot Test files",
-    nargs="+",
-)
+    # --- robotserver ---
+    robotserver_parser = subs.add_parser(
+        "robotserver",
+        help="Start the Robot Server",
+        formatter_class=fmt,
+    )
+    robotserver_parser.add_argument(
+        "-l",
+        "--layer",
+        type=str,
+        help="Testing layer to use",
+        required=False,
+        default="Products.CMFPlone.testing.PRODUCTS_CMFPLONE_ROBOT_TESTING",
+        dest="layer",
+    )
 
-robot_test_parser.add_argument(
-    "-b",
-    "--browser",
-    type=str,
-    help="Browser to use for the tests (default: firefox)",
-    required=False,
-    default="firefox",
-    dest="browser",
-)
+    # --- robottest ---
+    robottest_parser = subs.add_parser(
+        "robottest",
+        help="Run Robot Tests",
+        formatter_class=fmt,
+    )
+    robottest_parser.add_argument(
+        "paths",
+        type=str,
+        help="Paths to the Robot Test files",
+        nargs="+",
+    )
+    robottest_parser.add_argument(
+        "-b",
+        "--browser",
+        type=str,
+        help="Browser to use for the tests (default: firefox)",
+        required=False,
+        default="firefox",
+        dest="browser",
+    )
+    robottest_parser.add_argument(
+        "-t",
+        "--test",
+        type=str,
+        help="Name of the test(s) to run. It supports regular expressions.",
+        required=False,
+        default="",
+        dest="test",
+    )
 
-robot_test_parser.add_argument(
-    "-t",
-    "--test",
-    type=str,
-    help="Name of the test(s) to run. It supports regular expressions.",
-    required=False,
-    default="",
-    dest="test",
-)
+    # --- zopetest ---
+    zopetest_parser = subs.add_parser(
+        "zopetest",
+        help="Run Zope Tests",
+        formatter_class=fmt,
+    )
+    zopetest_parser.add_argument(
+        "package",
+        type=str,
+        help="Package to test",
+    )
+    zopetest_parser.add_argument(
+        "-t",
+        "--test",
+        type=str,
+        help="Name of the test(s) to run. It supports regular expressions.",
+        required=False,
+        default="",
+        dest="test",
+    )
 
-zope_test_parser = action_subparsers.add_parser(
-    "zopetest",
-    help="Run Zope Tests",
-    formatter_class=parser.formatter_class,
-)
+    # --- install ---
+    install_parser = subs.add_parser(
+        "install",
+        help="Add one or more packages to your requirements and install them",
+        formatter_class=fmt,
+    )
+    install_parser.add_argument(
+        "package",
+        type=str,
+        help="Packages to install",
+        nargs="+",
+    )
 
-zope_test_parser.add_argument(
-    "package",
-    type=str,
-    help="Package to test",
-)
+    # --- upgrade ---
+    subs.add_parser(
+        "upgrade",
+        help="Run Plone upgrade steps",
+        formatter_class=fmt,
+    )
 
-zope_test_parser.add_argument(
-    "-t",
-    "--test",
-    type=str,
-    help="Name of the test(s) to run. It supports regular expressions.",
-    required=False,
-    default="",
-    dest="test",
-)
+    # --- supervisor ---
+    supervisor_parser = subs.add_parser(
+        "supervisor", help="Manage supervisor", formatter_class=fmt
+    )
+    supervisor_subs = supervisor_parser.add_subparsers(
+        dest="supervisor_action", help="Supervisor actions"
+    )
+    supervisor_subs.add_parser(
+        "status", help="Status of supervisor (default)", formatter_class=fmt
+    )
+    supervisor_subs.add_parser("start", help="Start supervisor", formatter_class=fmt)
+    supervisor_subs.add_parser("stop", help="Stop supervisor", formatter_class=fmt)
+    supervisor_subs.add_parser(
+        "restart", help="Restart supervisor", formatter_class=fmt
+    )
+    supervisor_subs.add_parser(
+        "graceful", help="Graceful restart of supervisor", formatter_class=fmt
+    )
 
-# init will accept one and only one positional target argument,
-# which defaults to the current working directory
-init_parser.add_argument(
-    "target",
-    type=str,
-    help=(
-        "Path where the project will be initialized. "
-        "Defaults to the current working directory."
-    ),
-    default=str(Path.cwd()),
-    nargs="?",
-)
+    # --- zeoserver ---
+    subs.add_parser("zeoserver", help="Start ZEO Server", formatter_class=fmt)
 
-install_parser = action_subparsers.add_parser(
-    "install",
-    help="Add one or more packages to your requirements and install them",
-    formatter_class=parser.formatter_class,
-)
+    # --- zeoclient ---
+    zeoclient_parser = subs.add_parser(
+        "zeoclient", help="Start ZEO Client", formatter_class=fmt
+    )
+    zeoclient_parser.add_argument(
+        "-n",
+        "--name",
+        type=str,
+        help="Name of the ZEO Client",
+        required=False,
+        default="zeoclient",
+    )
+    zeoclient_parser.add_argument(
+        "-c",
+        "--config",
+        type=str,
+        help="Path to the configuration file",
+        required=False,
+        dest="zeoclient_config",
+        action="append",
+    )
+    zeoclient_parser.add_argument(
+        "-p",
+        "--port",
+        type=int,
+        help="Port to run the ZEO Client (default: 8080)",
+        required=False,
+        default=0,
+    )
+    zeoclient_parser.add_argument(
+        "--host",
+        type=str,
+        help="Host to run the ZEO Client (default: 0.0.0.0)",
+        required=False,
+        default="",
+    )
+    zeoclient_subs = zeoclient_parser.add_subparsers(
+        dest="zeoclient_action", help="ZEO Client actions"
+    )
+    zeoclient_subs.add_parser(
+        "console", help="Start the ZEO Client console (default behavior)"
+    )
+    zeoclient_subs.add_parser("fg", help="Start the ZEO Client in foreground")
+    zeoclient_subs.add_parser("start", help="Start the ZEO Client in background")
+    zeoclient_subs.add_parser("stop", help="Stop the ZEO Client in background")
+    zeoclient_subs.add_parser("status", help="Status of the ZEO Client in background")
+    zeoclient_subs.add_parser("debug", help="Start the ZEO Client in debug mode")
 
-install_parser.add_argument(
-    "package",
-    type=str,
-    help="Packages to install",
-    nargs="+",
-)
+    # --- run ---
+    run_parser = subs.add_parser(
+        "run", help="Run an instance script", formatter_class=fmt
+    )
+    run_parser.add_argument(
+        "args",
+        nargs="*",
+        help="Arguments to pass to the script",
+    )
 
-upgrade_parser = action_subparsers.add_parser(
-    "upgrade",
-    help="Run Plone upgrade steps",
-    formatter_class=parser.formatter_class,
-)
+    # --- adduser ---
+    adduser_parser = subs.add_parser(
+        "adduser",
+        help=(
+            "Add a user. You need to provide at least a username, optionally a password"
+        ),
+        formatter_class=fmt,
+    )
+    adduser_parser.add_argument(
+        "-c",
+        "--config",
+        type=str,
+        help="Path to the configuration file",
+        required=False,
+        dest="zeoclient_config",
+        action="append",
+    )
+    adduser_parser.add_argument("username", type=str, help="Username")
+    adduser_parser.add_argument("password", type=str, help="Password", nargs="?")
 
-supervisor_parser = action_subparsers.add_parser(
-    "supervisor", help="Manage supervisor", formatter_class=parser.formatter_class
-)
-supervisor_subparsers = supervisor_parser.add_subparsers(
-    dest="supervisor_action", help="Supervisor actions"
-)
+    # --- db (backup / restore / pack) ---
+    db_parser = subs.add_parser(
+        "db",
+        help="Database management commands (backup/restore/pack)",
+        formatter_class=fmt,
+    )
+    db_subs = db_parser.add_subparsers(dest="db_action", help="Database actions")
+    db_subs.add_parser("backup", help="Backup the services", formatter_class=fmt)
+    db_subs.add_parser("restore", help="Restore the services", formatter_class=fmt)
+    db_pack_parser = db_subs.add_parser("pack", help="Pack the DB", formatter_class=fmt)
+    db_pack_parser.add_argument(
+        "-d",
+        "--days",
+        type=int,
+        help="Number of days to pack",
+        required=False,
+        default=7,
+    )
 
-supervisor_subparsers.add_parser(
-    "status",
-    help="Status of supervisor (default)",
-    formatter_class=parser.formatter_class,
-)
-supervisor_start_parser = supervisor_subparsers.add_parser(
-    "start", help="Start supervisor"
-)
-supervisor_subparsers.add_parser(
-    "stop", help="Stop supervisor", formatter_class=parser.formatter_class
-)
-supervisor_subparsers.add_parser(
-    "restart", help="Restart supervisor", formatter_class=parser.formatter_class
-)
-supervisor_subparsers.add_parser(
-    "graceful",
-    help="Graceful restart of supervisor",
-    formatter_class=parser.formatter_class,
-)
+    # --- dependencies ---
+    dependencies_parser = subs.add_parser(
+        "dependencies",
+        help="Install the dependencies",
+        formatter_class=fmt,
+    )
+    dependencies_parser.add_argument(
+        "-p",
+        "--persist",
+        help="Persist the constraints",
+        required=False,
+        dest="persist_constraints",
+        default=False,
+        action="store_true",
+    )
 
-zeoserver_parser = action_subparsers.add_parser(
-    "zeoserver", help="Start ZEO Server", formatter_class=parser.formatter_class
-)
+    # --- test ---
+    subs.add_parser(
+        "test",
+        help="Run the tests for the given package",
+        formatter_class=fmt,
+    )
 
-zeoclient_parser = action_subparsers.add_parser(
-    "zeoclient", help="Start ZEO Client", formatter_class=parser.formatter_class
-)
-zeoclient_parser.add_argument(
-    "-n",
-    "--name",
-    type=str,
-    help="Name of the ZEO Client",
-    required=False,
-    default="zeoclient",
-)
+    # Argcomplete introspects parser internals and expects only real subcommands.
+    # Keep custom help grouping for human-facing --help, but disable it during
+    # completion runs to avoid KeyError on pseudo header entries.
+    if "_ARGCOMPLETE" not in os.environ:
+        _group_subcommands_for_help(
+            subs,
+            {
+                "Setup and information commands:": [
+                    "compile",
+                    "dependencies",
+                    "describe",
+                    "init",
+                    "install",
+                    "upgrade",
+                ],
+                "Runtime Commands:": [
+                    "adduser",
+                    "run",
+                    "supervisor",
+                    "zeoclient",
+                    "zeoserver",
+                ],
+                "Database commands:": [
+                    "db",
+                ],
+                "Test commands:": [
+                    "robotserver",
+                    "robottest",
+                    "test",
+                    "zopetest",
+                ],
+            },
+        )
 
-zeoclient_parser.add_argument(
-    "-c",
-    "--config",
-    type=str,
-    help="Path to the configuration file",
-    required=False,
-    dest="zeoclient_config",
-    action="append",
-)
-
-zeoclient_parser.add_argument(
-    "-p",
-    "--port",
-    type=int,
-    help="Port to run the ZEO Client (default: 8080)",
-    required=False,
-    default=0,
-)
-
-zeoclient_parser.add_argument(
-    "--host",
-    type=str,
-    help="Host to run the ZEO Client (default: 0.0.0.0)",
-    required=False,
-    default="",
-)
-
-zeoclient_subparsers = zeoclient_parser.add_subparsers(
-    dest="zeoclient_action", help="ZEO Client actions"
-)
-
-# optional actions for the zeoclient are:
-# - console
-# - start
-# - debug
-# - stop
-# - status
-# - run
-# If not specified, the default action is start
-
-zeoclient_console_parser = zeoclient_subparsers.add_parser(
-    "console", help="Start the ZEO Client console (default behavior)"
-)
-
-zeoclient_console_parser = zeoclient_subparsers.add_parser(
-    "fg", help="Start the ZEO Client in foreground"
-)
-
-zeoclient_start_parser = zeoclient_subparsers.add_parser(
-    "start", help="Start the ZEO Client in background"
-)
-
-zeoclient_stop_parser = zeoclient_subparsers.add_parser(
-    "stop", help="Stop the ZEO Client in background"
-)
-
-zeoclient_status_parser = zeoclient_subparsers.add_parser(
-    "status", help="Status of the ZEO Client in background"
-)
-
-zeoclient_debug_parser = zeoclient_subparsers.add_parser(
-    "debug", help="Start the ZEO Client in debug mode"
-)
-
-run_parser = action_subparsers.add_parser(
-    "run", help="Run an instance script", formatter_class=parser.formatter_class
-)
-
-run_parser.add_argument(
-    "args",
-    nargs="*",
-    help="Arguments to pass to the script",
-)
-
-
-adduser_parser = action_subparsers.add_parser(
-    "adduser",
-    help="Add a user. You need to provide at least a username, optionally a password",
-    formatter_class=parser.formatter_class,
-)
-
-adduser_parser.add_argument(
-    "-c",
-    "--config",
-    type=str,
-    help="Path to the configuration file",
-    required=False,
-    dest="zeoclient_config",
-    action="append",
-)
-adduser_parser.add_argument("username", type=str, help="Username")
-adduser_parser.add_argument("password", type=str, help="Password", nargs="?")
-
-backup_parser = action_subparsers.add_parser(
-    "backup", help="Backup the services", formatter_class=parser.formatter_class
-)
-
-restore_parser = action_subparsers.add_parser(
-    "restore", help="Restore the services", formatter_class=parser.formatter_class
-)
-
-pack_parser = action_subparsers.add_parser(
-    "pack", help="Pack the DB", formatter_class=parser.formatter_class
-)
-
-pack_parser.add_argument(
-    "-d",
-    "--days",
-    type=int,
-    help="Number of days to pack",
-    required=False,
-    default=7,
-)
-
-dependencies_parser = action_subparsers.add_parser(
-    "dependencies",
-    help="Install the dependencies",
-    formatter_class=parser.formatter_class,
-)
-
-dependencies_parser.add_argument(
-    "-p",
-    "--persist",
-    help="Persist the constraints",
-    required=False,
-    dest="persist_constraints",
-    default=False,
-    action="store_true",
-)
-
-test_parser = action_subparsers.add_parser(
-    "test",
-    help="Run the tests for the given package",
-    formatter_class=parser.formatter_class,
-)
-
-autocomplete(parser)
+    autocomplete(parser)
+    return parser
 
 
-def main() -> None:
-    args = parser.parse_args()
+def _resolve_target(args) -> Path:
+    """Resolve and validate the target folder from parsed args.
 
-    if args.version:
-        print(version("plonex"))
-        return
-
-    if args.verbose:
-        logger.setLevel(logging.DEBUG)
-    elif args.quiet:
-        logger.setLevel(logging.WARNING)
-        logging.getLogger("sh").setLevel(logging.WARNING)
-    else:
-        logging.getLogger("sh").setLevel(logging.WARNING)
-
-    if args.action == "init":
-        with InitService(target=args.target) as init:
-            init.run()
-        return
-
+    Walks up from args.target looking for etc/plonex.yml.
+    Calls sys.exit(1) on error.
+    """
     target = Path(args.target)
     if not target.exists():
         logger.error("The target folder %r does not exist", args.target)
         sys.exit(1)
 
     for folder in chain([target], target.parents):
-        plonex_yml = folder / "etc" / "plonex.yml"
-        if plonex_yml.exists():
-            target = folder.resolve()
-            logger.debug("Using target folder %r", str(target))
-            break
-    else:
-        logger.error(
-            (
-                "Could not find the `etc/plonex.yml` file please run `plonex init %s` "
-                "or specify a different target with the `--target` option."
-            ),
-            args.target,
-        )
-        sys.exit(1)
+        if (folder / "etc" / "plonex.yml").exists():
+            resolved = folder.resolve()
+            logger.debug("Using target folder %r", str(resolved))
+            return resolved
 
-    if not args.verbose and not args.quiet:
-        # Check if the log_level is set in the configuration file
-        with InitService(target=target) as init:
-            log_level = init.options.get("log_level")
-            if log_level:
-                log_level = log_level.upper()
-                if log_level not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
-                    logger.error(
-                        (
-                            "Invalid log level %r "
-                            "in the configuration file. Accepted values are: %r"
-                        ),
-                        log_level,
-                        ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"),
-                    )
-                else:
-                    logger.setLevel(log_level.upper())
+    logger.error(
+        (
+            "Could not find the `etc/plonex.yml` file please run `plonex init %s` "
+            "or specify a different target with the `--target` option."
+        ),
+        args.target,
+    )
+    sys.exit(1)
+
+
+def _configure_logging(args, target: Path) -> None:
+    """Set the log level based on CLI flags and optional config-file setting."""
+    if args.verbose:
+        logger.setLevel(logging.DEBUG)
+        return
+    if args.quiet:
+        logger.setLevel(logging.WARNING)
+        logging.getLogger("sh").setLevel(logging.WARNING)
+        return
+
+    logging.getLogger("sh").setLevel(logging.WARNING)
+    with InitService(target=target) as init:
+        log_level = init.options.get("log_level")
+    if log_level:
+        log_level = log_level.upper()
+        if log_level not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
+            logger.error(
+                (
+                    "Invalid log level %r "
+                    "in the configuration file. Accepted values are: %r"
+                ),
+                log_level,
+                ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"),
+            )
+        else:
+            logger.setLevel(log_level)
+
+
+def main() -> None:
+    parser = build_parser()
+    args = parser.parse_args()
+
+    if args.version:
+        print(version("plonex"))
+        return
+
+    if args.action == "init":
+        with InitService(target=args.target) as svc:
+            svc.run()
+        return
+
+    target = _resolve_target(args)
+    _configure_logging(args, target)
+
     if args.action == "compile":
-        with CompileService(target=target) as compile:
-            compile.run()
-        return
+        with CompileService(target=target) as svc:
+            svc.run()
 
-    if args.action == "describe":
-        with DescribeService(target=target) as describe:
-            describe.run()
-        return
+    elif args.action == "describe":
+        with DescribeService(target=target) as svc:
+            svc.run()
 
-    if args.action == "robotserver":
-        with RobotServer(target=target, layer=args.layer) as robotserver:
-            robotserver.run()
-        return
+    elif args.action == "robotserver":
+        with RobotServer(target=target, layer=args.layer) as svc:
+            svc.run()
 
-    if args.action == "robottest":
+    elif args.action == "robottest":
         with RobotTest(
             target=target,
             paths=args.paths,
             browser=args.browser,
             test=args.test,
-        ) as robottest:
-            robottest.run()
-        return
+        ) as svc:
+            svc.run()
 
-    if args.action == "zopetest":
+    elif args.action == "zopetest":
         with ZopeTest(
             target=target,
             package=args.package,
             test=args.test,
-        ) as zopetest:
-            zopetest.run()
-        return
+        ) as svc:
+            svc.run()
 
-    if args.action == "zeoserver":
+    elif args.action == "zeoserver":
         logger.debug("Starting ZEO Server")
-        with ZeoServer(target=target) as zeoserver:
-            zeoserver.run()
+        with ZeoServer(target=target) as svc:
+            svc.run()
+
     elif args.action == "zeoclient":
         logger.debug("Starting ZEO Client")
         zeoclient_action = getattr(args, "zeoclient_action", "") or "console"
-        # Get the configuration file
         config_files = getattr(args, "zeoclient_config", []) or []
         cli_options = {}
         if args.host:
@@ -499,55 +521,63 @@ def main() -> None:
             config_files=config_files,
             run_mode=zeoclient_action,  # type: ignore
             cli_options=cli_options,
-        ) as zeoclient:
-            zeoclient.run()
+        ) as svc:
+            svc.run()
+
     elif args.action == "run":
-        with ZeoClient(target=target) as zeoclient:
-            zeoclient.run_script(args.args or [])
+        with ZeoClient(target=target) as svc:
+            svc.run_script(args.args or [])
+
     elif args.action == "adduser":
         config_files = getattr(args, "zeoclient_config", []) or []
-        with ZeoClient(target=target, config_files=config_files) as zeoclient:
-            zeoclient.adduser(args.username, args.password)
+        with ZeoClient(target=target, config_files=config_files) as svc:
+            svc.adduser(args.username, args.password)
+
     elif args.action == "supervisor":
         supervisor_action = getattr(args, "supervisor_action", None) or "status"
-        with Supervisor(target=target) as supervisor:
+        with Supervisor(target=target) as svc:
             if supervisor_action == "start":
-                supervisor.run()
+                svc.run()
             elif supervisor_action == "stop":
-                supervisor.run_stop()
+                svc.run_stop()
             elif supervisor_action == "restart":
-                supervisor.run_restart()
+                svc.run_restart()
             elif supervisor_action == "status":
-                supervisor.run_status()
+                svc.run_status()
             elif supervisor_action == "graceful":
                 logger.info("TODO: Manage the graceful restart of the services")
-    elif args.action == "backup":
-        with ZeoServer(target=target) as zeoserver:
-            zeoserver.run_backup()
-        pass
-    elif args.action == "restore":
-        logger.info("TODO: Manage the restore of the services")
-        pass
-    elif args.action == "pack":
-        with ZeoServer(target=target) as zeoserver:
-            zeoserver.run_pack(days=args.days)
-        pass
+
+    elif args.action == "db":
+        db_action = getattr(args, "db_action", None)
+        if db_action == "backup":
+            with ZeoServer(target=target) as svc:
+                svc.run_backup()
+        elif db_action == "restore":
+            logger.info("TODO: Manage the restore of the services")
+        elif db_action == "pack":
+            with ZeoServer(target=target) as svc:
+                svc.run_pack(days=args.days)
+        else:
+            parser.print_help()
+
     elif args.action == "dependencies":
-        with InstallService(target=target) as install:
-            install.run(
-                save_constraints=args.persist_constraints,
-            )
+        with InstallService(target=target) as svc:
+            svc.run(save_constraints=args.persist_constraints)
+
     elif args.action == "test":
-        with TestService() as test:
-            test.run()
+        with TestService() as svc:
+            svc.run()
+
     elif args.action == "install":
-        with InstallService() as install:
-            install.add_packages(args.package)
-        with InstallService() as install:
-            install.run()
+        with InstallService() as svc:
+            svc.add_packages(args.package)
+        with InstallService() as svc:
+            svc.run()
+
     elif args.action == "upgrade":
-        with UpgradeService(target=target) as upgrade:
-            upgrade.run()
+        with UpgradeService(target=target) as svc:
+            svc.run()
+
     else:
         parser.print_help()
 
