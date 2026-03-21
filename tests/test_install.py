@@ -119,8 +119,9 @@ class TestInit(PloneXTestCase):
     def test_default_python_from_which(self):
         with temp_cwd():
             install = InstallService(dont_ask=True)
-            completed = SimpleNamespace(returncode=0, stdout=b"/usr/bin/python3\n")
-            with mock.patch("plonex.install.subprocess.run", return_value=completed):
+            with mock.patch.object(
+                install, "execute_command", return_value="/usr/bin/python3\n"
+            ):
                 self.assertEqual(install.default_python, "/usr/bin/python3")
 
     def test_ensure_virtualenv_creates_it_and_installs_uv(self):
@@ -128,15 +129,15 @@ class TestInit(PloneXTestCase):
             install = InstallService(dont_ask=True)
             venv_bin = cwd / ".venv" / "bin"
 
-            def fake_run(command, **kwargs):
+            def fake_execute(command, cwd=None):
                 if command[1:3] == ["-m", "venv"]:
                     venv_bin.mkdir(parents=True, exist_ok=True)
                     (venv_bin / "activate").touch()
                     (venv_bin / "pip").touch()
-                return SimpleNamespace(returncode=0, stdout=b"/usr/bin/python3\n")
+                return ""
 
-            with mock.patch(
-                "plonex.install.subprocess.run", side_effect=fake_run
+            with mock.patch.object(
+                install, "execute_command", side_effect=fake_execute
             ) as mock_run:
                 install.ensure_virtualenv()
             self.assertTrue((venv_bin / "activate").exists())
@@ -147,12 +148,12 @@ class TestInit(PloneXTestCase):
             install = InstallService(dont_ask=False)
             venv_bin = cwd / ".venv" / "bin"
 
-            def fake_run(command, **kwargs):
+            def fake_execute(command, cwd=None):
                 if command[1:3] == ["-m", "venv"]:
                     venv_bin.mkdir(parents=True, exist_ok=True)
                     (venv_bin / "activate").touch()
                     (venv_bin / "pip").touch()
-                return SimpleNamespace(returncode=0, stdout=b"/usr/bin/python3\n")
+                return ""
 
             with mock.patch.object(
                 InstallService,
@@ -162,8 +163,8 @@ class TestInit(PloneXTestCase):
             ):
                 with mock.patch("plonex.install.Console") as MockConsole:
                     MockConsole.return_value.input.return_value = "/custom/python"
-                    with mock.patch(
-                        "plonex.install.subprocess.run", side_effect=fake_run
+                    with mock.patch.object(
+                        install, "execute_command", side_effect=fake_execute
                     ):
                         install.ensure_virtualenv()
             MockConsole.return_value.input.assert_called_once()
@@ -184,7 +185,7 @@ class TestInit(PloneXTestCase):
     def test_install_package(self):
         with temp_install() as install:
             with mock.patch.object(install, "ensure_virtualenv") as ensure_virtualenv:
-                with mock.patch("plonex.install.subprocess.run") as mock_run:
+                with mock.patch.object(install, "execute_command") as mock_run:
                     install.install_package("demo")
             ensure_virtualenv.assert_called_once()
             mock_run.assert_called_once()
@@ -364,15 +365,14 @@ class TestInit(PloneXTestCase):
                 InstallService, "make_constraints_txt"
             ), mock.patch.object(
                 install, "run_command"
+            ), mock.patch.object(
+                install, "execute_command", return_value="foo==1.0.0\n"
             ), mock.patch(
                 "plonex.install.RequirementsFile.from_file",
                 side_effect=[
                     SimpleNamespace(requirements=[]),
                     SimpleNamespace(requirements=[installed_req]),
                 ],
-            ), mock.patch(
-                "plonex.install.subprocess.run",
-                return_value=SimpleNamespace(stdout=b"foo==1.0.0\n"),
             ), mock.patch(
                 "plonex.install.datetime"
             ) as mock_datetime:
@@ -411,15 +411,14 @@ class TestInit(PloneXTestCase):
                 InstallService, "make_constraints_txt"
             ), mock.patch.object(
                 install, "run_command"
+            ), mock.patch.object(
+                install, "execute_command", return_value="foo==1.0.0\n"
             ), mock.patch(
                 "plonex.install.RequirementsFile.from_file",
                 side_effect=[
                     SimpleNamespace(requirements=[]),
                     SimpleNamespace(requirements=[installed_req]),
                 ],
-            ), mock.patch(
-                "plonex.install.subprocess.run",
-                return_value=SimpleNamespace(stdout=b"foo==1.0.0\n"),
             ), mock.patch(
                 "plonex.install.datetime"
             ) as mock_datetime:
@@ -454,15 +453,14 @@ class TestInit(PloneXTestCase):
                     InstallService, "make_constraints_txt"
                 ), mock.patch.object(
                     install, "run_command"
+                ), mock.patch.object(
+                    install, "execute_command", return_value="foo==1.0.0\n"
                 ), mock.patch(
                     "plonex.install.RequirementsFile.from_file",
                     side_effect=[
                         SimpleNamespace(requirements=[]),
                         SimpleNamespace(requirements=[installed_req]),
                     ],
-                ), mock.patch(
-                    "plonex.install.subprocess.run",
-                    return_value=SimpleNamespace(stdout=b"foo==1.0.0\n"),
                 ), mock.patch(
                     "plonex.install.Console"
                 ) as MockConsole:

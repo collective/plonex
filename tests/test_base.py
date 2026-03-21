@@ -9,7 +9,6 @@ from unittest import mock
 
 import inspect
 import os
-import subprocess
 import sys
 import unittest
 
@@ -115,7 +114,9 @@ class TestBaseService(unittest.TestCase):
     def test_keyboard_interrupt_logs(self):
         """Test the KeyboardInterrupt exception"""
         with DummyService() as service:
-            with mock.patch("subprocess.run", side_effect=KeyboardInterrupt):
+            with mock.patch.object(
+                service, "execute_command", side_effect=KeyboardInterrupt
+            ):
                 service.run()
 
             self.assertEqual(
@@ -327,10 +328,18 @@ class TestBaseService(unittest.TestCase):
     def test_run_command_called_process_error(self):
         """run_command logs the error and exits with the process return code"""
         with DummyService() as service:
-            error = subprocess.CalledProcessError(2, "false")
-            with mock.patch("subprocess.run", side_effect=error):
-                with self.assertRaises(SystemExit) as cm:
-                    service.run_command(["false"])
+
+            class FakeError(Exception):
+
+                def __init__(self, exit_code: int):
+                    super().__init__(exit_code)
+                    self.exit_code = exit_code
+
+            error = FakeError(2)
+            with mock.patch("plonex.base.sh.ErrorReturnCode", FakeError):
+                with mock.patch.object(service, "execute_command", side_effect=error):
+                    with self.assertRaises(SystemExit) as cm:
+                        service.run_command(["false"])
         self.assertEqual(cm.exception.code, 2)
         self.assertIn((error,), service.logger.errors)
 

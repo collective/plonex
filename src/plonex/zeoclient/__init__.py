@@ -11,7 +11,6 @@ from typing import Literal
 
 import os
 import sh  # type: ignore [import-untyped]
-import subprocess
 import sys
 
 
@@ -265,7 +264,7 @@ class ZeoClient(BaseService):
             ]
             self.logger.debug("Running %r", command)
             try:
-                subprocess.run(command)
+                self.execute_command(command)
             except KeyboardInterrupt:
                 self.logger.info("Stopping %r", command)
         if is_password_generated:

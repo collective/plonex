@@ -90,9 +90,7 @@ class TestInit(PloneXTestCase):
                     "plonex.init.InstallService"
                 ) as MockInstall, mock.patch(
                     "plonex.init.Supervisor"
-                ) as MockSupervisor, mock.patch(
-                    "plonex.init.subprocess"
-                ):
+                ) as MockSupervisor:
                     MockInstall.return_value.__enter__ = mock.Mock(
                         return_value=MockInstall.return_value
                     )
@@ -101,8 +99,9 @@ class TestInit(PloneXTestCase):
                         return_value=MockSupervisor.return_value
                     )
                     MockSupervisor.return_value.__exit__ = mock.Mock(return_value=False)
-                    with InitService() as svc:
-                        svc.run()
+                    with mock.patch.object(InitService, "execute_command"):
+                        with InitService() as svc:
+                            svc.run()
             self.assertTrue((cwd / ".gitignore").exists())
 
     def test_run_skips_gitignore_if_exists(self):
@@ -117,9 +116,7 @@ class TestInit(PloneXTestCase):
                     "plonex.init.InstallService"
                 ) as MockInstall, mock.patch(
                     "plonex.init.Supervisor"
-                ) as MockSupervisor, mock.patch(
-                    "plonex.init.subprocess"
-                ):
+                ) as MockSupervisor:
                     MockInstall.return_value.__enter__ = mock.Mock(
                         return_value=MockInstall.return_value
                     )
@@ -129,7 +126,8 @@ class TestInit(PloneXTestCase):
                     )
                     MockSupervisor.return_value.__exit__ = mock.Mock(return_value=False)
                     (cwd / ".git").mkdir()
-                    with InitService() as svc:
-                        svc.run()
+                    with mock.patch.object(InitService, "execute_command"):
+                        with InitService() as svc:
+                            svc.run()
             # existing .gitignore should not be overwritten
             self.assertEqual((cwd / ".gitignore").read_text(), "existing\n")

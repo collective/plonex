@@ -7,7 +7,6 @@ from plonex.supervisor import Supervisor
 from plonex.template import TemplateService
 
 import requests
-import subprocess
 
 
 @dataclass(kw_only=True)
@@ -95,8 +94,8 @@ class InitService(BaseService):
         git_repo = self.target / ".git"
         if not git_repo.exists():
             self.logger.debug("Initializing a git repository")
-            subprocess.run(["git", "init", self.target], cwd=self.target, check=True)
-            subprocess.run(["git", "add", self.target], cwd=self.target, check=True)
-            subprocess.run(
-                ["git", "commit", "-m", "plonex init"], cwd=self.target, check=True
+            self.execute_command(["git", "init", self.target], cwd=self.target)
+            self.execute_command(["git", "add", self.target], cwd=self.target)
+            self.execute_command(
+                ["git", "commit", "-m", "plonex init"], cwd=self.target
             )

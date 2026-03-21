@@ -7,7 +7,7 @@ from plonex.base import BaseService
 from rich.console import Console
 
 import re
-import subprocess
+import sh  # type: ignore[import-untyped]
 import tomllib
 
 
@@ -48,14 +48,10 @@ class InstallService(BaseService):
             return self.options["python"]
 
         for python in ["python3", "python"]:
-            which = subprocess.run(
-                ["which", python],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                check=True,
-            )
-            if which.returncode == 0:
-                return which.stdout.decode().strip()
+            try:
+                return self.execute_command(["which", python]).strip()
+            except sh.ErrorReturnCode:
+                continue
 
     def ensure_virtualenv(self):
         """Ensure that we have a virtualenv"""
@@ -72,20 +68,18 @@ class InstallService(BaseService):
                     or self.default_python
                 )
             self.logger.info("Creating a virtualenv")
-            subprocess.run(
-                [str(python_path), "-m", "venv", str(self.target / ".venv")],
-                check=True,
+            self.execute_command(
+                [str(python_path), "-m", "venv", str(self.target / ".venv")]
             )
 
         if not (self.virtualenv_dir / "bin" / "uv").exists():
             self.logger.info("Installing uv")
-            subprocess.run(
+            self.execute_command(
                 [
                     str(self.virtualenv_dir / "bin" / "pip"),
                     "install",
                     "uv",
-                ],
-                check=True,
+                ]
             )
 
     @BaseService.entered_only
@@ -114,10 +108,7 @@ class InstallService(BaseService):
             "-c",
             str(self.constrainst_txt.absolute()),  # type: ignore
         ]
-        subprocess.run(
-            command,
-            check=True,
-        )
+        self.execute_command(command)
 
     def make_requirements_txt(self):
         """This will merge the requirements files in one big requirements.txt file"""
@@ -259,11 +250,9 @@ class InstallService(BaseService):
         self.logger.debug("Checking if all constraints are met")
 
         constraints = RequirementsFile.from_file(self.constrainst_txt).requirements
-        installed = subprocess.run(
-            [str(self.virtualenv_dir / "bin" / "pip"), "freeze"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        ).stdout.decode()
+        installed = self.execute_command(
+            [str(self.virtualenv_dir / "bin" / "pip"), "freeze"]
+        )
 
         # Save the installed packages to a temporary file
         with open(self.tmp_folder / "installed.txt", "w") as file:  # type: ignore

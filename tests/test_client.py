@@ -265,7 +265,7 @@ class TestZeoClient(PloneXTestCase):
         with temp_client() as client:
             with mock.patch.object(
                 client, "_generate_password", return_value="secret"
-            ), mock.patch("plonex.zeoclient.subprocess.run") as mock_run, mock.patch(
+            ), mock.patch.object(client, "execute_command") as mock_run, mock.patch(
                 "builtins.print"
             ) as mock_print:
                 client.adduser("admin")
@@ -277,8 +277,8 @@ class TestZeoClient(PloneXTestCase):
     def test_adduser_keyboard_interrupt(self):
         with temp_client() as client:
             with mock.patch.object(client.logger, "info") as mock_info:
-                with mock.patch(
-                    "plonex.zeoclient.subprocess.run", side_effect=KeyboardInterrupt
+                with mock.patch.object(
+                    client, "execute_command", side_effect=KeyboardInterrupt
                 ):
                     client.adduser("admin", "secret")
             mock_info.assert_called_once()

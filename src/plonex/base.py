@@ -1,4 +1,3 @@
-from contextlib import chdir
 from dataclasses import dataclass
 from dataclasses import field
 from functools import cached_property
@@ -10,9 +9,10 @@ from plonex import logger
 from rich.console import Console
 from tempfile import mkdtemp
 from typing import Callable
+from typing import Sequence
 
 import logging
-import subprocess
+import sh  # type: ignore[import-untyped]
 import sys
 import time
 import yaml
@@ -302,25 +302,34 @@ class BaseService:
         return ["true"]  # pragma: no cover
 
     @entered_only
-    def run_command(self, command: list[str | Path | int]):
+    def run_command(self, command: Sequence[str | Path | int]):
         """Run a command"""
         self.logger.debug("Entering %s", self.target)
         command_list: list[str] = list(map(str, command))
         command_str: str = " ".join(command_list)
-        with chdir(self.target):
+        try:
+            self.logger.debug("Running %r", command_str)
+            start_time = time.time()
             try:
-                self.logger.debug("Running %r", command_str)
-                start_time = time.time()
-                try:
-                    subprocess.run(command_list, check=True)
-                except subprocess.CalledProcessError as e:
-                    self.logger.error(e)
-                    sys.exit(e.returncode)
-            except KeyboardInterrupt:
-                self.logger.info("Stopping %r", command_str)
-            finally:
-                stop_time = time.time()
-                self.logger.debug("Time taken: %.1f seconds", stop_time - start_time)
+                self.execute_command(command_list, cwd=self.target)
+            except sh.ErrorReturnCode as e:
+                self.logger.error(e)
+                sys.exit(e.exit_code)
+        except KeyboardInterrupt:
+            self.logger.info("Stopping %r", command_str)
+        finally:
+            stop_time = time.time()
+            self.logger.debug("Time taken: %.1f seconds", stop_time - start_time)
+
+    @staticmethod
+    def execute_command(
+        command: Sequence[str | Path | int], cwd: Path | None = None
+    ) -> str:
+        """Execute a command with sh and return stdout as text."""
+        command_list = list(map(str, command))
+        executable, *args = command_list
+        kwargs = {"_cwd": str(cwd)} if cwd else {}
+        return str(sh.Command(executable)(*args, **kwargs))
 
     @entered_only
     def run(self):
