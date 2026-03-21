@@ -170,3 +170,151 @@ class TestZeoClient(PloneXTestCase):
                 ),
                 zope_conf.read_text(),
             )
+
+    def test_zcml_additional_must_be_list(self):
+        with self.assertRaises(ValueError):
+            with temp_client(cli_options={"zcml_additional": "bogus"}):
+                pass
+
+    def test_zcml_additional_removes_existing_package_include_files(self):
+        sample_folder = Path(__file__).parent / "sample_confs" / "additional_zcmls"
+        with temp_cwd() as cwd:
+            (cwd / ".venv" / "bin").mkdir(parents=True)
+            (cwd / ".venv" / "bin" / "activate").touch()
+            (cwd / "etc").mkdir(parents=True)
+            (cwd / "etc" / "plonex.yml").write_text("---")
+            stale_dir = cwd / "tmp" / "zeoclient" / "etc" / "package-includes"
+            stale_dir.mkdir(parents=True)
+            (stale_dir / "old.zcml").write_text("stale")
+            with ZeoClient(
+                cli_options={"zcml_additional": [str(sample_folder / "foo.zcml.j2")]}
+            ):
+                self.assertFalse((stale_dir / "old.zcml").exists())
+
+    def test_zcml_additional_creates_chameleon_cache(self):
+        sample_folder = Path(__file__).parent / "sample_confs" / "additional_zcmls"
+        with temp_cwd() as cwd:
+            (cwd / ".venv" / "bin").mkdir(parents=True)
+            (cwd / ".venv" / "bin" / "activate").touch()
+            (cwd / "etc").mkdir(parents=True)
+            (cwd / "etc" / "plonex.yml").write_text("---")
+            cache_path = cwd / "var" / "cache"
+            with ZeoClient(
+                cli_options={
+                    "zcml_additional": [str(sample_folder / "foo.zcml.j2")],
+                    "environment_vars": {"CHAMELEON_CACHE": str(cache_path)},
+                }
+            ):
+                self.assertTrue(cache_path.exists())
+
+    def test_zcml_additional_adds_zcml_suffix(self):
+        sample_folder = Path(__file__).parent / "sample_confs" / "additional_zcmls"
+        source = sample_folder / "plain"
+        source.write_text("<configure />")
+        try:
+            with temp_client(cli_options={"zcml_additional": [str(source)]}) as client:
+                self.assertTrue(
+                    (
+                        client.tmp_folder
+                        / "etc"
+                        / "package-includes"
+                        / "plain-configure.zcml"
+                    ).exists()
+                )
+        finally:
+            source.unlink()
+
+    def test_pid_file_without_var_folder_raises(self):
+        with temp_client() as client:
+            client.var_folder = None
+            with self.assertRaises(ValueError):
+                _ = client.pid_file
+
+    def test_zope_conf_additional_must_be_list(self):
+        with temp_client() as client:
+            client.options["zope_conf_additional"] = "bogus"
+            with self.assertRaises(ValueError):
+                _ = client.zope_conf_additional
+
+    def test_generate_password(self):
+        with temp_client() as client:
+            password = client._generate_password()
+            self.assertEqual(len(password), 16)
+
+    def test_command_exits_when_pid_is_running(self):
+        with temp_client() as client:
+            pid_dir = client.var_folder / client.name
+            pid_dir.mkdir(parents=True, exist_ok=True)
+            client.pid_file.write_text("123")
+            with mock.patch("plonex.zeoclient.os.kill", return_value=None):
+                with self.assertRaises(SystemExit):
+                    _ = client.command
+
+    def test_command_ignores_stale_pid(self):
+        with temp_client() as client:
+            pid_dir = client.var_folder / client.name
+            pid_dir.mkdir(parents=True, exist_ok=True)
+            client.pid_file.write_text("123")
+            with mock.patch("plonex.zeoclient.os.kill", side_effect=OSError):
+                command = client.command
+            self.assertEqual(
+                command, [str(client.tmp_folder / "bin" / "instance"), client.run_mode]
+            )
+
+    def test_adduser_with_generated_password(self):
+        with temp_client() as client:
+            with mock.patch.object(
+                client, "_generate_password", return_value="secret"
+            ), mock.patch("plonex.zeoclient.subprocess.run") as mock_run, mock.patch(
+                "builtins.print"
+            ) as mock_print:
+                client.adduser("admin")
+            mock_run.assert_called_once()
+            mock_print.assert_called_once_with(
+                "Please take note of the admin password: secret"
+            )
+
+    def test_adduser_keyboard_interrupt(self):
+        with temp_client() as client:
+            with mock.patch.object(client.logger, "info") as mock_info:
+                with mock.patch(
+                    "plonex.zeoclient.subprocess.run", side_effect=KeyboardInterrupt
+                ):
+                    client.adduser("admin", "secret")
+            mock_info.assert_called_once()
+
+    def test_run_script_success(self):
+        with temp_client() as client:
+            mock_command = mock.Mock(return_value="ok")
+            with mock.patch.object(client.logger, "info") as mock_info:
+                with mock.patch(
+                    "plonex.zeoclient.sh.Command", return_value=mock_command
+                ):
+                    client.run_script(["script.py"])
+            mock_info.assert_called_once_with("ok")
+
+    def test_run_script_error_with_stderr(self):
+        with temp_client() as client:
+
+            class ScriptError(Exception):
+
+                def __init__(self):
+                    self.stderr = b"boom"
+
+            with mock.patch.object(client.logger, "error") as mock_error:
+                with mock.patch(
+                    "plonex.zeoclient.sh.Command",
+                    return_value=mock.Mock(side_effect=ScriptError()),
+                ):
+                    client.run_script(["script.py"])
+            self.assertEqual(mock_error.call_count, 2)
+
+    def test_run_script_error_without_stderr(self):
+        with temp_client() as client:
+            with mock.patch.object(client.logger, "error") as mock_error:
+                with mock.patch(
+                    "plonex.zeoclient.sh.Command",
+                    return_value=mock.Mock(side_effect=Exception("boom")),
+                ):
+                    client.run_script(["script.py"])
+            mock_error.assert_called_once()

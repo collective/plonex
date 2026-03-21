@@ -212,12 +212,13 @@ class InstallService(BaseService):
         included_files = []
         constraints = {}
         developed_packages = self.developed_packages()
-        for file in self.constraints_d_folder.iterdir():
+        for file in sorted(self.constraints_d_folder.iterdir()):
             requirements = RequirementsFile.from_file(str(file), include_nested=True)
             for requirement in requirements.requirements:
                 name = name_as_pep503(str(requirement.name))
-                if name not in developed_packages:
-                    constraints[name, str(requirement.marker)] = requirement
+                key = (name, str(requirement.marker))
+                if name not in developed_packages and key not in constraints:
+                    constraints[key] = requirement
 
         merged_constraints = included_files + [
             requirement.dumps() for _, requirement in sorted(constraints.items())

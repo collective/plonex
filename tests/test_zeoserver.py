@@ -4,6 +4,7 @@ from .utils import temp_cwd
 from contextlib import contextmanager
 from pathlib import Path
 from plonex.zeoserver import ZeoServer
+from unittest import mock
 
 import inspect
 
@@ -101,4 +102,35 @@ class TestZeoServer(PloneXTestCase):
                     "-C",
                     str(zeo.tmp_folder / "etc" / "zeo.conf"),
                 ],
+            )
+
+    def test_run_pack(self):
+        """Test the zeo pack command"""
+        with temp_zeo() as zeo:
+            with mock.patch.object(zeo, "run_command") as mock_run:
+                zeo.run_pack(days=3)
+            mock_run.assert_called_once_with(
+                [
+                    zeo.virtualenv_dir / "bin" / "zeopack",
+                    "-u",
+                    zeo.var_folder / "zeosocket.sock",
+                    "-d",
+                    7,
+                ]
+            )
+
+    def test_run_backup(self):
+        """Test the backup command"""
+        with temp_zeo() as zeo:
+            with mock.patch.object(zeo, "run_command") as mock_run:
+                zeo.run_backup()
+            mock_run.assert_called_once_with(
+                [
+                    zeo.virtualenv_dir / "bin" / "repozo",
+                    "-Bv",
+                    "-r",
+                    zeo.var_folder / "backup",
+                    "-f",
+                    zeo.var_folder / "filestorage" / "Data.fs",
+                ]
             )

@@ -4,6 +4,9 @@ from .utils import temp_cwd
 from contextlib import contextmanager
 from pathlib import Path
 from plonex.install import InstallService
+from plonex.install import name_as_pep503
+from types import SimpleNamespace
+from unittest import mock
 
 import inspect
 
@@ -20,6 +23,23 @@ def temp_install(**kwargs):
 
 
 class TestInit(PloneXTestCase):
+
+    def _fake_requirement(
+        self,
+        name="pkg",
+        marker=None,
+        path="/tmp/pkg",
+        filename="pkg",
+        editable=False,
+        dumps=None,
+    ):
+        return SimpleNamespace(
+            name=name,
+            marker=marker,
+            is_editable=editable,
+            link=SimpleNamespace(path=path, filename=filename),
+            dumps=(lambda: dumps if dumps is not None else name),
+        )
 
     def test_init_signature(self):
         """Test the class init method
@@ -85,3 +105,375 @@ class TestInit(PloneXTestCase):
                         "foo==1.0.0",
                     ],
                 )
+
+    def test_name_as_pep503(self):
+        self.assertEqual(name_as_pep503("Foo_Bar.Baz"), "foo-bar-baz")
+
+    def test_default_python_from_options(self):
+        with temp_cwd():
+            install = InstallService(
+                dont_ask=True, cli_options={"python": "/usr/bin/python3.12"}
+            )
+            self.assertEqual(install.default_python, "/usr/bin/python3.12")
+
+    def test_default_python_from_which(self):
+        with temp_cwd():
+            install = InstallService(dont_ask=True)
+            completed = SimpleNamespace(returncode=0, stdout=b"/usr/bin/python3\n")
+            with mock.patch("plonex.install.subprocess.run", return_value=completed):
+                self.assertEqual(install.default_python, "/usr/bin/python3")
+
+    def test_ensure_virtualenv_creates_it_and_installs_uv(self):
+        with temp_cwd() as cwd:
+            install = InstallService(dont_ask=True)
+            venv_bin = cwd / ".venv" / "bin"
+
+            def fake_run(command, **kwargs):
+                if command[1:3] == ["-m", "venv"]:
+                    venv_bin.mkdir(parents=True, exist_ok=True)
+                    (venv_bin / "activate").touch()
+                    (venv_bin / "pip").touch()
+                return SimpleNamespace(returncode=0, stdout=b"/usr/bin/python3\n")
+
+            with mock.patch(
+                "plonex.install.subprocess.run", side_effect=fake_run
+            ) as mock_run:
+                install.ensure_virtualenv()
+            self.assertTrue((venv_bin / "activate").exists())
+            self.assertGreaterEqual(mock_run.call_count, 2)
+
+    def test_ensure_virtualenv_prompts_for_python_when_needed(self):
+        with temp_cwd() as cwd:
+            install = InstallService(dont_ask=False)
+            venv_bin = cwd / ".venv" / "bin"
+
+            def fake_run(command, **kwargs):
+                if command[1:3] == ["-m", "venv"]:
+                    venv_bin.mkdir(parents=True, exist_ok=True)
+                    (venv_bin / "activate").touch()
+                    (venv_bin / "pip").touch()
+                return SimpleNamespace(returncode=0, stdout=b"/usr/bin/python3\n")
+
+            with mock.patch.object(
+                InstallService,
+                "default_python",
+                new_callable=mock.PropertyMock,
+                return_value="/usr/bin/python3",
+            ):
+                with mock.patch("plonex.install.Console") as MockConsole:
+                    MockConsole.return_value.input.return_value = "/custom/python"
+                    with mock.patch(
+                        "plonex.install.subprocess.run", side_effect=fake_run
+                    ):
+                        install.ensure_virtualenv()
+            MockConsole.return_value.input.assert_called_once()
+
+    def test_add_packages(self):
+        with temp_install() as install:
+            with mock.patch("plonex.install.datetime") as mock_datetime:
+                mock_datetime.now.return_value.strftime.return_value = "20260321-100000"
+                install.add_packages(["b", "a"])
+            target = (
+                install.requirements_d_folder / "999-add-package-20260321-100000.txt"
+            )
+            self.assertEqual(
+                target.read_text(),
+                "# Packages added by plonex install\na\nb\n",
+            )
+
+    def test_install_package(self):
+        with temp_install() as install:
+            with mock.patch.object(install, "ensure_virtualenv") as ensure_virtualenv:
+                with mock.patch("plonex.install.subprocess.run") as mock_run:
+                    install.install_package("demo")
+            ensure_virtualenv.assert_called_once()
+            mock_run.assert_called_once()
+
+    def test_resolve_package_name_from_pyproject_project(self):
+        with temp_cwd() as cwd:
+            package = cwd / "package"
+            package.mkdir()
+            (package / "pyproject.toml").write_text("[project]\nname='demo.pkg'\n")
+            install = InstallService(dont_ask=True)
+            requirement = self._fake_requirement(path=str(package))
+            self.assertEqual(
+                install.resolve_package_name_from_path(requirement), "demo.pkg"
+            )
+
+    def test_resolve_package_name_from_pyproject_poetry(self):
+        with temp_cwd() as cwd:
+            package = cwd / "package"
+            package.mkdir()
+            (package / "pyproject.toml").write_text(
+                "[tool.poetry]\nname='demo.poetry'\n"
+            )
+            install = InstallService(dont_ask=True)
+            requirement = self._fake_requirement(path=str(package))
+            self.assertEqual(
+                install.resolve_package_name_from_path(requirement), "demo.poetry"
+            )
+
+    def test_resolve_package_name_from_pyproject_without_name(self):
+        with temp_cwd() as cwd:
+            package = cwd / "package"
+            package.mkdir()
+            (package / "pyproject.toml").write_text("[project]\nversion='1.0'\n")
+            install = InstallService(dont_ask=True)
+            requirement = self._fake_requirement(path=str(package))
+            self.assertEqual(
+                install.resolve_package_name_from_path(requirement), "package"
+            )
+
+    def test_resolve_package_name_from_setup_cfg(self):
+        with temp_cwd() as cwd:
+            package = cwd / "package"
+            package.mkdir()
+            (package / "setup.cfg").write_text("[metadata]\nname = demo.cfg\n")
+            install = InstallService(dont_ask=True)
+            requirement = self._fake_requirement(path=str(package))
+            with mock.patch(
+                "setuptools.config.read_configuration",
+                return_value={"metadata": {"name": "demo.cfg"}},
+            ):
+                self.assertEqual(
+                    install.resolve_package_name_from_path(requirement), "demo.cfg"
+                )
+
+    def test_resolve_package_name_from_setup_cfg_missing_name(self):
+        with temp_cwd() as cwd:
+            package = cwd / "package"
+            package.mkdir()
+            (package / "setup.cfg").write_text("[metadata]\nversion = 1.0\n")
+            install = InstallService(dont_ask=True)
+            requirement = self._fake_requirement(path=str(package))
+            with mock.patch(
+                "setuptools.config.read_configuration", return_value={"metadata": {}}
+            ):
+                self.assertEqual(
+                    install.resolve_package_name_from_path(requirement), "package"
+                )
+
+    def test_resolve_package_name_falls_back_to_folder_name(self):
+        with temp_cwd() as cwd:
+            package = cwd / "package-name"
+            package.mkdir()
+            install = InstallService(dont_ask=True)
+            requirement = self._fake_requirement(path=str(package))
+            self.assertEqual(
+                install.resolve_package_name_from_path(requirement), "package-name"
+            )
+
+    def test_developed_packages_and_paths(self):
+        with temp_cwd():
+            install = InstallService(dont_ask=True)
+            (install.requirements_d_folder / "editable.txt").write_text(
+                "-e /tmp/demo\n"
+            )
+            requirement = self._fake_requirement(
+                name="Demo_Pkg", path="/tmp/demo", editable=True
+            )
+            with mock.patch(
+                "plonex.install.RequirementsFile.from_file",
+                return_value=SimpleNamespace(requirements=[requirement]),
+            ):
+                with mock.patch.object(
+                    install, "resolve_package_name_from_path", return_value="Demo_Pkg"
+                ):
+                    result = install.developed_packages_and_paths()
+            self.assertEqual(result, {"demo-pkg → /tmp/demo"})
+
+    def test_developed_packages_and_paths_warns_when_name_resolution_fails(self):
+        with temp_cwd():
+            install = InstallService(dont_ask=True)
+            (install.requirements_d_folder / "editable.txt").write_text(
+                "-e /tmp/demo\n"
+            )
+            requirement = self._fake_requirement(
+                filename="demo.whl", path="/tmp/demo", editable=True
+            )
+            with mock.patch.object(install.logger, "warning") as mock_warning:
+                with mock.patch(
+                    "plonex.install.RequirementsFile.from_file",
+                    return_value=SimpleNamespace(requirements=[requirement]),
+                ):
+                    with mock.patch.object(
+                        install,
+                        "resolve_package_name_from_path",
+                        side_effect=RuntimeError("boom"),
+                    ):
+                        result = install.developed_packages_and_paths()
+            self.assertEqual(result, {"demo-whl → /tmp/demo"})
+            mock_warning.assert_called_once()
+
+    def test_developed_packages_warns_when_name_resolution_fails(self):
+        with temp_cwd():
+            install = InstallService(dont_ask=True)
+            (install.requirements_d_folder / "editable.txt").write_text(
+                "-e /tmp/demo\n"
+            )
+            requirement = self._fake_requirement(
+                filename="demo.whl", path="/tmp/demo", editable=True
+            )
+            with mock.patch.object(install.logger, "warning") as mock_warning:
+                with mock.patch(
+                    "plonex.install.RequirementsFile.from_file",
+                    return_value=SimpleNamespace(requirements=[requirement]),
+                ):
+                    with mock.patch.object(
+                        install,
+                        "resolve_package_name_from_path",
+                        side_effect=RuntimeError("boom"),
+                    ):
+                        result = install.developed_packages()
+            self.assertEqual(result, {"demo-whl"})
+            mock_warning.assert_called_once()
+
+    def test_command_property(self):
+        with temp_install() as install:
+            self.assertEqual(
+                install.command,
+                [
+                    str(install.virtualenv_dir / "bin" / "uv"),
+                    "pip",
+                    "install",
+                    "-r",
+                    str(install.requirements_txt.absolute()),
+                    "-c",
+                    str(install.constrainst_txt.absolute()),
+                ],
+            )
+
+    def test_run_with_save_constraints(self):
+        with temp_cwd() as cwd:
+            install = InstallService(dont_ask=True)
+            venv_bin = cwd / ".venv" / "bin"
+            venv_bin.mkdir(parents=True)
+            (venv_bin / "activate").touch()
+            (venv_bin / "uv").touch()
+            (venv_bin / "pip").touch()
+            constraints_file = install.var_folder / "constraints.txt"
+            requirements_file = install.var_folder / "requirements.txt"
+            constraints_file.write_text("# header\n")
+            requirements_file.write_text("# header\n")
+            installed_req = self._fake_requirement(dumps="foo==1.0.0")
+            with mock.patch.object(
+                InstallService, "ensure_virtualenv"
+            ), mock.patch.object(
+                InstallService, "make_requirements_txt"
+            ), mock.patch.object(
+                InstallService, "make_constraints_txt"
+            ), mock.patch.object(
+                install, "run_command"
+            ), mock.patch(
+                "plonex.install.RequirementsFile.from_file",
+                side_effect=[
+                    SimpleNamespace(requirements=[]),
+                    SimpleNamespace(requirements=[installed_req]),
+                ],
+            ), mock.patch(
+                "plonex.install.subprocess.run",
+                return_value=SimpleNamespace(stdout=b"foo==1.0.0\n"),
+            ), mock.patch(
+                "plonex.install.datetime"
+            ) as mock_datetime:
+                mock_datetime.now.return_value.strftime.return_value = "20260321-100001"
+                with install:
+                    install.requirements_txt = requirements_file
+                    install.constrainst_txt = constraints_file
+                    install.run(save_constraints=True)
+            saved = (
+                cwd / "etc" / "constraints.d" / "999-20260321-100001-autoinstalled.txt"
+            )
+            self.assertEqual(saved.read_text(), "foo==1.0.0\n")
+
+    def test_run_with_existing_autoinstalled_constraints(self):
+        with temp_cwd() as cwd:
+            install = InstallService(dont_ask=True)
+            venv_bin = cwd / ".venv" / "bin"
+            venv_bin.mkdir(parents=True)
+            (venv_bin / "activate").touch()
+            (venv_bin / "uv").touch()
+            (venv_bin / "pip").touch()
+            constraints_file = install.var_folder / "constraints.txt"
+            requirements_file = install.var_folder / "requirements.txt"
+            constraints_file.write_text("# header\n")
+            requirements_file.write_text("# header\n")
+            installed_req = self._fake_requirement(dumps="foo==1.0.0")
+            existing = (
+                cwd / "etc" / "constraints.d" / "999-20260321-100002-autoinstalled.txt"
+            )
+            existing.write_text("bar==2.0.0\n")
+            with mock.patch.object(
+                InstallService, "ensure_virtualenv"
+            ), mock.patch.object(
+                InstallService, "make_requirements_txt"
+            ), mock.patch.object(
+                InstallService, "make_constraints_txt"
+            ), mock.patch.object(
+                install, "run_command"
+            ), mock.patch(
+                "plonex.install.RequirementsFile.from_file",
+                side_effect=[
+                    SimpleNamespace(requirements=[]),
+                    SimpleNamespace(requirements=[installed_req]),
+                ],
+            ), mock.patch(
+                "plonex.install.subprocess.run",
+                return_value=SimpleNamespace(stdout=b"foo==1.0.0\n"),
+            ), mock.patch(
+                "plonex.install.datetime"
+            ) as mock_datetime:
+                mock_datetime.now.return_value.strftime.return_value = "20260321-100002"
+                with install:
+                    install.requirements_txt = requirements_file
+                    install.constrainst_txt = constraints_file
+                    install.run(save_constraints=True)
+            self.assertEqual(
+                existing.read_text().splitlines(), ["bar==2.0.0", "foo==1.0.0"]
+            )
+
+    def test_run_without_save_constraints_prints_missing(self):
+        with temp_cwd() as cwd:
+            install = InstallService(dont_ask=True)
+            venv_bin = cwd / ".venv" / "bin"
+            venv_bin.mkdir(parents=True)
+            (venv_bin / "activate").touch()
+            (venv_bin / "uv").touch()
+            (venv_bin / "pip").touch()
+            constraints_file = install.var_folder / "constraints.txt"
+            requirements_file = install.var_folder / "requirements.txt"
+            constraints_file.write_text("# header\n")
+            requirements_file.write_text("# header\n")
+            installed_req = self._fake_requirement(dumps="foo==1.0.0")
+            with mock.patch.object(install.logger, "warning") as mock_warning:
+                with mock.patch.object(
+                    InstallService, "ensure_virtualenv"
+                ), mock.patch.object(
+                    InstallService, "make_requirements_txt"
+                ), mock.patch.object(
+                    InstallService, "make_constraints_txt"
+                ), mock.patch.object(
+                    install, "run_command"
+                ), mock.patch(
+                    "plonex.install.RequirementsFile.from_file",
+                    side_effect=[
+                        SimpleNamespace(requirements=[]),
+                        SimpleNamespace(requirements=[installed_req]),
+                    ],
+                ), mock.patch(
+                    "plonex.install.subprocess.run",
+                    return_value=SimpleNamespace(stdout=b"foo==1.0.0\n"),
+                ), mock.patch(
+                    "plonex.install.Console"
+                ) as MockConsole:
+                    with install:
+                        install.requirements_txt = requirements_file
+                        install.constrainst_txt = constraints_file
+                        install.run(save_constraints=False)
+            self.assertTrue(
+                any(
+                    "Missing constraints" in str(call)
+                    for call in mock_warning.call_args_list
+                )
+            )
+            self.assertEqual(MockConsole.return_value.print.call_count, 3)

@@ -403,6 +403,39 @@ class TestBaseService(unittest.TestCase):
             any("should contain a dict" in str(e) for e in service.logger.errors)
         )
 
+    def test_additional_plonex_options_with_missing_globbed_file(self):
+        """additional_plonex_options logs a warning for missing glob results"""
+        service = DummyService()
+        missing = self.temp_dir / "etc" / "plonex.missing.yml"
+        with mock.patch("pathlib.Path.glob", side_effect=[[missing], [], []]):
+            mapping = service.additional_plonex_options
+        self.assertDictEqual(mapping[missing], {})
+        self.assertTrue(
+            any("does not exist" in str(w) for w in service.logger.warnings)
+        )
+
+    def test_options_logs_too_many_iterations(self):
+        """options logs an error when template resolution does not converge"""
+
+        class _Template:
+
+            def __init__(self):
+                self.counter = 0
+
+            def render(self, **kwargs):
+                self.counter += 1
+                return f"counter: {self.counter}\n"
+
+        fake_env = mock.Mock()
+        fake_env.from_string.return_value = _Template()
+        service = DummyService()
+        with mock.patch("plonex.base.Environment", return_value=fake_env):
+            options = service.options
+        self.assertEqual(options, {"counter": 10})
+        self.assertTrue(
+            any("Too many iterations" in str(error) for error in service.logger.errors)
+        )
+
     # --- run with empty command ---
 
     def test_run_with_empty_command(self):

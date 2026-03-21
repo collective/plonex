@@ -6,6 +6,7 @@ from plonex.cli import _configure_logging
 from plonex.cli import _resolve_target
 from plonex.cli import build_parser
 from plonex.cli import main
+from runpy import run_path
 from types import SimpleNamespace
 from unittest import mock
 
@@ -47,8 +48,9 @@ class TestBuildParser(unittest.TestCase):
         self.assertIn("Test commands:", help_text)
 
     def test_help_grouping_disabled_during_argcomplete(self):
-        with mock.patch.dict("os.environ", {"_ARGCOMPLETE": "1"}, clear=False):
-            parser = build_parser()
+        with mock.patch("plonex.cli.autocomplete"):
+            with mock.patch.dict("os.environ", {"_ARGCOMPLETE": "1"}, clear=False):
+                parser = build_parser()
         help_text = parser.format_help()
         self.assertNotIn("Setup and information commands:", help_text)
 
@@ -377,6 +379,11 @@ class TestMain(unittest.TestCase):
         svc = self._run_service(["db", "pack", "-d", "3"], "plonex.cli.ZeoServer")
         svc.return_value.run_pack.assert_called_once_with(days=3)
 
+    def test_action_db_without_subcommand_prints_help(self):
+        with mock.patch("argparse.ArgumentParser.print_help") as mock_help:
+            self._run_with_target(["db"])
+        mock_help.assert_called_once()
+
     def test_action_test(self):
         svc = self._run_service(["test"], "plonex.cli.TestService")
         svc.return_value.run.assert_called_once()
@@ -511,3 +518,10 @@ class TestMain(unittest.TestCase):
             self._run_with_target(["install", "my.package"])
         MockSvc.return_value.add_packages.assert_called_once_with(["my.package"])
         MockSvc.return_value.run.assert_called_once()
+
+    def test_module_main_guard(self):
+        cli_path = Path(__file__).parent.parent / "src" / "plonex" / "cli.py"
+        with mock.patch.object(sys, "argv", ["plonex", "-V"]):
+            with mock.patch("builtins.print") as mock_print:
+                run_path(str(cli_path), run_name="__main__")
+        mock_print.assert_called_once_with(version("plonex"))
