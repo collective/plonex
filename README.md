@@ -1,305 +1,421 @@
-# Hello world
+# plonex
 
-This is me!
+Plone deployment CLI.
+
+`plonex` is designed to make everyday project operations predictable.
+Instead of asking you to remember many low-level commands and file locations,
+it gives you one consistent entry point for setup, runtime, database operations,
+and test helpers.
+
+When you run a command, `plonex` does more than simply spawn a process:
+
+- it finds the correct project root (`etc/plonex.yml`),
+- it loads and merges configuration from all supported files,
+- it prepares temporary/generated config files when needed,
+- it exports environment variables defined in config,
+- and finally it runs the appropriate executable from your virtualenv.
+
+This means commands are reproducible and configuration-driven.
+You change behavior in YAML files (or CLI flags), and `plonex` applies that
+consistently across services.
 
 ## Autocomplete
 
-Add something like this to your startup script:
+Add this to your shell startup file:
 
 ```sh
 eval "$(register-python-argcomplete plonex)"
 ```
 
-## Initialize your project
+## Global options
 
-You can initialize a new project with the `init` command:
+All commands accept these options:
 
-```sh
-$ plonex init foo
-INFO     Creating foo/tmp
-INFO     Creating foo/etc
-INFO     Creating foo/var
-INFO     Creating foo/var/blobstorage
-INFO     Creating foo/var/cache
-INFO     Creating foo/var/filestorage
-INFO     Creating foo/var/log
-INFO     Creating foo/etc/plonex.yml
-INFO     Project initialized
+```text
+plonex [--target PATH] [--verbose] [--quiet] [--version] <command> ...
 ```
 
-## Describe your project
+- `-t, --target`: target project folder (defaults to current directory).
+- `-v, --verbose`: set log level to `DEBUG`.
+- `-q, --quiet`: reduce log output (`WARNING` and above).
+- `-V, --version`: print installed plonex version.
 
-You can describe your project with the `describe` command:
+For all commands except `init`, `plonex` resolves the target by walking upward until it finds `etc/plonex.yml`.
+
+## Quick start
+
+If you are new to `plonex`, think about this flow:
+
+1. `init`: create a valid project structure.
+1. `dependencies`: create/update `.venv` and install project requirements.
+1. `zeoserver` / `zeoclient`: run your services.
+1. `db` commands: maintain your Data.fs.
+1. `zopetest` / `robottest`: run test suites.
+
+In practice, you can keep using the same high-level commands while changing
+only configuration values per environment (local, CI, staging, production).
+
+Initialize a project:
 
 ```sh
-plonex describe
+plonex init myproject
 ```
 
-By default this will create a markdown file in `var/plonex_description/index.md` and render it on the console.
-For the moment this displays only basic information about your project, but in the future it will be extended to include more useful information.
-
-## Install your packages
+Install/update dependencies:
 
 ```sh
 plonex dependencies
 ```
 
-## Start your project
-
-After initializing your project, you can find an `etc/supervisor` directory with a couple of example files:
+Start ZEO server:
 
 ```sh
-$ ls etc/supervisor
-zeoclient.conf.example
-zeoserver.conf.example
+plonex zeoserver
 ```
 
-You can use them to decide which services are managed by supervisor.
-
-For example to start the `zeoserver` service when supervisor starts, you can just copy the example file:
+Start ZEO client in foreground:
 
 ```sh
-cp etc/supervisor/zeoserver.conf.example etc/supervisor/zeoserver.conf
+plonex zeoclient fg
 ```
 
-If you want you can modify the file to suit your needs.
+## How to think about plonex
 
-All the files with the extension `.conf` in the `etc/supervisor` directory will be loaded by supervisor.
+`plonex` separates intent from implementation.
+You declare intent with simple commands such as `plonex zeoclient fg` or
+`plonex db pack`, and `plonex` translates that into the correct low-level command,
+with the correct paths, environment variables, and generated configuration files.
 
-Once you are ready, you can start supervisor with:
+This approach has a few practical benefits:
+
+- You do not need to remember long binary paths or many flags.
+- Team members can share the same commands while keeping local overrides in YAML.
+- Automation in CI can reuse exactly the same command set used locally.
+
+In other words, `plonex` behaves like an orchestration layer over project runtime
+tools, while still letting you control details through configuration.
+
+## Typical workflows
+
+### Local development
+
+```sh
+plonex init .
+plonex dependencies
+plonex zeoserver
+plonex zeoclient fg
+```
+
+What happens:
+
+- `init` creates project skeleton and base config.
+- `dependencies` ensures `.venv` exists and installs pinned dependencies.
+- `zeoserver` starts ZEO using generated config in `tmp/zeoserver`.
+- `zeoclient fg` renders instance config in `tmp/zeoclient` and starts in foreground.
+
+### Running maintenance tasks
+
+```sh
+plonex db pack --days 7
+plonex db backup
+```
+
+What happens:
+
+- `db pack` reads `zeo_address` from merged options and calls `zeopack`.
+- `db backup` runs `repozo` against the project Data.fs location.
+
+### Working with supervisor
 
 ```sh
 plonex supervisor start
+plonex supervisor status
+plonex supervisor restart
 ```
 
-## Add an admin user
+What happens:
 
-You can add an admin user with the `adduser` command, e.g.:
+- `plonex` generates `etc/supervisord.conf` and service templates if needed.
+- it runs `supervisord` and `supervisorctl` from your project virtualenv.
+- status/restart actions use the same generated config file, so behavior is consistent.
 
-```sh
-$ plonex adduser admin $ADMIN_PASSWORD
-[ale@flo bar]$ plonex adduser admin admin
-User admin created.
-```
+## Commands
 
-## Add a package
+### Setup and info
 
-If you want to add a package to your project, you can use the `install` command:
+`init [target]`
 
-```sh
-$ plonex install collective.pdbpp
-...
-```
+- Initialize project folders and base config.
 
-## Custom PyPI repository
+`compile`
 
-If you want to use a custom PyPI repository, you can add in you `pyproject.toml` file the following snippet:
+- Compile merged configuration into `var/plonex.yml`.
 
-```toml
-[tool.uv]
-# Add command line parameters to the `pip` command, e.g.:
-# index-strategy = "unsafe-best-match"
+`describe`
 
-[[tool.uv.index]]
-# You need to have this env variables set if you need to be authenticated:
-# export UV_INDEX_PRIVATE_USERNAME=username
-# export UV_INDEX_PRIVATE_PASSWORD=password
-name = "private"
-url = "https://pypi.acme.org/simple"
+- Render a project description from current configuration.
 
+`dependencies [--persist]`
 
-[[tool.uv.index]]
-name = "pypi"
-url = "https://pypi.org/simple"
-```
+- Install from merged requirements/constraints.
+- `-p, --persist`: save auto-detected missing constraints.
 
-```shell
---extra-index-url=https://pypi.acme.org/simple
-```
+`install <package> [<package> ...]`
 
-## Setting options/variables
+- Add one or more packages and run dependency installation.
 
-You can set options in multiple ways.
+`upgrade`
 
-1. In the command line (max priority)
-1. In config files
-1. In a `etc/plonex-$servicename.*.yml`
-1. In a `etc/plonex-$servicename.yml`
-1. In some `etc/plonex.*.yml` file (if any of them exists, precedence is given by alphabetical order)
-1. In the `etc/plonex.yml` file
-1. In the class definition options_default (lowest priority)
+- Run Plone upgrade steps.
 
-### Log level
+### Runtime
 
-You can set the log level by setting the `log_level` variable, e.g.:
+`zeoserver`
+
+- Start ZEO server.
+
+`zeoclient [options] [action]`
+
+- Options:
+  - `-n, --name`: client name (default: `zeoclient`)
+  - `-c, --config`: extra config file (repeatable)
+  - `-p, --port`: HTTP port
+  - `--host`: HTTP host
+- Actions:
+  - `console` (default)
+  - `fg`
+  - `start`
+  - `stop`
+  - `status`
+  - `debug`
+
+`run [args ...]`
+
+- Run an instance script through the ZEO client wrapper.
+
+`adduser [-c FILE] <username> [password]`
+
+- Create a Zope user (password can be omitted to auto-generate one).
+
+`supervisor [status|start|stop|restart|graceful]`
+
+- Manage supervisord for project services.
+
+### Database
+
+`db backup`
+
+- Run Data.fs backup.
+
+`db pack [--days DAYS]`
+
+- Pack ZODB revisions older than `DAYS` (default: `7`).
+- Uses merged `zeo_address` from your config files.
+
+`db restore`
+
+- Placeholder (not implemented yet).
+
+### Tests
+
+`zopetest <package> [-t TEST]`
+
+- Run `zope-testrunner` for a package.
+
+`robotserver [--layer LAYER]`
+
+- Start robot test server.
+
+`robottest <paths...> [--browser BROWSER] [-t TEST]`
+
+- Run Robot Framework tests.
+
+`test`
+
+- Placeholder command.
+
+## Configuration and option precedence
+
+Options are merged in this order (higher wins):
+
+1. CLI options
+1. Files passed with `-c/--config`
+1. `etc/plonex-<service>.*.yml`
+1. `etc/plonex-<service>.yml`
+1. `etc/plonex.*.yml` (alphabetical precedence)
+1. `etc/plonex.yml`
+1. Service defaults
+
+Why this matters:
+
+- you can keep sane defaults in `etc/plonex.yml`,
+- add machine- or developer-specific overrides in `etc/plonex.local.yml`,
+- and still force one-off values from the command line when needed.
+
+This is especially useful for paths like `zeo_address`, ports, or feature flags
+that can vary by environment.
+
+Useful settings include:
+
+- `log_level`: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
+- `environment_vars`: environment variables exported before service execution
+- `zeo_address`: socket/host used by ZEO client and `db pack`
+- `blobstorage`: blob storage path
+- `http_port`, `http_address`
+
+Example:
 
 ```yaml
-log_level: INFO
-```
-
-Valid values are: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.
-
-This value is ignored if you pass the `-v/--verbose` or the `-q/--quiet` option in the command line.
-
-## Zope instance configuration
-
-You can customize the Zope instance configuration by setting some options.
-
-### Zope instance port
-
-You can set the Zope default zope instance port by setting
-the `http_port` variable.
-
-```yaml
-http_port: 8080
-```
-
-### Zope instances environment variables
-
-You can set environment variables for the Zope instances
-by setting the `environment_vars` variable.
-
-Note in this example how you can reuse existing variables
-
-```yaml
+zeo_address: /srv/components/zeo/var/zeo.socket
+blobstorage: /srv/components/zeo/var/blobstorage
 environment_vars:
-  PTS_LANGUAGES: it
   TZ: Europe/Rome
-  zope_i18n_allowed_languages: '{{ environment_vars["PTS_LANGUAGES"] }}'
-  zope_i18n_compile_mo_files: true
-  CHAMELEON_CACHE: "{{ var_folder }}/cache/chameleon"
-  CHAMELEON_RELOAD: true
-  CHAMELEON_DEBUG: true
 ```
 
-Also note the usage of the undocument (FIXME!!) `var_folder` variable.
+Service-specific overrides are useful when one command needs different settings.
+For example:
 
-### Zope instance additional zcml
+- `etc/plonex.yml`: shared defaults.
+- `etc/plonex.local.yml`: local machine overrides (socket paths, local ports).
+- `etc/plonex-zeoclient.yml`: zeoclient-only adjustments.
 
-If you want to load additional zcml files,
-you can set the `zcml_additional` variable.
+Because these files are merged with precedence, you can keep common settings in
+one place and make only small targeted overrides where needed.
 
-```yaml
-zcml_additional:
-  - etc/extra.zcml
-  - etc/extra-overrides.zcml
-```
+## Under the hood
 
-If the file ends in `-overrides.zcml`, it will be loaded
-after the default zcml files and override the existing configuration.
+`plonex` is a wrapper around executables inside your virtualenv. Paths are resolved from the project target (typically `.venv/bin/...`).
 
-Your extra zcml files will be treated as jinja2 templates,
-so you can use any variable known to the instance to render them.
+Most commands follow the same lifecycle:
 
-## Run a script
+1. Resolve target folder.
+1. Merge options from config files and CLI.
+1. Generate required runtime files under `tmp/` and/or `etc/`.
+1. Execute the real binary from `.venv/bin/...`.
 
-You can run a script in the context of a zeo client with the `run` command:
+So when you type a short command like `plonex db pack`, `plonex` still applies your
+configuration first (for example `zeo_address`) and only then calls `zeopack`.
+That is why changing config files can change command behavior without changing
+the command itself.
+
+Common command mappings:
+
+- `plonex zeoserver`
 
 ```sh
-plonex zeoclient run path/to/script.py [args ...]
+.venv/bin/runzeo -C tmp/zeoserver/etc/zeo.conf
 ```
 
-## Maintenance
-
-With plonex you can easily maintain your DB.
-
-### Pack
-
-To pack your ZODB database, you can use the `pack` command:
+- `plonex zeoclient fg` (and other zeoclient actions)
 
 ```sh
-plonex zeoserver pack [--days DAYS]
+tmp/zeoclient/bin/instance fg
 ```
 
-### Backup
-
-To backup your ZODB database, you can use the `backup` command:
+- `plonex run path/to/script.py`
 
 ```sh
-plonex zeoserver backup
+tmp/zeoclient/bin/instance run path/to/script.py
 ```
 
-TODO: backup blob with rsync.
-
-### Restore
-
-TODO: implement the restore command.
-
-## Run tests
-
-You can run tests with the `test` command:
+- `plonex adduser admin secret`
 
 ```sh
-plonex zopetest [-t TEST] package
+.venv/bin/addzopeuser -c tmp/zeoclient/etc/zope.conf admin secret
 ```
 
-For example to run all the tests in the `plone.api` package that match the name `test_get`, run:
+- `plonex db pack --days 7`
 
 ```sh
-$ plonex -q zopetest -t test_get plone.api
-Running plone.api.tests.base.PloneApiLayer:Integration tests:
-  Set up plone.testing.zca.LayerCleanup in 0.000 seconds.
-  Set up plone.testing.zope.Startup in 0.040 seconds.
-  Set up plone.app.testing.layers.PloneFixture in 1.146 seconds.
-  Set up plone.api.tests.base.PloneApiLayer in 0.528 seconds.
-  Set up plone.api.tests.base.PloneApiLayer:Integration in 0.000 seconds.
-  Running:
-
-  Ran 80 tests with 0 failures, 0 errors, 0 skipped in 2.326 seconds.
-Tearing down left over layers:
-  Tear down plone.api.tests.base.PloneApiLayer:Integration in 0.000 seconds.
-  Tear down plone.api.tests.base.PloneApiLayer in 0.001 seconds.
-  Tear down plone.app.testing.layers.PloneFixture in 0.007 seconds.
-  Tear down plone.testing.zope.Startup in 0.001 seconds.
-  Tear down plone.testing.zca.LayerCleanup in 0.000 seconds.
+.venv/bin/zeopack -u <zeo_address> -d 7
 ```
 
-### Robot tests helpers
+`<zeo_address>` is read from merged `plonex` configuration, not hardcoded.
 
-#### Robot server
-
-You can run a robot server with the `robotserver` command:
+- `plonex db backup`
 
 ```sh
-plonex robotserver
+.venv/bin/repozo -Bv -r var/backup -f var/filestorage/Data.fs
 ```
 
-This will start a robot server connected to the Zope instance.
-You can browse the test server here on `http://127.0.0.2:55001/plone`.
-
-By the default the robot server will use the layer: `Products.CMFPlone.testing.PRODUCTS_CMFPLONE_ROBOT_TESTING`.
-
-You can change the layer by passing the `-l/--layer` option:
+- `plonex supervisor start`
 
 ```sh
-plonex robotserver --layer=My.Project.testing.MY_ROBOT_TESTING
+.venv/bin/supervisord -c etc/supervisord.conf
 ```
 
-#### Robot tests
-
-You can run robot tests with the `robottest` command:
+- `plonex supervisor status`
 
 ```sh
-plonex robottest path/to/tests/*.robot
+.venv/bin/supervisorctl -c etc/supervisord.conf status
 ```
 
-By default:
-
-- this will run robot tests against the Zope instance running on `http://127.0.0.2:55001/plone` to match the robotserver configuration.
-- it will use the browser `firefox`
-- it will run all the tests found in the specified paths.
-
-You can change the defaults by passing options. Refer to the help message for more information:
+- `plonex dependencies`
 
 ```sh
-$ plonex robottest --help
-Usage: plonex [options] robottest [-h] [-b BROWSER] [-t TEST] paths [paths ...]
-
-Positional Arguments:
-  paths                 Paths to the Robot Test files
-
-Options:
-  -h, --help            show this help message and exit
-  -b, --browser BROWSER Browser to use for the tests (default: firefox)
-  -t, --test TEST       Name of the test(s) to run. It supports regular expressions.
+.venv/bin/uv pip install -r var/requirements.txt -c var/constraints.txt
 ```
+
+- `plonex robottest tests/acceptance/*.robot`
+
+```sh
+.venv/bin/robot --variable BROWSER:firefox tests/acceptance/*.robot
+```
+
+- `plonex robotserver`
+
+```sh
+.venv/bin/robot-server --debug-mode --verbose Products.CMFPlone.testing.PRODUCTS_CMFPLONE_ROBOT_TESTING
+```
+
+- `plonex zopetest plone.api -t test_get`
+
+```sh
+.venv/bin/zope-testrunner --all --quiet -pvc --path <package_path> -t test_get
+```
+
+Note: plonex also renders temporary config files under `tmp/` before running several services (for example `tmp/zeoclient/etc/zope.conf`).
+
+## Troubleshooting
+
+### "Could not find etc/plonex.yml"
+
+`plonex` looks for `etc/plonex.yml` by walking up from the target directory.
+Use one of these approaches:
+
+- run commands from inside your project tree,
+- pass `--target /path/to/project`,
+- or initialize a project first with `plonex init`.
+
+### Command uses unexpected values
+
+Run `plonex compile` and inspect `var/plonex.yml`.
+That file shows the final merged options and helps verify which file/flag won.
+
+Typical causes:
+
+- a higher-priority config file overrides your value,
+- a command-line option is overriding YAML,
+- or a service-specific file exists and takes precedence for that service.
+
+### `db pack` cannot connect to ZEO
+
+Check `zeo_address` in your merged config and ensure the socket/host exists.
+If needed, set it in `etc/plonex.local.yml` for machine-specific environments.
+
+### Missing binaries in `.venv/bin`
+
+If commands fail because binaries are missing, run:
+
+```sh
+plonex dependencies
+```
+
+This recreates or updates environment-installed tooling used by runtime commands.
+
+## Current limitations
+
+- `db restore` is not implemented yet.
+- `test` is currently a placeholder command.
+
+These commands are listed for interface completeness but do not provide full behavior yet.
