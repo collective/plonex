@@ -343,6 +343,36 @@ class TestBaseService(unittest.TestCase):
         self.assertEqual(cm.exception.code, 2)
         self.assertIn((error,), service.logger.errors)
 
+    def test_run_command_stream_output_enabled_for_fg(self):
+        """run_command enables output streaming for foreground commands"""
+        with DummyService() as service:
+            with mock.patch.object(service, "execute_command") as m_execute:
+                service.run_command(["instance", "fg"])
+        m_execute.assert_called_once_with(
+            ["instance", "fg"],
+            cwd=service.target,
+            stream_output=True,
+        )
+
+    def test_run_command_stream_output_disabled_for_non_fg(self):
+        """run_command keeps output capture for non-foreground commands"""
+        with DummyService() as service:
+            with mock.patch.object(service, "execute_command") as m_execute:
+                service.run_command(["instance", "start"])
+        m_execute.assert_called_once_with(
+            ["instance", "start"],
+            cwd=service.target,
+            stream_output=False,
+        )
+
+    def test_execute_command_stream_output_uses_foreground_mode(self):
+        """execute_command uses sh foreground mode when streaming output"""
+        with mock.patch("plonex.base.sh.Command") as m_command:
+            cmd = m_command.return_value
+            cmd.return_value = ""
+            BaseService.execute_command(["echo", "ok"], stream_output=True)
+        cmd.assert_called_once_with("ok", _fg=True)
+
     # --- __enter__ / __exit__ ---
 
     def test_enter_with_environment_vars(self):

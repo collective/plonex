@@ -8,6 +8,7 @@ from pathlib import Path
 from plonex import logger
 from rich.console import Console
 from tempfile import mkdtemp
+from typing import Any
 from typing import Callable
 from typing import Sequence
 
@@ -307,11 +308,16 @@ class BaseService:
         self.logger.debug("Entering %s", self.target)
         command_list: list[str] = list(map(str, command))
         command_str: str = " ".join(command_list)
+        stream_output = "fg" in command_list
         try:
             self.logger.debug("Running %r", command_str)
             start_time = time.time()
             try:
-                self.execute_command(command_list, cwd=self.target)
+                self.execute_command(
+                    command_list,
+                    cwd=self.target,
+                    stream_output=stream_output,
+                )
             except sh.ErrorReturnCode as e:
                 self.logger.error(e)
                 sys.exit(e.exit_code)
@@ -323,12 +329,17 @@ class BaseService:
 
     @staticmethod
     def execute_command(
-        command: Sequence[str | Path | int], cwd: Path | None = None
+        command: Sequence[str | Path | int],
+        cwd: Path | None = None,
+        stream_output: bool = False,
     ) -> str:
         """Execute a command with sh and return stdout as text."""
         command_list = list(map(str, command))
         executable, *args = command_list
-        kwargs = {"_cwd": str(cwd)} if cwd else {}
+        kwargs: dict[str, Any] = {"_cwd": str(cwd)} if cwd else {}
+        if stream_output:
+            # Keep a real TTY for foreground commands (proper width, colors, prompts).
+            kwargs.update({"_fg": True})
         return str(sh.Command(executable)(*args, **kwargs))
 
     @entered_only
