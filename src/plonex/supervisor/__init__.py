@@ -22,36 +22,12 @@ class SupervisordConfOptions:
 
 
 @dataclass(kw_only=True)
-class ProgramConf:
-    """
-    [program:{{ options.program }}]
-    command = {{ options.command }}
-    process_name = {{ options.process_name }}
-    directory = {{ options.directory }}
-    priority = {{ options.priority }}
-    """
-
-    program: str
-    command: str
-    process_name: str
-    directory: str
-    priority: int
-
-    def get(self, key: str, default=None):
-        """Allow access to the options as if they were attributes."""
-        return getattr(self, key, default)
-
-
-@dataclass(kw_only=True)
 class Supervisor(BaseService):
 
     name: str = "supervisor"
 
     supervisord_conf_template: str = (
         "resource://plonex.supervisor.templates:supervisord.conf.j2"
-    )
-    program_conf_template: str = (
-        "resource://plonex.supervisor.templates:program.conf.j2"
     )
 
     etc_folder: Path = field(init=False)
@@ -88,28 +64,6 @@ class Supervisor(BaseService):
                         log_folder=self.log_folder,
                         pidfile=self.var_folder / "supervisord.pid",
                         included_files=str(self.etc_folder / self.name / "*.conf"),
-                    ),
-                ),
-                TemplateService(
-                    source_path=self.program_conf_template,
-                    target_path=self.programs_folder / "zeoserver.conf.example",
-                    options=ProgramConf(
-                        program="zeoserver",
-                        command="plonex zeoserver",
-                        process_name="zeoserver",
-                        directory=str(self.target),
-                        priority=1,
-                    ),
-                ),
-                TemplateService(
-                    source_path=self.program_conf_template,
-                    target_path=self.programs_folder / "zeoclient.conf.example",
-                    options=ProgramConf(
-                        program="zeoclient",
-                        command="plonex zeoclient",
-                        process_name="zeoclient",
-                        directory=str(self.target),
-                        priority=2,
                     ),
                 ),
             ]

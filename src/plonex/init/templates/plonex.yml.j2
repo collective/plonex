@@ -3,3 +3,22 @@ plonex_version: {{ plonex_version }}
 log_level: info
 environment_vars:
     PYTHONWARNINGS: ignore:::pkg_resources
+services:
+    - template:
+        source_path: resource://plonex.supervisor.templates:program.conf.j2
+        target_path: tmp/supervisor/etc/supervisor/zeoserver.conf
+        options:
+            program: zeoserver
+            command: plonex zeoserver
+            process_name: zeoserver
+            directory: "{{ target }}"
+            priority: 1
+    - template:
+        source_path: resource://plonex.supervisor.templates:program.conf.j2
+        target_path: tmp/supervisor/etc/supervisor/zeoclient.conf
+        options:
+            program: zeoclient
+            command: plonex zeoclient
+            process_name: zeoclient
+            directory: "{{ target }}"
+            priority: 2

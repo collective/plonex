@@ -79,6 +79,17 @@ class TestInit(PloneXTestCase):
             # plonex.yml should have been created
             self.assertTrue((svc.target / "etc" / "plonex.yml").exists())
 
+    def test_generated_plonex_yml_contains_services_proposal(self):
+        """Test that init template proposes service-driven supervisor entries."""
+        with temp_init() as svc:
+            content = (svc.target / "etc" / "plonex.yml").read_text()
+            self.assertIn("services:", content)
+            self.assertIn(
+                "resource://plonex.supervisor.templates:program.conf.j2", content
+            )
+            self.assertIn("tmp/supervisor/etc/supervisor/zeoserver.conf", content)
+            self.assertIn("tmp/supervisor/etc/supervisor/zeoclient.conf", content)
+
     def test_run_creates_gitignore(self):
         """Test that run() creates a .gitignore file"""
         with temp_cwd() as cwd:

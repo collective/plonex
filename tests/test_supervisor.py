@@ -44,7 +44,6 @@ class TestSupervisor(PloneXTestCase):
                 "cli_options",
                 "config_files",
                 "supervisord_conf_template",
-                "program_conf_template",
             ],
         )
 
@@ -69,6 +68,7 @@ class TestSupervisor(PloneXTestCase):
             self.assertTrue(supervisor.log_folder.exists())
 
             # We have some pre services
+            self.assertIsNotNone(supervisor.pre_services)
             pre_services_by_name = {
                 service.name: service for service in supervisor.pre_services
             }
@@ -76,13 +76,13 @@ class TestSupervisor(PloneXTestCase):
                 list(pre_services_by_name),
                 [
                     "supervisord.conf",
-                    "program.conf",
                 ],
             )
 
     def test_supervisor_conf(self):
         """Test the supervisor.conf file"""
         with temp_supervisor() as supervisor:
+            self.assertIsNotNone(supervisor.pre_services)
             pre_services_by_name = {
                 service.name: service for service in supervisor.pre_services
             }
