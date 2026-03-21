@@ -63,8 +63,8 @@ class Supervisor(BaseService):
 
     def __post_init__(self):
         # Be sure that the required folders exist
-        self.etc_folder = self.target / "etc"
         self.tmp_folder = self.target / "tmp" / self.name
+        self.etc_folder = self.tmp_folder / "etc"
         self.var_folder = self.target / "var"
         self.log_folder = self.var_folder / "log"
 

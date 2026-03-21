@@ -55,8 +55,10 @@ class TestSupervisor(PloneXTestCase):
 
             # We have some folders
             self.assertEqual(supervisor.target, Path(cwd))
-            self.assertEqual(supervisor.etc_folder, Path(cwd) / "etc")
             self.assertEqual(supervisor.tmp_folder, Path(cwd) / "tmp" / "supervisor")
+            self.assertEqual(
+                supervisor.etc_folder, Path(cwd) / "tmp" / "supervisor" / "etc"
+            )
             self.assertEqual(supervisor.var_folder, Path(cwd) / "var")
             self.assertEqual(supervisor.log_folder, Path(cwd) / "var/log")
 
