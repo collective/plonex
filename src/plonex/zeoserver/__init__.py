@@ -1,18 +1,9 @@
 from dataclasses import dataclass
 from dataclasses import field
+from functools import cached_property
 from pathlib import Path
 from plonex.base import BaseService
 from plonex.template import TemplateService
-
-
-_undefined = object()
-
-default_options = {
-    "http_port": 8080,
-    "http_address": "0.0.0.0",
-    "zeo_address": _undefined,
-    "blobstorage": _undefined,
-}
 
 
 @dataclass(kw_only=True)
@@ -39,11 +30,22 @@ class ZeoServer(BaseService):
     # This service has some folders
     tmp_folder: Path | None = None
     var_folder: Path | None = None
-    # The service has some options
-    options: dict = field(init=False, default_factory=default_options.copy)
 
-    # Command line options will win over the config file options
-    cli_options: dict = field(default_factory=dict)
+    @cached_property
+    def options_defaults(self) -> dict:
+        if self.var_folder is None:
+            raise ValueError("var_folder is not set")
+
+        options_defaults = super().options_defaults
+        options_defaults.update(
+            {
+                "http_port": 8080,
+                "http_address": "0.0.0.0",
+                "zeo_address": str(self.var_folder / "zeosocket.sock"),
+                "blobstorage": str(self.var_folder / "blobstorage"),
+            }
+        )
+        return options_defaults
 
     def __post_init__(self):
         # Be sure that the required folders exist
@@ -69,9 +71,9 @@ class ZeoServer(BaseService):
                     source_path="resource://plonex.zeoserver.templates:zeo.conf.j2",
                     target_path=self.tmp_folder / "etc" / "zeo.conf",
                     options={
-                        "address": self.var_folder / "zeosocket.sock",
+                        "address": self.options["zeo_address"],
                         "pidfile": self.var_folder / f"{self.name}.pid",
-                        "blob_dir": self.var_folder / "blobstorage",
+                        "blob_dir": self.options["blobstorage"],
                         "path": self.var_folder / "filestorage" / "Data.fs",
                         "log_path": self.var_folder / "log" / "zeoserver.log",
                         "tmp_folder": self.tmp_folder,
@@ -91,8 +93,7 @@ class ZeoServer(BaseService):
     def run_pack(self, days: int = 7):
         """Run the zeo pack command"""
         zeopack = self.virtualenv_dir / "bin" / "zeopack"
-        address = self.var_folder / "zeosocket.sock"  # type: ignore
-        days = 7
+        address = self.options["zeo_address"]
         self.logger.info("Running zeopack")
         self.run_command([zeopack, "-u", address, "-d", days])
         self.logger.info("Completed zeopack")

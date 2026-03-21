@@ -113,9 +113,34 @@ class TestZeoServer(PloneXTestCase):
                 [
                     zeo.virtualenv_dir / "bin" / "zeopack",
                     "-u",
-                    zeo.var_folder / "zeosocket.sock",
+                    zeo.options["zeo_address"],
                     "-d",
-                    7,
+                    3,
+                ]
+            )
+
+    def test_run_pack_uses_zeo_address_from_plonex_local(self):
+        """run_pack uses zeo_address loaded from plonex.local.yml"""
+        with temp_cwd() as temp_dir:
+            (temp_dir / ".venv" / "bin").mkdir(parents=True)
+            (temp_dir / ".venv" / "bin" / "activate").touch()
+            (temp_dir / "etc").mkdir(parents=True)
+            custom_socket = temp_dir / "components" / "zeo" / "var" / "zeo.socket"
+            (temp_dir / "etc" / "plonex.local.yml").write_text(
+                "zeo_address: " + str(custom_socket) + "\n"
+            )
+
+            with ZeoServer(target=temp_dir) as zeo:
+                with mock.patch.object(zeo, "run_command") as mock_run:
+                    zeo.run_pack(days=5)
+
+            mock_run.assert_called_once_with(
+                [
+                    temp_dir / ".venv" / "bin" / "zeopack",
+                    "-u",
+                    str(custom_socket),
+                    "-d",
+                    5,
                 ]
             )
 
