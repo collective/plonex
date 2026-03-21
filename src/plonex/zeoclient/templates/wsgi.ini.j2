@@ -1,12 +1,12 @@
 [server:main]
 paste.server_factory = plone.recipe.zope2instance:main
 use = egg:plone.recipe.zope2instance#main
-{{ 'fast-listen' if options.fast_listen else 'listen' }} = {{ options.context.options['http_address'] }}:{{ options.context.options['http_port'] }}
-threads = {{ options.threads }}
+{{ 'fast-listen' if fast_listen else 'listen' }} = {{ http_address }}:{{ http_port }}
+threads = {{ threads }}
 
 [app:zope]
 use = egg:Zope#main
-zope_conf = {{ options.zope_conf }}
+zope_conf = {{ zope_conf }}
 
 [filter:translogger]
 use = egg:Paste#translogger
@@ -62,14 +62,14 @@ formatter = message
 
 [handler_accesslog]
 class = logging.handlers.TimedRotatingFileHandler
-args = ("{{ options.var_folder }}/log/{{ options.name }}-access.log",)
+args = ("{{ var_folder }}/log/{{ name }}-access.log",)
 kwargs = {}
 level = INFO
 formatter = message
 
 [handler_eventlog]
 class = logging.handlers.TimedRotatingFileHandler
-args = ("{{ options.var_folder }}/log/{{ options.name }}.log",)
+args = ("{{ var_folder }}/log/{{ name }}.log",)
 kwargs = {}
 level = NOTSET
 formatter = generic

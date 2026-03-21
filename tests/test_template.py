@@ -11,7 +11,7 @@ class TestTemplateService(unittest.TestCase):
         super().setUp()
         self.temp_dir = self.enterContext(temp_cwd())
 
-    def _make_template(self, content="Hello {{ options.name }}!", filename="my_tpl.j2"):
+    def _make_template(self, content="Hello {{ name }}!", filename="my_tpl.j2"):
         """Helper: write a template file and return its path."""
         path = self.temp_dir / filename
         path.write_text(content)
@@ -52,13 +52,13 @@ class TestTemplateService(unittest.TestCase):
 
     def test_render_template(self):
         """render_template returns the rendered string"""
-        source = self._make_template(content="Hello {{ options.name }}!")
+        source = self._make_template(content="Hello {{ name }}!")
         service = TemplateService(source_path=source, options={"name": "World"})
         self.assertEqual(service.render_template(), "Hello World!")
 
     def test_render_template_missing_variable_raises(self):
         """render_template raises an error for undefined variables (StrictUndefined)"""
-        source = self._make_template(content="{{ options.undefined_var }}")
+        source = self._make_template(content="{{ undefined_var }}")
         service = TemplateService(source_path=source)
         with self.assertRaises(UndefinedError):
             service.render_template()
@@ -67,7 +67,7 @@ class TestTemplateService(unittest.TestCase):
 
     def test_run_writes_rendered_content(self):
         """run() renders the template and writes it to target_path"""
-        source = self._make_template(content="value={{ options.x }}")
+        source = self._make_template(content="value={{ x }}")
         target = self.temp_dir / "out" / "result.conf"
         service = TemplateService(
             source_path=source,

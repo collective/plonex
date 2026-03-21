@@ -1,4 +1,4 @@
-#!{{ options.python }}
+#!{{ python }}
 
 import plone.recipe.zope2instance.ctl
 import sys
@@ -8,11 +8,11 @@ if __name__ == "__main__":
         plone.recipe.zope2instance.ctl.main(
             [
                 "-C",
-                "{{ options.zope_conf_path }}",
+                "{{ zope_conf_path }}",
                 "-p",
-                "{{ options.interpreter_path }}",
+                "{{ interpreter_path }}",
                 "-w",
-                "{{ options.wsgi_ini_path }}",
+                "{{ wsgi_ini_path }}",
             ]
             + sys.argv[1:]
         )

@@ -11,11 +11,11 @@
   <five:loadProducts file="meta.zcml"/>
 
   <!-- Load the configuration -->
-  <include files="{{ options.zcml_folder }}/package-includes/*-configure.zcml" />
+  <include files="{{ zcml_folder }}/package-includes/*-configure.zcml" />
   <five:loadProducts />
 
   <!-- Load the configuration overrides-->
-  <includeOverrides files="{{ options.zcml_folder }}/package-includes/*-overrides.zcml" />
+  <includeOverrides files="{{ zcml_folder }}/package-includes/*-overrides.zcml" />
   <five:loadProductsOverrides />
 
   <securityPolicy

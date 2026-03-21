@@ -1,21 +1,21 @@
-%define INSTANCE {{ options.tmp_folder }}
+%define INSTANCE {{ tmp_folder }}
 
 <zeo>
-  address {{ options.address }}
+  address {{ address }}
   read-only false
   invalidation-queue-size 100
-  pid-filename {{ options.pidfile }}
+  pid-filename {{ pidfile }}
 </zeo>
 
 <filestorage 1>
-  path {{ options.path }}
-  blob-dir {{ options.blob_dir }}
+  path {{ path }}
+  blob-dir {{ blob_dir }}
 </filestorage>
 
 <eventlog>
   level info
   <logfile>
-    path {{ options.log_path }}
+    path {{ log_path }}
     format %(asctime)s %(message)s
   </logfile>
 </eventlog>

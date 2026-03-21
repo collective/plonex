@@ -1,5 +1,8 @@
+from collections.abc import Mapping
+from dataclasses import asdict
 from dataclasses import dataclass
 from dataclasses import field
+from dataclasses import is_dataclass
 from importlib import resources
 from jinja2 import Environment
 from jinja2 import StrictUndefined
@@ -73,4 +76,12 @@ class TemplateService(BaseService):
     def render_template(self):
         """Just render the template and return the result"""
         template = self.environment.from_string(self.source_path.read_text())
-        return template.render(options=self.options, keep_trailing_newline=True)
+        if isinstance(self.options, Mapping):
+            flat_options = dict(self.options)
+        elif is_dataclass(self.options):
+            flat_options = asdict(self.options)
+        else:
+            flat_options = vars(self.options)
+
+        render_context = {"options": self.options, **flat_options}
+        return template.render(**render_context, keep_trailing_newline=True)
