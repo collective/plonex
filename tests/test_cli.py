@@ -443,6 +443,20 @@ class TestMain(unittest.TestCase):
         svc = self._run_service(["describe"], "plonex.cli.DescribeService")
         svc.return_value.run.assert_called_once()
 
+    def test_action_describe_html_browse(self):
+        with mock.patch("plonex.cli.DescribeService") as MockSvc:
+            MockSvc.return_value.__enter__ = mock.Mock(
+                return_value=MockSvc.return_value
+            )
+            MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
+            self._run_with_target(["describe", "--html", "--browse"])
+        MockSvc.assert_called_once_with(
+            target=self.temp_dir.resolve(),
+            generate_html=True,
+            browse_html=True,
+        )
+        MockSvc.return_value.run.assert_called_once()
+
     def test_action_upgrade(self):
         svc = self._run_service(["upgrade"], "plonex.cli.UpgradeService")
         svc.return_value.run.assert_called_once()

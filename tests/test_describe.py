@@ -21,6 +21,8 @@ class TestDescribeService(PloneXTestCase):
                 "cli_options",
                 "config_files",
                 "describe_template",
+                "generate_html",
+                "browse_html",
             ],
         )
 
@@ -73,6 +75,10 @@ class TestDescribeService(PloneXTestCase):
                     (
                         "Markdown description",
                         cwd / "var" / "plonex_description" / "index.md",
+                    ),
+                    (
+                        "HTML description",
+                        cwd / "var" / "plonex_description" / "index.html",
                     ),
                     ("Requirement fragment 010-extra.txt", requirement_fragment),
                     ("Constraint fragment 010-extra.txt", constraint_fragment),
@@ -139,6 +145,11 @@ class TestDescribeService(PloneXTestCase):
                             (
                                 "Markdown description",
                                 cwd / "var" / "plonex_description" / "index.md",
+                                [],
+                            ),
+                            (
+                                "HTML description",
+                                cwd / "var" / "plonex_description" / "index.html",
                                 [],
                             ),
                         ],
@@ -341,3 +352,53 @@ class TestDescribeService(PloneXTestCase):
                 self.assertIn("### Runtime Files", rendered)
                 self.assertIn("### Reports", rendered)
                 MockConsole.return_value.print.assert_called_once()
+
+    def test_run_generates_html_and_browse(self):
+        with temp_cwd() as cwd:
+            (cwd / ".venv" / "bin").mkdir(parents=True)
+            (cwd / ".venv" / "bin" / "activate").touch()
+            (cwd / "etc").mkdir()
+            (cwd / "etc" / "plonex.yml").write_text("plone_version: 6.1.2\n")
+            (cwd / "tmp" / "supervisor" / "etc").mkdir(parents=True)
+            (cwd / "tmp" / "supervisor" / "etc" / "supervisord.conf").write_text(
+                "[supervisord]\n"
+            )
+
+            with (
+                mock.patch(
+                    "plonex.describe.InstallService.ensure_virtualenv",
+                    return_value=None,
+                ),
+                mock.patch(
+                    "plonex.describe.BaseService.execute_command",
+                    side_effect=lambda command, cwd=None, stream_output=False: (
+                        "Python 3.13.7\n"
+                        if len(command) == 2 and str(command[1]) == "--version"
+                        else ""
+                    ),
+                ),
+                mock.patch("plonex.describe.Supervisor") as MockSupervisor,
+                mock.patch("plonex.describe.Console") as MockConsole,
+                mock.patch("plonex.describe.webbrowser.open") as mock_open,
+            ):
+                MockSupervisor.return_value.__enter__ = mock.Mock(
+                    return_value=MockSupervisor.return_value
+                )
+                MockSupervisor.return_value.__exit__ = mock.Mock(return_value=False)
+                MockSupervisor.return_value.get_status.return_value = "not running"
+
+                with DescribeService(generate_html=True, browse_html=True) as svc:
+                    svc.run()
+
+                self.assertTrue(
+                    (cwd / "var" / "plonex_description" / "index.md").exists()
+                )
+                MockConsole.assert_called_once_with(record=True)
+                MockConsole.return_value.save_html.assert_called_once_with(
+                    cwd / "var" / "plonex_description" / "index.html"
+                )
+                mock_open.assert_called_once_with(
+                    (cwd / "var" / "plonex_description" / "index.html")
+                    .resolve()
+                    .as_uri()
+                )

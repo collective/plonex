@@ -333,6 +333,9 @@ still wins over YAML when both are provided.
 `describe`
 
 - Render a project description from current configuration.
+- `--html`: also export the description to `var/plonex_description/index.html`.
+- `--browse`: open the generated HTML report in your default browser (implies
+  HTML generation).
 
 `dependencies [--persist]`
 

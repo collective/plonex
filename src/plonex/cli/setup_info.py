@@ -31,10 +31,26 @@ def register_setup_parsers(subs, add_subparser) -> None:
         help="Compile the configuration files in to var files",
     )
 
-    add_subparser(
+    describe_parser = add_subparser(
         subs,
         "describe",
         help="Describe the current project configuration",
+    )
+    describe_parser.add_argument(
+        "--html",
+        help="Export the generated description as HTML",
+        required=False,
+        default=False,
+        action="store_true",
+        dest="describe_html",
+    )
+    describe_parser.add_argument(
+        "--browse",
+        help="Open the generated HTML description in a browser",
+        required=False,
+        default=False,
+        action="store_true",
+        dest="describe_browse",
     )
 
     install_parser = add_subparser(

@@ -10,6 +10,8 @@ from plonex.template import TemplateService
 from rich.console import Console
 from rich.markdown import Markdown
 
+import webbrowser
+
 
 @dataclass(kw_only=True)
 class DescribeService(BaseService):
@@ -20,6 +22,8 @@ class DescribeService(BaseService):
     describe_template: str = (
         "resource://plonex.describe.templates:plonex_description.md.j2"
     )
+    generate_html: bool = False
+    browse_html: bool = False
     var_folder: Path = field(init=False)
     describe_folder: Path = field(init=False)
 
@@ -30,6 +34,10 @@ class DescribeService(BaseService):
     @property
     def description_path(self) -> Path:
         return self.describe_folder / "index.md"
+
+    @property
+    def description_html_path(self) -> Path:
+        return self.describe_folder / "index.html"
 
     def display_path(self, path: str | Path) -> str:
         path = Path(path)
@@ -130,6 +138,7 @@ class DescribeService(BaseService):
                 self.target / "tmp" / "supervisor" / "etc" / "supervisord.conf",
             ),
             ("Markdown description", self.description_path),
+            ("HTML description", self.description_html_path),
         ]
         files.extend(
             (f"Requirement fragment {path.name}", path)
@@ -184,6 +193,7 @@ class DescribeService(BaseService):
                 "Reports",
                 [
                     ("Markdown description", self.description_path, []),
+                    ("HTML description", self.description_html_path, []),
                 ],
             ),
         ]
@@ -222,6 +232,11 @@ class DescribeService(BaseService):
     def run(self):
         self._compile_project_files()
         self._render_description()
-        console = Console()
+        html_requested = self.generate_html or self.browse_html
+        console = Console(record=html_requested)
         markdown = Markdown(self.description_path.read_text())
         console.print(markdown)
+        if html_requested:
+            console.save_html(self.description_html_path)
+        if self.browse_html:
+            webbrowser.open(self.description_html_path.resolve().as_uri())

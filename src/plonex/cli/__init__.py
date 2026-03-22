@@ -111,7 +111,11 @@ def _dispatch(args, parser, target: Path) -> None:
 
     elif args.action == "describe":
         _run_service_dependencies(target, "describe")
-        with DescribeService(target=target) as svc:
+        with DescribeService(
+            target=target,
+            generate_html=getattr(args, "describe_html", False),
+            browse_html=getattr(args, "describe_browse", False),
+        ) as svc:
             svc.run()
 
     elif args.action == "robotserver":
