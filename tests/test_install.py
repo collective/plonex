@@ -387,7 +387,7 @@ class TestInit(PloneXTestCase):
                     result = install.developed_packages_and_paths()
             self.assertEqual(result, {"demo-pkg → /tmp/demo"})
 
-    def test_developed_packages_and_paths_logs_info_when_name_resolution_fails(self):
+    def test_developed_packages_and_paths_logs_debug_when_name_resolution_fails(self):
         with temp_cwd():
             install = InstallService(dont_ask=True)
             (install.requirements_d_folder / "editable.txt").write_text(
@@ -396,7 +396,7 @@ class TestInit(PloneXTestCase):
             requirement = self._fake_requirement(
                 filename="demo.whl", path="/tmp/demo", editable=True
             )
-            with mock.patch.object(install.logger, "info") as mock_info:
+            with mock.patch.object(install.logger, "debug") as mock_debug:
                 with mock.patch(
                     "plonex.install.RequirementsFile.from_file",
                     return_value=SimpleNamespace(requirements=[requirement]),
@@ -408,9 +408,9 @@ class TestInit(PloneXTestCase):
                     ):
                         result = install.developed_packages_and_paths()
             self.assertEqual(result, {"demo-whl → /tmp/demo"})
-            mock_info.assert_called_once()
+            mock_debug.assert_called_once()
 
-    def test_developed_packages_logs_info_when_name_resolution_fails(self):
+    def test_developed_packages_logs_debug_when_name_resolution_fails(self):
         with temp_cwd():
             install = InstallService(dont_ask=True)
             (install.requirements_d_folder / "editable.txt").write_text(
@@ -419,7 +419,7 @@ class TestInit(PloneXTestCase):
             requirement = self._fake_requirement(
                 filename="demo.whl", path="/tmp/demo", editable=True
             )
-            with mock.patch.object(install.logger, "info") as mock_info:
+            with mock.patch.object(install.logger, "debug") as mock_debug:
                 with mock.patch(
                     "plonex.install.RequirementsFile.from_file",
                     return_value=SimpleNamespace(requirements=[requirement]),
@@ -431,7 +431,7 @@ class TestInit(PloneXTestCase):
                     ):
                         result = install.developed_packages()
             self.assertEqual(result, {"demo-whl"})
-            mock_info.assert_called_once()
+            mock_debug.assert_called_once()
 
     def test_command_property(self):
         with temp_install() as install:
