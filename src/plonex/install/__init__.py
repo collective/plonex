@@ -505,12 +505,44 @@ class InstallService(BaseService):
         self.make_constraints_txt()
         return self
 
+    def _resolve_first_profile_root(self) -> Path | None:
+        plonex_yml = self.target / "etc" / "plonex.yml"
+        if not plonex_yml.exists():
+            self.logger.error(
+                "No etc/plonex.yml found; cannot determine a profile to write to"
+            )
+            return None
+        raw_local = self._load_yaml_mapping(plonex_yml)
+        raw_profiles = raw_local.get("profiles") or []
+        if isinstance(raw_profiles, str):
+            raw_profiles = [raw_profiles]
+        if not raw_profiles:
+            self.logger.error(
+                "No profiles configured in etc/plonex.yml; "
+                "cannot determine a profile to write to"
+            )
+            return None
+        resolved = self._resolve_profile_source(raw_profiles[0], self.target)
+        if isinstance(resolved, str):
+            self.logger.error("Cannot write to a remote profile: %s", resolved)
+            return None
+        return resolved
+
     @BaseService.entered_only
     def run(
         self,
-        save_constraints: bool = False,
+        persist: bool = False,
+        persist_local: bool = False,
+        persist_profile: bool = False,
         update_sources: bool | None = None,
     ):
+        selected = [persist, persist_local, persist_profile]
+        if sum(1 for v in selected if v) > 1:
+            self.logger.error(
+                "Use only one persist flag: --persist, --persist-local, or --persist-profile"  # noqa: E501
+            )
+            return
+
         # Check if we have a virtualenv and if not create one
         self.ensure_virtualenv()
         should_update_sources = (
@@ -558,14 +590,34 @@ class InstallService(BaseService):
             missing.add(requirement_dump)
 
         if missing:
-            if save_constraints:
-                now = datetime.now().strftime("%Y%m%d-%H%M%S")
-                autoinstalled_file = (
-                    self.target
-                    / "etc"
-                    / "constraints.d"
-                    / f"999-{now}-autoinstalled.txt"
-                )
+            if persist or persist_local or persist_profile:
+                if persist_local:
+                    autoinstalled_file = (
+                        self.target
+                        / "etc"
+                        / "constraints.d"
+                        / "999-autoinstalled.local.txt"
+                    )
+                elif persist_profile:
+                    profile_root = self._resolve_first_profile_root()
+                    if profile_root is None:
+                        return
+                    now = datetime.now().strftime("%Y%m%d-%H%M%S")
+                    autoinstalled_file = (
+                        profile_root
+                        / "etc"
+                        / "constraints.d"
+                        / f"999-{now}-autoinstalled.txt"
+                    )
+                else:
+                    now = datetime.now().strftime("%Y%m%d-%H%M%S")
+                    autoinstalled_file = (
+                        self.target
+                        / "etc"
+                        / "constraints.d"
+                        / f"999-{now}-autoinstalled.txt"
+                    )
+                autoinstalled_file.parent.mkdir(parents=True, exist_ok=True)
                 if autoinstalled_file.exists():
                     missing |= set(autoinstalled_file.read_text().splitlines())
                     self.logger.info(f"Adding new constraints to {autoinstalled_file}")
@@ -579,5 +631,5 @@ class InstallService(BaseService):
                 )
                 console.print(*sorted(missing), sep="\n")
                 console.print(
-                    "Running  `plonex dependencies --persist` will do that for you."
+                    "Running  `plonex dependencies [--persist|--persist-local|--persist-profile]` will do that for you."  # noqa: E501
                 )

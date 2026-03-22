@@ -227,11 +227,19 @@ class TestBuildParser(unittest.TestCase):
     def test_action_dependencies(self):
         args = self.parser.parse_args(["dependencies"])
         self.assertEqual(args.action, "dependencies")
-        self.assertFalse(args.persist_constraints)
+        self.assertIsNone(args.persist_mode)
 
     def test_action_dependencies_persist(self):
         args = self.parser.parse_args(["dependencies", "--persist"])
-        self.assertTrue(args.persist_constraints)
+        self.assertEqual(args.persist_mode, "project")
+
+    def test_action_dependencies_persist_local(self):
+        args = self.parser.parse_args(["dependencies", "--persist-local"])
+        self.assertEqual(args.persist_mode, "local")
+
+    def test_action_dependencies_persist_profile(self):
+        args = self.parser.parse_args(["dependencies", "--persist-profile"])
+        self.assertEqual(args.persist_mode, "profile")
 
     def test_action_dependencies_update_sources(self):
         args = self.parser.parse_args(["dependencies", "--update-sources"])
@@ -638,7 +646,9 @@ class TestMain(unittest.TestCase):
                 self._run_with_target(["dependencies", "--persist"])
         mock_deps.assert_called_once_with(self.temp_dir.resolve(), "dependencies")
         MockSvc.return_value.run.assert_called_once_with(
-            save_constraints=True,
+            persist=True,
+            persist_local=False,
+            persist_profile=False,
             update_sources=None,
         )
 
@@ -652,7 +662,9 @@ class TestMain(unittest.TestCase):
                 self._run_with_target(["dependencies", "--update-sources"])
         mock_deps.assert_called_once_with(self.temp_dir.resolve(), "dependencies")
         MockSvc.return_value.run.assert_called_once_with(
-            save_constraints=False,
+            persist=False,
+            persist_local=False,
+            persist_profile=False,
             update_sources=True,
         )
 

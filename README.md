@@ -348,10 +348,12 @@ sources:
 - `--browse`: open the generated HTML report in your default browser (implies
   HTML generation).
 
-`dependencies [--persist]`
+`dependencies [--persist|--persist-local|--persist-profile]`
 
 - Install from merged requirements/constraints.
-- `-p, --persist`: save auto-detected missing constraints.
+- `-p, --persist`: save auto-detected missing constraints into the project's `etc/constraints.d/`.
+- `--persist-local`: save auto-detected missing constraints into a local (git-ignored) `etc/constraints.d/999-autoinstalled.local.txt`.
+- `--persist-profile`: save auto-detected missing constraints into the first configured profile's `etc/constraints.d/`.
 - `--update-sources`: update sources before installing dependencies (uses Gitman under the hood).
 
 To enable source updates by default in project configuration:

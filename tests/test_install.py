@@ -470,7 +470,7 @@ class TestInit(PloneXTestCase):
                 ],
             )
 
-    def test_run_with_save_constraints(self):
+    def test_run_with_persist(self):
         with temp_cwd() as cwd:
             install = InstallService(dont_ask=True)
             venv_bin = cwd / ".venv" / "bin"
@@ -504,7 +504,7 @@ class TestInit(PloneXTestCase):
                 with install:
                     install.requirements_txt = requirements_file
                     install.constrainst_txt = constraints_file
-                    install.run(save_constraints=True)
+                    install.run(persist=True)
             saved = (
                 cwd / "etc" / "constraints.d" / "999-20260321-100001-autoinstalled.txt"
             )
@@ -548,12 +548,99 @@ class TestInit(PloneXTestCase):
                 with install:
                     install.requirements_txt = requirements_file
                     install.constrainst_txt = constraints_file
-                    install.run(save_constraints=True)
+                    install.run(persist=True)
             self.assertEqual(
                 existing.read_text().splitlines(), ["bar==2.0.0", "foo==1.0.0"]
             )
 
-    def test_run_without_save_constraints_prints_missing(self):
+    def test_run_with_persist_local(self):
+        with temp_cwd() as cwd:
+            install = InstallService(dont_ask=True)
+            venv_bin = cwd / ".venv" / "bin"
+            venv_bin.mkdir(parents=True)
+            (venv_bin / "activate").touch()
+            (venv_bin / "uv").touch()
+            (venv_bin / "pip").touch()
+            constraints_file = install.var_folder / "constraints.txt"
+            requirements_file = install.var_folder / "requirements.txt"
+            constraints_file.write_text("# header\n")
+            requirements_file.write_text("# header\n")
+            installed_req = self._fake_requirement(dumps="foo==1.0.0")
+            with (
+                mock.patch.object(InstallService, "ensure_virtualenv"),
+                mock.patch.object(InstallService, "make_requirements_txt"),
+                mock.patch.object(InstallService, "make_constraints_txt"),
+                mock.patch.object(install, "run_command"),
+                mock.patch.object(
+                    install, "execute_command", return_value="foo==1.0.0\n"
+                ),
+                mock.patch(
+                    "plonex.install.RequirementsFile.from_file",
+                    side_effect=[
+                        SimpleNamespace(requirements=[], options=[]),
+                        SimpleNamespace(requirements=[installed_req]),
+                    ],
+                ),
+            ):
+                with install:
+                    install.requirements_txt = requirements_file
+                    install.constrainst_txt = constraints_file
+                    install.run(persist_local=True)
+            saved = cwd / "etc" / "constraints.d" / "999-autoinstalled.local.txt"
+            self.assertTrue(saved.exists())
+            self.assertEqual(saved.read_text(), "foo==1.0.0\n")
+
+    def test_run_with_persist_profile(self):
+        with temp_cwd() as cwd:
+            profile_dir = cwd / "profiles" / "myprofile"
+            (profile_dir / "etc").mkdir(parents=True)
+            (cwd / "etc").mkdir(exist_ok=True)
+            (cwd / "etc" / "plonex.yml").write_text(
+                "profiles:\n  - profiles/myprofile\n"
+            )
+            install = InstallService(dont_ask=True)
+            venv_bin = cwd / ".venv" / "bin"
+            venv_bin.mkdir(parents=True)
+            (venv_bin / "activate").touch()
+            (venv_bin / "uv").touch()
+            (venv_bin / "pip").touch()
+            constraints_file = install.var_folder / "constraints.txt"
+            requirements_file = install.var_folder / "requirements.txt"
+            constraints_file.write_text("# header\n")
+            requirements_file.write_text("# header\n")
+            installed_req = self._fake_requirement(dumps="foo==1.0.0")
+            with (
+                mock.patch.object(InstallService, "ensure_virtualenv"),
+                mock.patch.object(InstallService, "make_requirements_txt"),
+                mock.patch.object(InstallService, "make_constraints_txt"),
+                mock.patch.object(install, "run_command"),
+                mock.patch.object(
+                    install, "execute_command", return_value="foo==1.0.0\n"
+                ),
+                mock.patch(
+                    "plonex.install.RequirementsFile.from_file",
+                    side_effect=[
+                        SimpleNamespace(requirements=[], options=[]),
+                        SimpleNamespace(requirements=[installed_req]),
+                    ],
+                ),
+                mock.patch("plonex.install.datetime") as mock_datetime,
+            ):
+                mock_datetime.now.return_value.strftime.return_value = "20260321-120000"
+                with install:
+                    install.requirements_txt = requirements_file
+                    install.constrainst_txt = constraints_file
+                    install.run(persist_profile=True)
+            saved = (
+                profile_dir
+                / "etc"
+                / "constraints.d"
+                / "999-20260321-120000-autoinstalled.txt"
+            )
+            self.assertTrue(saved.exists())
+            self.assertEqual(saved.read_text(), "foo==1.0.0\n")
+
+    def test_run_without_persist_prints_missing(self):
         with temp_cwd() as cwd:
             install = InstallService(dont_ask=True)
             venv_bin = cwd / ".venv" / "bin"
@@ -587,7 +674,7 @@ class TestInit(PloneXTestCase):
                     with install:
                         install.requirements_txt = requirements_file
                         install.constrainst_txt = constraints_file
-                        install.run(save_constraints=False)
+                        install.run()
             self.assertTrue(
                 any(
                     "Missing constraints" in str(call)
@@ -628,7 +715,7 @@ class TestInit(PloneXTestCase):
                                 return_value="foo==1.0.0\nbar==2.0.0\n",
                             ):
                                 with install:
-                                    install.run(save_constraints=False)
+                                    install.run()
 
             self.assertFalse(
                 any(
@@ -711,7 +798,7 @@ class TestInit(PloneXTestCase):
                                 ),
                             ):
                                 with install:
-                                    install.run(save_constraints=False)
+                                    install.run()
 
             self.assertFalse(
                 any(

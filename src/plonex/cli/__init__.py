@@ -214,9 +214,12 @@ def _dispatch(args, parser, target: Path) -> None:
 
     elif args.action == "dependencies":
         _run_service_dependencies(target, "dependencies")
+        persist_mode = getattr(args, "persist_mode", None)
         with InstallService(target=target) as svc:
             svc.run(
-                save_constraints=args.persist_constraints,
+                persist=persist_mode == "project",
+                persist_local=persist_mode == "local",
+                persist_profile=persist_mode == "profile",
                 update_sources=getattr(args, "update_sources", None),
             )
 

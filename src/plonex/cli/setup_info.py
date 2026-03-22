@@ -138,14 +138,32 @@ def register_setup_parsers(subs, add_subparser) -> None:
         "dependencies",
         help="Install the dependencies",
     )
-    dependencies_parser.add_argument(
+    persist_group = dependencies_parser.add_mutually_exclusive_group()
+    persist_group.add_argument(
         "-p",
         "--persist",
-        help="Persist the constraints",
+        help="Persist missing constraints into project etc/constraints.d/",
         required=False,
-        dest="persist_constraints",
-        default=False,
-        action="store_true",
+        action="store_const",
+        const="project",
+        default=None,
+        dest="persist_mode",
+    )
+    persist_group.add_argument(
+        "--persist-local",
+        help="Persist missing constraints into a local (git-ignored) constraints file",
+        required=False,
+        action="store_const",
+        const="local",
+        dest="persist_mode",
+    )
+    persist_group.add_argument(
+        "--persist-profile",
+        help="Persist missing constraints into the first configured profile's etc/constraints.d/",  # noqa: E501
+        required=False,
+        action="store_const",
+        const="profile",
+        dest="persist_mode",
     )
     dependencies_parser.add_argument(
         "--update-sources",
