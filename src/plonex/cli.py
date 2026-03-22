@@ -1,16 +1,20 @@
 from argcomplete import autocomplete
 from argparse import ArgumentParser
+from dataclasses import fields
 from importlib.metadata import version
 from itertools import chain
 from pathlib import Path
 from plonex import logger
+from plonex.base import BaseService
 from plonex.compile import CompileService
 from plonex.describe import DescribeService
+from plonex.directory import DirectoryService
 from plonex.init import InitService
 from plonex.install import InstallService
 from plonex.robotserver import RobotServer
 from plonex.robottest import RobotTest
 from plonex.supervisor import Supervisor
+from plonex.template import TemplateService
 from plonex.test import TestService
 from plonex.upgrade import UpgradeService
 from plonex.zeoclient import ZeoClient
@@ -18,6 +22,7 @@ from plonex.zeoserver import ZeoServer
 from plonex.zopetest import ZopeTest
 from rich_argparse import RawTextRichHelpFormatter
 from textwrap import dedent
+from typing import Any
 
 import logging
 import os
@@ -35,6 +40,139 @@ def _group_subcommands_for_help(subs, groups: dict[str, list[str]]) -> None:
             if action is not None:
                 grouped.append(action)
     subs._choices_actions = grouped
+
+
+def _service_name(service_class) -> str | None:
+    for cls_field in fields(service_class):
+        if cls_field.name == "name" and isinstance(cls_field.default, str):
+            return cls_field.default or None
+    return None
+
+
+def _service_registry() -> dict[str, type[BaseService]]:
+    service_classes = [
+        CompileService,
+        DescribeService,
+        DirectoryService,
+        InitService,
+        InstallService,
+        RobotServer,
+        RobotTest,
+        Supervisor,
+        TestService,
+        UpgradeService,
+        ZeoClient,
+        ZeoServer,
+        ZopeTest,
+    ]
+    registry: dict[str, type[BaseService]] = {}
+    for service_class in service_classes:
+        service_name = _service_name(service_class)
+        if service_name:
+            registry[service_name] = service_class
+    registry["template"] = TemplateService
+    return registry
+
+
+def _normalize_template_kwargs(kwargs: dict[str, Any], target: Path) -> dict[str, Any]:
+    normalized = dict(kwargs)
+
+    if "source" in normalized and "source_path" not in normalized:
+        normalized["source_path"] = normalized.pop("source")
+
+    if "target" in normalized and "target_path" not in normalized:
+        normalized["target_path"] = normalized.pop("target")
+
+    source_path = normalized.get("source_path")
+    if isinstance(source_path, str) and not source_path.startswith("resource://"):
+        source_as_path = Path(source_path)
+        if not source_as_path.is_absolute():
+            normalized["source_path"] = target / source_as_path
+
+    target_path = normalized.get("target_path")
+    if isinstance(target_path, str):
+        target_as_path = Path(target_path)
+        if not target_as_path.is_absolute():
+            normalized["target_path"] = target / target_as_path
+
+    return normalized
+
+
+def _match_service_dependency(
+    service_kwargs: dict[str, Any],
+    dependency_for: str | None,
+) -> bool:
+    run_for = service_kwargs.get("run_for")
+    if dependency_for is None:
+        return True
+    if run_for is None:
+        return False
+    if isinstance(run_for, str):
+        return run_for == dependency_for
+    if isinstance(run_for, list):
+        return dependency_for in run_for
+    raise ValueError("The 'run_for' option should be a string or a list of strings")
+
+
+def _service_from_config(
+    spec: dict[str, Any],
+    target: Path,
+    dependency_for: str | None = None,
+) -> BaseService | None:
+    if not isinstance(spec, dict):
+        raise ValueError("Each service entry should be a mapping")
+    if len(spec) != 1:
+        raise ValueError("Each service entry should contain exactly one service key")
+
+    service_name, service_config = next(iter(spec.items()))
+    if service_config is None:
+        service_kwargs: dict[str, Any] = {}
+    elif isinstance(service_config, dict):
+        service_kwargs = dict(service_config)
+    else:
+        raise ValueError(
+            f"Service {service_name!r} configuration should be a mapping or null"
+        )
+
+    if not _match_service_dependency(service_kwargs, dependency_for):
+        return None
+
+    service_kwargs.pop("run_for", None)
+
+    registry = _service_registry()
+    service_class = registry.get(service_name)
+    if service_class is None:
+        known_services = ", ".join(sorted(registry))
+        raise ValueError(
+            f"Unknown service {service_name!r}. Known services: {known_services}"
+        )
+
+    if service_name == "template":
+        service_kwargs = _normalize_template_kwargs(service_kwargs, target)
+
+    service_kwargs.setdefault("target", target)
+
+    try:
+        return service_class(**service_kwargs)
+    except TypeError as exc:
+        raise ValueError(
+            f"Invalid configuration for service {service_name!r}: {exc}"
+        ) from exc
+
+
+def _run_service_dependencies(target: Path, service_name: str) -> None:
+    with BaseService(target=target) as svc:
+        services = svc.options.get("services") or []
+
+    if not isinstance(services, list):
+        raise ValueError("The 'services' option should be a list")
+
+    for spec in services:
+        service = _service_from_config(spec, target, dependency_for=service_name)
+        if service is None:
+            continue
+        with service:
+            service.run()
 
 
 def build_parser() -> ArgumentParser:
@@ -473,18 +611,22 @@ def main() -> None:
     _configure_logging(args, target)
 
     if args.action == "compile":
+        _run_service_dependencies(target, "compile")
         with CompileService(target=target) as svc:
             svc.run()
 
     elif args.action == "describe":
+        _run_service_dependencies(target, "describe")
         with DescribeService(target=target) as svc:
             svc.run()
 
     elif args.action == "robotserver":
+        _run_service_dependencies(target, "robotserver")
         with RobotServer(target=target, layer=args.layer) as svc:
             svc.run()
 
     elif args.action == "robottest":
+        _run_service_dependencies(target, "robottest")
         with RobotTest(
             target=target,
             paths=args.paths,
@@ -494,6 +636,7 @@ def main() -> None:
             svc.run()
 
     elif args.action == "zopetest":
+        _run_service_dependencies(target, "zopetest")
         with ZopeTest(
             target=target,
             package=args.package,
@@ -502,11 +645,13 @@ def main() -> None:
             svc.run()
 
     elif args.action == "zeoserver":
+        _run_service_dependencies(target, "zeoserver")
         logger.debug("Starting ZEO Server")
         with ZeoServer(target=target) as svc:
             svc.run()
 
     elif args.action == "zeoclient":
+        _run_service_dependencies(target, "zeoclient")
         logger.debug("Starting ZEO Client")
         zeoclient_action = getattr(args, "zeoclient_action", "") or "console"
         config_files = getattr(args, "zeoclient_config", []) or []
@@ -525,15 +670,18 @@ def main() -> None:
             svc.run()
 
     elif args.action == "run":
+        _run_service_dependencies(target, "run")
         with ZeoClient(target=target) as svc:
             svc.run_script(args.args or [])
 
     elif args.action == "adduser":
+        _run_service_dependencies(target, "adduser")
         config_files = getattr(args, "zeoclient_config", []) or []
         with ZeoClient(target=target, config_files=config_files) as svc:
             svc.adduser(args.username, args.password)
 
     elif args.action == "supervisor":
+        _run_service_dependencies(target, "supervisor")
         supervisor_action = getattr(args, "supervisor_action", None) or "status"
         with Supervisor(target=target) as svc:
             if supervisor_action == "start":
@@ -548,6 +696,7 @@ def main() -> None:
                 logger.info("TODO: Manage the graceful restart of the services")
 
     elif args.action == "db":
+        _run_service_dependencies(target, "db")
         db_action = getattr(args, "db_action", None)
         if db_action == "backup":
             with ZeoServer(target=target) as svc:
@@ -561,20 +710,24 @@ def main() -> None:
             parser.print_help()
 
     elif args.action == "dependencies":
+        _run_service_dependencies(target, "dependencies")
         with InstallService(target=target) as svc:
             svc.run(save_constraints=args.persist_constraints)
 
     elif args.action == "test":
+        _run_service_dependencies(target, "test")
         with TestService() as svc:
             svc.run()
 
     elif args.action == "install":
+        _run_service_dependencies(target, "install")
         with InstallService() as svc:
             svc.add_packages(args.package)
         with InstallService() as svc:
             svc.run()
 
     elif args.action == "upgrade":
+        _run_service_dependencies(target, "upgrade")
         with UpgradeService(target=target) as svc:
             svc.run()
 

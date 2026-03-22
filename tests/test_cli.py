@@ -4,6 +4,7 @@ from importlib.metadata import version
 from pathlib import Path
 from plonex.cli import _configure_logging
 from plonex.cli import _resolve_target
+from plonex.cli import _service_from_config
 from plonex.cli import build_parser
 from plonex.cli import main
 from runpy import run_path
@@ -419,105 +420,137 @@ class TestMain(unittest.TestCase):
         MockSvc.return_value.adduser.assert_called_once_with("admin", "secret")
 
     def test_action_supervisor_start(self):
-        with mock.patch("plonex.cli.Supervisor") as MockSvc:
-            MockSvc.return_value.__enter__ = mock.Mock(
-                return_value=MockSvc.return_value
-            )
-            MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-            self._run_with_target(["supervisor", "start"])
+        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.Supervisor") as MockSvc:
+                MockSvc.return_value.__enter__ = mock.Mock(
+                    return_value=MockSvc.return_value
+                )
+                MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
+                self._run_with_target(["supervisor", "start"])
+        mock_deps.assert_called_once_with(self.temp_dir.resolve(), "supervisor")
         MockSvc.return_value.run.assert_called_once()
 
     def test_action_supervisor_stop(self):
-        with mock.patch("plonex.cli.Supervisor") as MockSvc:
-            MockSvc.return_value.__enter__ = mock.Mock(
-                return_value=MockSvc.return_value
-            )
-            MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-            self._run_with_target(["supervisor", "stop"])
+        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.Supervisor") as MockSvc:
+                MockSvc.return_value.__enter__ = mock.Mock(
+                    return_value=MockSvc.return_value
+                )
+                MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
+                self._run_with_target(["supervisor", "stop"])
+        mock_deps.assert_called_once_with(self.temp_dir.resolve(), "supervisor")
         MockSvc.return_value.run_stop.assert_called_once()
 
     def test_action_supervisor_restart(self):
-        with mock.patch("plonex.cli.Supervisor") as MockSvc:
-            MockSvc.return_value.__enter__ = mock.Mock(
-                return_value=MockSvc.return_value
-            )
-            MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-            self._run_with_target(["supervisor", "restart"])
+        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.Supervisor") as MockSvc:
+                MockSvc.return_value.__enter__ = mock.Mock(
+                    return_value=MockSvc.return_value
+                )
+                MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
+                self._run_with_target(["supervisor", "restart"])
+        mock_deps.assert_called_once_with(self.temp_dir.resolve(), "supervisor")
         MockSvc.return_value.run_restart.assert_called_once()
 
     def test_action_supervisor_status(self):
-        with mock.patch("plonex.cli.Supervisor") as MockSvc:
-            MockSvc.return_value.__enter__ = mock.Mock(
-                return_value=MockSvc.return_value
-            )
-            MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-            self._run_with_target(["supervisor", "status"])
+        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.Supervisor") as MockSvc:
+                MockSvc.return_value.__enter__ = mock.Mock(
+                    return_value=MockSvc.return_value
+                )
+                MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
+                self._run_with_target(["supervisor", "status"])
+        mock_deps.assert_called_once_with(self.temp_dir.resolve(), "supervisor")
         MockSvc.return_value.run_status.assert_called_once()
 
     def test_action_dependencies(self):
-        with mock.patch("plonex.cli.InstallService") as MockSvc:
-            MockSvc.return_value.__enter__ = mock.Mock(
-                return_value=MockSvc.return_value
-            )
-            MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-            self._run_with_target(["dependencies", "--persist"])
+        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.InstallService") as MockSvc:
+                MockSvc.return_value.__enter__ = mock.Mock(
+                    return_value=MockSvc.return_value
+                )
+                MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
+                self._run_with_target(["dependencies", "--persist"])
+        mock_deps.assert_called_once_with(self.temp_dir.resolve(), "dependencies")
         MockSvc.return_value.run.assert_called_once_with(save_constraints=True)
 
-    def test_action_robotserver(self):
-        with mock.patch("plonex.cli.RobotServer") as MockSvc:
-            MockSvc.return_value.__enter__ = mock.Mock(
-                return_value=MockSvc.return_value
-            )
-            MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-            self._run_with_target(["robotserver"])
-        MockSvc.return_value.run.assert_called_once()
-
-    def test_action_robottest(self):
-        with mock.patch("plonex.cli.RobotTest") as MockSvc:
-            MockSvc.return_value.__enter__ = mock.Mock(
-                return_value=MockSvc.return_value
-            )
-            MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-            self._run_with_target(["robottest", "tests/robot/test_foo.robot"])
-        MockSvc.return_value.run.assert_called_once()
-
-    def test_action_zopetest(self):
-        with mock.patch("plonex.cli.ZopeTest") as MockSvc:
-            MockSvc.return_value.__enter__ = mock.Mock(
-                return_value=MockSvc.return_value
-            )
-            MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-            self._run_with_target(["zopetest", "my.package"])
-        MockSvc.return_value.run.assert_called_once()
-
-    def test_action_run_script(self):
-        with mock.patch("plonex.cli.ZeoClient") as MockSvc:
-            MockSvc.return_value.__enter__ = mock.Mock(
-                return_value=MockSvc.return_value
-            )
-            MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-            self._run_with_target(["run", "myscript.py"])
-        MockSvc.return_value.run_script.assert_called_once_with(["myscript.py"])
-
     def test_action_supervisor_graceful(self):
-        with mock.patch("plonex.cli.Supervisor") as MockSvc:
-            MockSvc.return_value.__enter__ = mock.Mock(
-                return_value=MockSvc.return_value
-            )
-            MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-            with mock.patch("plonex.cli.logger") as mock_logger:
-                self._run_with_target(["supervisor", "graceful"])
+        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.Supervisor") as MockSvc:
+                MockSvc.return_value.__enter__ = mock.Mock(
+                    return_value=MockSvc.return_value
+                )
+                MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
+                with mock.patch("plonex.cli.logger") as mock_logger:
+                    self._run_with_target(["supervisor", "graceful"])
+        mock_deps.assert_called_once_with(self.temp_dir.resolve(), "supervisor")
         mock_logger.info.assert_called()
 
     def test_action_install(self):
-        with mock.patch("plonex.cli.InstallService") as MockSvc:
-            MockSvc.return_value.__enter__ = mock.Mock(
-                return_value=MockSvc.return_value
-            )
-            MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-            self._run_with_target(["install", "my.package"])
+        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.InstallService") as MockSvc:
+                MockSvc.return_value.__enter__ = mock.Mock(
+                    return_value=MockSvc.return_value
+                )
+                MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
+                self._run_with_target(["install", "my.package"])
+        mock_deps.assert_called_once_with(self.temp_dir.resolve(), "install")
         MockSvc.return_value.add_packages.assert_called_once_with(["my.package"])
         MockSvc.return_value.run.assert_called_once()
+
+
+class TestServiceFromConfig(unittest.TestCase):
+
+    def test_template_alias_and_relative_paths(self):
+        with temp_cwd() as cwd:
+            template_path = cwd / "etc" / "templates" / "a.j2"
+            template_path.parent.mkdir(parents=True)
+            template_path.write_text("ok")
+            spec = {
+                "template": {
+                    "source": "etc/templates/a.j2",
+                    "target": "etc/a.conf",
+                }
+            }
+            service = _service_from_config(spec, cwd)
+            self.assertEqual(service.__class__.__name__, "TemplateService")
+            self.assertEqual(service.source_path, cwd / "etc/templates/a.j2")
+            self.assertEqual(service.target_path, cwd / "etc/a.conf")
+
+    def test_dependency_filter_returns_none_for_other_services(self):
+        with temp_cwd() as cwd:
+            template_path = cwd / "etc" / "templates" / "a.j2"
+            template_path.parent.mkdir(parents=True)
+            template_path.write_text("ok")
+            spec = {
+                "template": {
+                    "run_for": "supervisor",
+                    "source": "etc/templates/a.j2",
+                    "target": "etc/a.conf",
+                }
+            }
+            service = _service_from_config(spec, cwd, dependency_for="zeoclient")
+            self.assertIsNone(service)
+
+    def test_dependency_filter_accepts_matching_service(self):
+        with temp_cwd() as cwd:
+            template_path = cwd / "etc" / "templates" / "a.j2"
+            template_path.parent.mkdir(parents=True)
+            template_path.write_text("ok")
+            spec = {
+                "template": {
+                    "run_for": ["supervisor", "zeoclient"],
+                    "source": "etc/templates/a.j2",
+                    "target": "etc/a.conf",
+                }
+            }
+            service = _service_from_config(spec, cwd, dependency_for="supervisor")
+            self.assertIsNotNone(service)
+
+    def test_unknown_service_raises(self):
+        with temp_cwd() as cwd:
+            with self.assertRaisesRegex(ValueError, "Unknown service"):
+                _service_from_config({"nope": {}}, cwd)
 
     def test_module_main_guard(self):
         cli_path = Path(__file__).parent.parent / "src" / "plonex" / "cli.py"

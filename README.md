@@ -2,18 +2,34 @@
 
 Plone deployment CLI.
 
-`plonex` is designed to make everyday project operations predictable.
-Instead of asking you to remember many low-level commands and file locations,
-it gives you one consistent entry point for setup, runtime, database operations,
-and test helpers.
+`plonex` is a helper tool designed to simplify everyday project operations with Plone.
+
+> [!NOTE]
+> `plonex` At the moment `plonex` is in early development and may have breaking changes. Use with caution and report issues.
+
+## Quickstart
+
+If you just want to test `plonex`, you can initialize a new project and run the ZEO server and client with these commands:
+
+```sh
+plonex init myproject
+cd myproject
+plonex supervisor start
+```
+
+This is enough to get a ZEO server running in the background and a ZEO client in the foreground, with all configuration generated for you.
+
+Your site will be available at `http://localhost:8080`.
+
+## The magic behind the scenes
 
 When you run a command, `plonex` does more than simply spawn a process:
 
-- it finds the correct project root (`etc/plonex.yml`),
-- it loads and merges configuration from all supported files,
-- it prepares temporary/generated config files when needed,
-- it exports environment variables defined in config,
-- and finally it runs the appropriate executable from your virtualenv.
+- it finds the correct project root (a parent folder containing a file named `etc/plonex.yml`)
+- it loads and merges configuration from all supported files
+- it prepares temporary/generated config files when needed
+- it exports environment variables defined in configuration
+- it runs the appropriate executable from your virtualenv
 
 This means commands are reproducible and configuration-driven.
 You change behavior in YAML files (or CLI flags), and `plonex` applies that
@@ -41,43 +57,6 @@ plonex [--target PATH] [--verbose] [--quiet] [--version] <command> ...
 - `-V, --version`: print installed plonex version.
 
 For all commands except `init`, `plonex` resolves the target by walking upward until it finds `etc/plonex.yml`.
-
-## Quick start
-
-If you are new to `plonex`, think about this flow:
-
-1. `init`: create a valid project structure.
-1. `dependencies`: create/update `.venv` and install project requirements.
-1. `zeoserver` / `zeoclient`: run your services.
-1. `db` commands: maintain your Data.fs.
-1. `zopetest` / `robottest`: run test suites.
-
-In practice, you can keep using the same high-level commands while changing
-only configuration values per environment (local, CI, staging, production).
-
-Initialize a project:
-
-```sh
-plonex init myproject
-```
-
-Install/update dependencies:
-
-```sh
-plonex dependencies
-```
-
-Start ZEO server:
-
-```sh
-plonex zeoserver
-```
-
-Start ZEO client in foreground:
-
-```sh
-plonex zeoclient fg
-```
 
 ## How to think about plonex
 
@@ -116,7 +95,7 @@ What happens:
 ### Running maintenance tasks
 
 ```sh
-plonex db pack --days 7
+plonex db pack --days N
 plonex db backup
 ```
 
@@ -281,6 +260,58 @@ For example:
 
 Because these files are merged with precedence, you can keep common settings in
 one place and make only small targeted overrides where needed.
+
+## Dependency-driven services
+
+`plonex` supports declarative helper services in `etc/plonex.yml`.
+These services are not intended to be run directly as a top-level command.
+Instead, they run automatically as dependencies of runtime commands.
+
+This is useful when a command needs generated files before execution, for
+example Supervisor program snippets or other rendered templates.
+
+Example:
+
+```yaml
+services:
+  - template:
+      run_for: supervisor
+      source_path: resource://plonex.supervisor.templates:program.conf.j2
+      target_path: tmp/supervisor/etc/supervisor/zeoclient.conf
+      options:
+        name: zeoclient
+        command: tmp/zeoclient/bin/instance fg
+        autostart: false
+```
+
+In this example:
+
+- the template is rendered only when running a command mapped to `supervisor`,
+- the rendered file is prepared before `supervisord`/`supervisorctl` is called,
+- and the dependency is fully controlled from YAML.
+
+`run_for` accepts either a string or a list of command names:
+
+```yaml
+services:
+  - template:
+      run_for: [supervisor, zeoclient]
+      source: etc/templates/runtime.conf.j2
+      target: tmp/runtime.conf
+```
+
+Notes:
+
+- service entries must be a list of single-key mappings,
+- unknown service names raise a configuration error,
+- relative `source`/`target` paths are resolved from the project target folder,
+- `resource://...` template sources are supported.
+
+Recommended pattern:
+
+- keep long-lived defaults in `etc/plonex.yml`,
+- keep machine-specific path overrides in `etc/plonex.local.yml`,
+- add `run_for` only where generation must be scoped to specific commands.
 
 ## Under the hood
 

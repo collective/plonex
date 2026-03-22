@@ -5,6 +5,7 @@ environment_vars:
     PYTHONWARNINGS: ignore:::pkg_resources
 services:
     - template:
+        run_for: supervisor
         source_path: resource://plonex.supervisor.templates:program.conf.j2
         target_path: tmp/supervisor/etc/supervisor/zeoserver.conf
         options:
@@ -14,6 +15,7 @@ services:
             directory: "{{ target }}"
             priority: 1
     - template:
+        run_for: supervisor
         source_path: resource://plonex.supervisor.templates:program.conf.j2
         target_path: tmp/supervisor/etc/supervisor/zeoclient.conf
         options:
