@@ -230,7 +230,10 @@ def _dispatch(args, parser, target: Path) -> None:
             elif supervisor_action == "status":
                 svc.run_status()
             elif supervisor_action == "graceful":
-                logger.info("TODO: Manage the graceful restart of the services")
+                interval = getattr(args, "graceful_interval", None)
+                svc.run_graceful(
+                    delay=svc.graceful_interval if interval is None else interval
+                )
 
     elif args.action == "db":
         _run_service_dependencies(target, "db")
@@ -239,7 +242,8 @@ def _dispatch(args, parser, target: Path) -> None:
             with ZeoServer(target=target) as svc:
                 svc.run_backup()
         elif db_action == "restore":
-            logger.info("TODO: Manage the restore of the services")
+            with ZeoServer(target=target) as svc:
+                svc.run_restore()
         elif db_action == "pack":
             with ZeoServer(target=target) as svc:
                 svc.run_pack(days=args.days)

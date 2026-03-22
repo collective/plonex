@@ -112,6 +112,11 @@ class DescribeService(BaseService):
         return "present" if supervisor_conf.exists() else "missing"
 
     @property
+    def supervisor_graceful_interval(self) -> float:
+        value = self.options.get("supervisor_graceful_interval", 1.0)
+        return float(value)
+
+    @property
     def project_files(self) -> list[tuple[str, Path]]:
         files = [
             ("Source configuration", self.target / "etc" / "plonex.yml"),

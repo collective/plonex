@@ -150,6 +150,16 @@ class TestBuildParser(unittest.TestCase):
             args = self.parser.parse_args(["supervisor", sub])
             self.assertEqual(args.supervisor_action, sub)
 
+    def test_action_supervisor_graceful_interval(self):
+        args = self.parser.parse_args(["supervisor", "graceful", "--interval", "2.5"])
+        self.assertEqual(args.supervisor_action, "graceful")
+        self.assertEqual(args.graceful_interval, 2.5)
+
+    def test_action_supervisor_graceful_interval_omitted(self):
+        args = self.parser.parse_args(["supervisor", "graceful"])
+        self.assertEqual(args.supervisor_action, "graceful")
+        self.assertIsNone(args.graceful_interval)
+
     def test_action_zeoserver(self):
         args = self.parser.parse_args(["zeoserver"])
         self.assertEqual(args.action, "zeoserver")
@@ -446,9 +456,8 @@ class TestMain(unittest.TestCase):
         svc.return_value.run_backup.assert_called_once()
 
     def test_action_db_restore(self):
-        with mock.patch("plonex.cli.logger") as mock_logger:
-            self._run_with_target(["db", "restore"])
-        mock_logger.info.assert_called()
+        svc = self._run_service(["db", "restore"], "plonex.cli.ZeoServer")
+        svc.return_value.run_restore.assert_called_once()
 
     def test_action_db_pack(self):
         svc = self._run_service(["db", "pack", "-d", "3"], "plonex.cli.ZeoServer")
@@ -551,10 +560,9 @@ class TestMain(unittest.TestCase):
                     return_value=MockSvc.return_value
                 )
                 MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-                with mock.patch("plonex.cli.logger") as mock_logger:
-                    self._run_with_target(["supervisor", "graceful"])
+                self._run_with_target(["supervisor", "graceful", "--interval", "2.5"])
         mock_deps.assert_called_once_with(self.temp_dir.resolve(), "supervisor")
-        mock_logger.info.assert_called()
+        MockSvc.return_value.run_graceful.assert_called_once_with(delay=2.5)
 
     def test_action_install(self):
         with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
@@ -574,6 +582,27 @@ class TestMain(unittest.TestCase):
         )
         MockSvc.return_value.add_packages.assert_called_once_with(["my.package"])
         MockSvc.return_value.run.assert_called_once()
+
+    def test_action_supervisor_graceful_uses_configured_interval(self):
+        etc = self.temp_dir / "etc"
+        etc.mkdir(exist_ok=True)
+        (etc / "plonex.yml").write_text("supervisor_graceful_interval: 4.0\n")
+        with mock.patch("plonex.cli._configure_logging"):
+            with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
+                with mock.patch("plonex.cli.Supervisor") as MockSvc:
+                    MockSvc.return_value.__enter__ = mock.Mock(
+                        return_value=MockSvc.return_value
+                    )
+                    MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
+                    MockSvc.return_value.graceful_interval = 4.0
+                    with mock.patch.object(
+                        sys,
+                        "argv",
+                        ["plonex", "-t", str(self.temp_dir), "supervisor", "graceful"],
+                    ):
+                        main()
+        mock_deps.assert_called_once_with(self.temp_dir.resolve(), "supervisor")
+        MockSvc.return_value.run_graceful.assert_called_once_with(delay=4.0)
 
 
 class TestServiceFromConfig(unittest.TestCase):

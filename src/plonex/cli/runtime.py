@@ -12,10 +12,18 @@ def register_runtime_parsers(subs, add_subparser) -> None:
     add_subparser(supervisor_subs, "start", help="Start supervisor")
     add_subparser(supervisor_subs, "stop", help="Stop supervisor")
     add_subparser(supervisor_subs, "restart", help="Restart supervisor")
-    add_subparser(
+    graceful_parser = add_subparser(
         supervisor_subs,
         "graceful",
         help="Graceful restart of supervisor",
+    )
+    graceful_parser.add_argument(
+        "--interval",
+        type=float,
+        help="Seconds to wait between restarting services",
+        required=False,
+        default=None,
+        dest="graceful_interval",
     )
 
     add_subparser(subs, "zeoserver", help="Start ZEO Server")

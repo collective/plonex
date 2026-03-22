@@ -111,6 +111,23 @@ class TestSupervisor(PloneXTestCase):
                 ],
             )
 
+    def test_graceful_interval_default(self):
+        with temp_supervisor() as supervisor:
+            self.assertEqual(supervisor.graceful_interval, 1.0)
+
+    def test_graceful_interval_from_options(self):
+        with temp_cwd() as cwd:
+            (cwd / ".venv" / "bin").mkdir(parents=True)
+            (cwd / ".venv" / "bin" / "activate").touch()
+            (cwd / ".venv" / "bin" / "supervisorctl").touch(mode=0o755)
+            (cwd / ".venv" / "bin" / "supervisorctl").write_text("#!/usr/bin/env false")
+            (cwd / "etc").mkdir()
+            (cwd / "etc" / "plonex.yml").write_text(
+                "supervisor_graceful_interval: 3.5\n"
+            )
+            with Supervisor(target=cwd) as supervisor:
+                self.assertEqual(supervisor.graceful_interval, 3.5)
+
     def test_supervisord_property(self):
         """Test that supervisord property returns a sh.Command"""
         with temp_supervisor() as supervisor:
@@ -271,6 +288,80 @@ class TestSupervisor(PloneXTestCase):
                     with mock.patch.object(supervisor, "print") as mock_print:
                         supervisor.run_restart()
                     mock_print.assert_called_once()
+
+    def test_service_names_from_status(self):
+        """Test service names are extracted in the same order as status output"""
+        with temp_supervisor() as supervisor:
+            services = supervisor._service_names_from_status(
+                "zeoserver RUNNING pid 1, uptime 0:00:10\n"
+                "zeoclient RUNNING pid 2, uptime 0:00:11\n"
+            )
+            self.assertEqual(services, ["zeoserver", "zeoclient"])
+
+    def test_run_graceful_when_not_running(self):
+        """Test run_graceful() when not running calls run()"""
+        with temp_supervisor() as supervisor:
+            with mock.patch.object(supervisor, "is_running", return_value=False):
+                with mock.patch.object(supervisor, "run") as mock_run:
+                    supervisor.run_graceful()
+                mock_run.assert_called_once()
+
+    def test_run_graceful_when_running(self):
+        """Test run_graceful() restarts services sequentially with a delay"""
+        with temp_supervisor() as supervisor:
+            with mock.patch.object(supervisor, "is_running", return_value=True):
+                with mock.patch.object(
+                    supervisor,
+                    "get_status",
+                    return_value=(
+                        "zeoserver RUNNING pid 1, uptime 0:00:10\n"
+                        "zeoclient RUNNING pid 2, uptime 0:00:11\n"
+                    ),
+                ):
+                    with mock.patch.object(
+                        Supervisor,
+                        "supervisorctl",
+                        new_callable=PropertyMock,
+                        return_value=mock.Mock(
+                            side_effect=[
+                                "zeoserver started",
+                                "zeoclient started",
+                            ]
+                        ),
+                    ) as mock_ctl:
+                        with mock.patch("plonex.supervisor.time.sleep") as mock_sleep:
+                            with mock.patch.object(supervisor, "print") as mock_print:
+                                supervisor.run_graceful(delay=2.5)
+                self.assertEqual(
+                    mock_ctl.return_value.call_args_list,
+                    [
+                        mock.call(
+                            "-c",
+                            str(supervisor.supervisord_conf),
+                            "restart",
+                            "zeoserver",
+                        ),
+                        mock.call(
+                            "-c",
+                            str(supervisor.supervisord_conf),
+                            "restart",
+                            "zeoclient",
+                        ),
+                    ],
+                )
+                mock_sleep.assert_called_once_with(2.5)
+                self.assertEqual(mock_print.call_count, 2)
+
+    def test_run_graceful_when_running_without_services(self):
+        """Test run_graceful() logs when no services are returned by status"""
+        with temp_supervisor() as supervisor:
+            with mock.patch.object(supervisor, "is_running", return_value=True):
+                with mock.patch.object(supervisor, "get_status", return_value=""):
+                    with mock.patch.object(supervisor, "logger") as mock_logger:
+                        supervisor.run_graceful()
+                    mock_logger.info.assert_called_once_with(
+                        "No services found to restart"
+                    )
 
     def test_run_reread_when_not_running(self):
         """Test run_reread() when not running does nothing"""

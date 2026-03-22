@@ -1,10 +1,12 @@
 from dataclasses import dataclass
 from dataclasses import field
+from functools import cached_property
 from pathlib import Path
 from plonex.base import BaseService
 from plonex.template import TemplateService
 
 import sh  # type: ignore[import-untyped]
+import time
 
 
 @dataclass(kw_only=True)
@@ -36,6 +38,12 @@ class Supervisor(BaseService):
     var_folder: Path = field(init=False)
 
     # You can override the templates used to generate the configuration files
+
+    @cached_property
+    def options_defaults(self) -> dict:
+        options_defaults = super().options_defaults
+        options_defaults["supervisor_graceful_interval"] = 1.0
+        return options_defaults
 
     def __post_init__(self):
         # Be sure that the required folders exist
@@ -91,6 +99,16 @@ class Supervisor(BaseService):
             str(self.supervisord_conf),
         ]
 
+    @property
+    def graceful_interval(self) -> float:
+        value = self.options.get("supervisor_graceful_interval", 1.0)
+        try:
+            return float(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "The 'supervisor_graceful_interval' option should be a number"
+            ) from exc
+
     def is_running(self) -> bool:
         """Check if supervisord is running."""
         try:
@@ -142,6 +160,40 @@ class Supervisor(BaseService):
         output = output.replace(" started", "[green] started[/green]")
         output = output.replace(" stopped", "[red] stopped[/red]")
         self.print(output.rstrip())
+
+    def _service_names_from_status(self, status_output: str) -> list[str]:
+        services = []
+        for line in status_output.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            if line == "Supervisord is not running":
+                continue
+            services.append(line.split(None, 1)[0])
+        return services
+
+    @BaseService.entered_only
+    def run_graceful(self, delay: float = 1.0):
+        if not self.is_running():
+            self.logger.info("supervisord is not running, starting it instead")
+            return self.run()
+        services = self._service_names_from_status(self.get_status())
+        if not services:
+            self.logger.info("No services found to restart")
+            return
+
+        for index, service in enumerate(services):
+            output = self.supervisorctl(
+                "-c",
+                str(self.supervisord_conf),
+                "restart",
+                service,
+            )
+            output = output.replace(" started", "[green] started[/green]")
+            output = output.replace(" stopped", "[red] stopped[/red]")
+            self.print(output.rstrip())
+            if index < len(services) - 1 and delay > 0:
+                time.sleep(delay)
 
     @BaseService.entered_only
     def run_reread(self):

@@ -33,6 +33,7 @@ The markdown version of this file is located at [{{ context.display_path(context
 - **Python Executable**: [{{ context.display_path(context.python_executable) }}](file://{{ context.python_executable }})
 - **Base Constraint**: `{{ context.base_constraint or "not configured" }}`
 - **Supervisor Configuration**: `{{ context.supervisor_configuration_status }}`
+- **Supervisor Graceful Interval**: `{{ context.supervisor_graceful_interval }}s`
 - **Profiles**:
 {%- if context.profiles %}
 {%- for profile in context.profiles %}

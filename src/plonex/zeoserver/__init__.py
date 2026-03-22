@@ -114,3 +114,27 @@ class ZeoServer(BaseService):
             ]
         )
         self.logger.info("Completed backup")
+
+    def run_restore(self):
+        """Use repozo to restore the latest backup into Data.fs"""
+        repozo = self.virtualenv_dir / "bin" / "repozo"
+        backup_folder = self.var_folder / "backup"
+        filestorage = self.var_folder / "filestorage"
+        data_fs = filestorage / "Data.fs"
+
+        if not backup_folder.exists() or not any(backup_folder.iterdir()):
+            raise FileNotFoundError(f"No backups found in {backup_folder}")
+
+        self._ensure_dir(filestorage)
+        self.logger.info("Running restore")
+        self.run_command(
+            [
+                repozo,
+                "-Rv",
+                "-r",
+                backup_folder,
+                "-o",
+                data_fs,
+            ]
+        )
+        self.logger.info("Completed restore")

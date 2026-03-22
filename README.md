@@ -296,6 +296,7 @@ What happens:
 plonex supervisor start
 plonex supervisor status
 plonex supervisor restart
+plonex supervisor graceful --interval 2.0
 ```
 
 What happens:
@@ -303,6 +304,18 @@ What happens:
 - `plonex` generates `etc/supervisord.conf` and service templates if needed.
 - it runs `supervisord` and `supervisorctl` from your project virtualenv.
 - status/restart actions use the same generated config file, so behavior is consistent.
+- `plonex supervisor graceful` restarts each configured service one by one in the
+  order reported by `supervisorctl status`.
+- `--interval` controls the pause between service restarts.
+
+You can also set the default interval in YAML:
+
+```yaml
+supervisor_graceful_interval: 2.0
+```
+
+Put that in `etc/plonex.yml` or another merged plonex config file. The CLI flag
+still wins over YAML when both are provided.
 
 ## Commands
 
@@ -366,6 +379,8 @@ What happens:
 `supervisor [status|start|stop|restart|graceful]`
 
 - Manage supervisord for project services.
+- `graceful` accepts `--interval SECONDS` and falls back to
+  `supervisor_graceful_interval` from YAML, defaulting to `1.0`.
 
 ### Database
 
@@ -641,6 +656,16 @@ tmp/zeoclient/bin/instance run path/to/script.py
 
 ```sh
 .venv/bin/supervisorctl -c etc/supervisord.conf status
+```
+
+- `plonex supervisor graceful --interval 2`
+
+```sh
+.venv/bin/supervisorctl -c etc/supervisord.conf status
+.venv/bin/supervisorctl -c etc/supervisord.conf restart <service1>
+sleep 2
+.venv/bin/supervisorctl -c etc/supervisord.conf restart <service2>
+...
 ```
 
 - `plonex dependencies`

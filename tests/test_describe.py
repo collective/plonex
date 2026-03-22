@@ -186,6 +186,15 @@ class TestDescribeService(PloneXTestCase):
             MockSupervisor.assert_called_once_with(target=cwd)
             self.assertEqual(result, "Supervisord is not running")
 
+    def test_supervisor_graceful_interval(self):
+        with temp_cwd() as cwd:
+            (cwd / "etc").mkdir()
+            (cwd / "etc" / "plonex.yml").write_text(
+                "supervisor_graceful_interval: 2.5\n"
+            )
+            svc = DescribeService()
+            self.assertEqual(svc.supervisor_graceful_interval, 2.5)
+
     def test_run(self):
         """Test that run() compiles, renders and prints the description"""
         with temp_cwd() as cwd:
@@ -195,6 +204,7 @@ class TestDescribeService(PloneXTestCase):
             (cwd / "etc" / "plonex.yml").write_text(
                 "mykey: myvalue\n"
                 "plone_version: 6.1.2\n"
+                "supervisor_graceful_interval: 2.5\n"
                 "profiles:\n"
                 "  - profiles/base\n"
                 "plonex_base_constraint: etc/custom-constraints.txt\n"
@@ -219,21 +229,22 @@ class TestDescribeService(PloneXTestCase):
             developed_package_path = cwd / "src" / "my.package"
             developed_package_path.mkdir(parents=True)
 
-            with mock.patch(
-                "plonex.describe.InstallService.ensure_virtualenv",
-                return_value=None,
-            ), mock.patch(
-                "plonex.describe.BaseService.execute_command",
-                side_effect=lambda command, cwd=None, stream_output=False: (
-                    "Python 3.13.7\n"
-                    if len(command) == 2 and str(command[1]) == "--version"
-                    else ""
+            with (
+                mock.patch(
+                    "plonex.describe.InstallService.ensure_virtualenv",
+                    return_value=None,
                 ),
-            ), mock.patch(
-                "plonex.describe.Supervisor"
-            ) as MockSupervisor, mock.patch(
-                "plonex.describe.Console"
-            ) as MockConsole:
+                mock.patch(
+                    "plonex.describe.BaseService.execute_command",
+                    side_effect=lambda command, cwd=None, stream_output=False: (
+                        "Python 3.13.7\n"
+                        if len(command) == 2 and str(command[1]) == "--version"
+                        else ""
+                    ),
+                ),
+                mock.patch("plonex.describe.Supervisor") as MockSupervisor,
+                mock.patch("plonex.describe.Console") as MockConsole,
+            ):
                 MockSupervisor.return_value.__enter__ = mock.Mock(
                     return_value=MockSupervisor.return_value
                 )
@@ -280,6 +291,10 @@ class TestDescribeService(PloneXTestCase):
                     rendered,
                 )
                 self.assertIn("**Supervisor Configuration**: `present`", rendered)
+                self.assertIn(
+                    "**Supervisor Graceful Interval**: `2.5s`",
+                    rendered,
+                )
                 self.assertIn("- `profiles/base`", rendered)
                 self.assertIn(
                     (
