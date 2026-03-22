@@ -217,24 +217,48 @@ class InstallService(BaseService):
         """Merge the constraints files in one big constraints.txt file"""
         developed_packages = self.developed_packages()
         included_files = []
+        resolved_constraints = {}
+        explicit_constraints = {}
         plonex_base_constraint = self.plonex_base_constraint
         if plonex_base_constraint:
-            included_files.append(f"-c {plonex_base_constraint}")
-        constraints = {}
+            if self._is_remote_requirement_source(plonex_base_constraint):
+                _, base_resolved, base_explicit = (
+                    self._collect_compiled_constraint_entries(
+                        plonex_base_constraint,
+                        developed_packages=developed_packages,
+                    )
+                )
+                for key, requirement in base_resolved.items():
+                    if key not in resolved_constraints:
+                        resolved_constraints[key] = requirement
+                for key, requirement in base_explicit.items():
+                    if key not in explicit_constraints:
+                        explicit_constraints[key] = requirement
+            else:
+                included_files.append(f"-c {plonex_base_constraint}")
+
         for file in sorted(self.constraints_d_folder.iterdir()):
             if file == self.legacy_constraints_file:
                 continue
-            file_includes, file_constraints = self._collect_constraint_entries(
-                file,
-                developed_packages=developed_packages,
-                expand_remote_includes=False,
+            file_includes, file_resolved, file_explicit = (
+                self._collect_compiled_constraint_entries(
+                    file,
+                    developed_packages=developed_packages,
+                )
             )
             for include_line in file_includes:
                 if include_line not in included_files:
                     included_files.append(include_line)
-            for key, requirement in file_constraints.items():
-                if key not in constraints:
-                    constraints[key] = requirement
+
+            for key, requirement in file_resolved.items():
+                if key not in resolved_constraints:
+                    resolved_constraints[key] = requirement
+            for key, requirement in file_explicit.items():
+                if key not in explicit_constraints:
+                    explicit_constraints[key] = requirement
+
+        constraints = dict(resolved_constraints)
+        constraints.update(explicit_constraints)
 
         merged_constraints = included_files + [
             requirement.dumps() for _, requirement in sorted(constraints.items())
@@ -309,6 +333,82 @@ class InstallService(BaseService):
         finally:
             Path(tmp_name).unlink(missing_ok=True)
 
+    def _collect_compiled_constraint_entries(
+        self,
+        source: str | Path,
+        developed_packages: set[str] | None = None,
+        seen: set[str] | None = None,
+    ):
+        if seen is None:
+            seen = set()
+
+        source_key = str(source.resolve()) if isinstance(source, Path) else source
+        if source_key in seen:
+            return [], {}, {}
+        seen.add(source_key)
+
+        parsed = self._parse_requirement_source(source)
+        source_is_remote = self._is_remote_requirement_source(source)
+        included_files: list[str] = []
+        resolved_constraints = {}
+        explicit_constraints = {}
+
+        for option in getattr(parsed, "options", []):
+            for option_name, _flag in (("constraints", "-c"), ("requirements", "-r")):
+                for reference in option.options.get(option_name, []):
+                    resolved = self._resolve_requirement_source(reference, source)
+                    if self._is_remote_requirement_source(resolved):
+                        nested_includes, nested_resolved, nested_explicit = (
+                            self._collect_compiled_constraint_entries(
+                                resolved,
+                                developed_packages=developed_packages,
+                                seen=seen,
+                            )
+                        )
+                        for include_line in nested_includes:
+                            if include_line not in included_files:
+                                included_files.append(include_line)
+                        for key, requirement in nested_resolved.items():
+                            if key not in resolved_constraints:
+                                resolved_constraints[key] = requirement
+                        for key, requirement in nested_explicit.items():
+                            if key not in explicit_constraints:
+                                explicit_constraints[key] = requirement
+                        continue
+
+                    nested_includes, nested_resolved, nested_explicit = (
+                        self._collect_compiled_constraint_entries(
+                            resolved,
+                            developed_packages=developed_packages,
+                            seen=seen,
+                        )
+                    )
+                    for include_line in nested_includes:
+                        if include_line not in included_files:
+                            included_files.append(include_line)
+                    for key, requirement in nested_resolved.items():
+                        if key not in resolved_constraints:
+                            resolved_constraints[key] = requirement
+                    for key, requirement in nested_explicit.items():
+                        if key not in explicit_constraints:
+                            explicit_constraints[key] = requirement
+
+        for requirement in parsed.requirements:
+            name = getattr(requirement, "name", None)
+            if not name:
+                continue
+            normalized_name = name_as_pep503(str(name))
+            key = (normalized_name, str(requirement.marker))
+            if developed_packages is not None and normalized_name in developed_packages:
+                continue
+            if source_is_remote:
+                if key not in resolved_constraints:
+                    resolved_constraints[key] = requirement
+                continue
+            explicit_constraints[key] = requirement
+
+        return included_files, resolved_constraints, explicit_constraints
+
     def _collect_constraint_entries(
         self,
         source: str | Path,
@@ -351,8 +451,7 @@ class InstallService(BaseService):
                         if include_line not in included_files:
                             included_files.append(include_line)
                     for key, requirement in nested_constraints.items():
-                        if key not in constraints:
-                            constraints[key] = requirement
+                        constraints[key] = requirement
 
         for requirement in parsed.requirements:
             name = getattr(requirement, "name", None)
@@ -362,8 +461,7 @@ class InstallService(BaseService):
             key = (normalized_name, str(requirement.marker))
             if developed_packages is not None and normalized_name in developed_packages:
                 continue
-            if key not in constraints:
-                constraints[key] = requirement
+            constraints[key] = requirement
 
         return included_files, constraints
 

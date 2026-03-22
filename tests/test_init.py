@@ -147,9 +147,10 @@ class TestInit(PloneXTestCase):
         with temp_cwd() as cwd:
             (cwd / ".venv" / "bin").mkdir(parents=True)
             (cwd / ".venv" / "bin" / "activate").touch()
-            with mock.patch("plonex.init.InstallService") as MockInstall, mock.patch(
-                "plonex.init.Supervisor"
-            ) as MockSupervisor:
+            with (
+                mock.patch("plonex.init.InstallService") as MockInstall,
+                mock.patch("plonex.init.Supervisor") as MockSupervisor,
+            ):
                 MockInstall.return_value.__enter__ = mock.Mock(
                     return_value=MockInstall.return_value
                 )
@@ -169,9 +170,10 @@ class TestInit(PloneXTestCase):
             (cwd / ".venv" / "bin").mkdir(parents=True)
             (cwd / ".venv" / "bin" / "activate").touch()
             (cwd / ".gitignore").write_text("existing\n")
-            with mock.patch("plonex.init.InstallService") as MockInstall, mock.patch(
-                "plonex.init.Supervisor"
-            ) as MockSupervisor:
+            with (
+                mock.patch("plonex.init.InstallService") as MockInstall,
+                mock.patch("plonex.init.Supervisor") as MockSupervisor,
+            ):
                 MockInstall.return_value.__enter__ = mock.Mock(
                     return_value=MockInstall.return_value
                 )

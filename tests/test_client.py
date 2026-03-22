@@ -263,11 +263,11 @@ class TestZeoClient(PloneXTestCase):
 
     def test_adduser_with_generated_password(self):
         with temp_client() as client:
-            with mock.patch.object(
-                client, "_generate_password", return_value="secret"
-            ), mock.patch.object(client, "execute_command") as mock_run, mock.patch(
-                "builtins.print"
-            ) as mock_print:
+            with (
+                mock.patch.object(client, "_generate_password", return_value="secret"),
+                mock.patch.object(client, "execute_command") as mock_run,
+                mock.patch("builtins.print") as mock_print,
+            ):
                 client.adduser("admin")
             mock_run.assert_called_once()
             mock_print.assert_called_once_with(
