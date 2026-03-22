@@ -6,6 +6,7 @@ from jinja2 import BaseLoader
 from jinja2 import Environment
 from pathlib import Path
 from plonex import logger
+from plonex._logger import warning_once
 from plonex.config import normalize_options
 from rich.console import Console
 from tempfile import mkdtemp
@@ -166,19 +167,24 @@ class BaseService:
             merged_profile_options.update(local_options)
 
         if self.legacy_constraints_file.exists():
+            warning_key = f"legacy-constraints:{self.legacy_constraints_file}"
             legacy_plone_version = self._legacy_plone_version()
             if (
                 "plone_version" in merged_profile_options
                 or "plonex_base_constraint" in merged_profile_options
             ):
-                self.logger.warning(
+                warning_once(
+                    self.logger,
+                    warning_key,
                     "Ignoring legacy constraints file %r because "
                     "plone_version or plonex_base_constraint is "
                     "configured in etc/plonex.yml. Remove the file.",
                     self.legacy_constraints_file,
                 )
             elif legacy_plone_version:
-                self.logger.warning(
+                warning_once(
+                    self.logger,
+                    warning_key,
                     "Ignoring legacy constraints file %r. Using "
                     "plone_version=%s for compatibility; add it to "
                     "etc/plonex.yml and remove the file.",
@@ -186,8 +192,13 @@ class BaseService:
                     legacy_plone_version,
                 )
                 merged_profile_options["plone_version"] = legacy_plone_version
-            else:
-                self.logger.warning(
+            elif (
+                "plone_version" not in merged_profile_options
+                and "plonex_base_constraint" not in merged_profile_options
+            ):
+                warning_once(
+                    self.logger,
+                    warning_key,
                     "Ignoring legacy constraints file %r. Configure "
                     "plone_version or plonex_base_constraint in "
                     "etc/plonex.yml and remove the file.",
