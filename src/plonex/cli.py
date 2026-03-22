@@ -1,5 +1,6 @@
 from argcomplete import autocomplete
 from argparse import ArgumentParser
+from argparse import SUPPRESS
 from dataclasses import fields
 from importlib.metadata import version
 from itertools import chain
@@ -210,6 +211,32 @@ def build_parser() -> ArgumentParser:
         default=False,
         dest="verbose",
     )
+
+    def _add_subparser(subparsers, *args, **kwargs):
+        """Helper to create a subparser that already includes
+        the common -v/--verbose and -q/--quiet options.
+        """
+        subparser = subparsers.add_parser(*args, **kwargs)
+        subparser.add_argument(
+            "-v",
+            "--verbose",
+            action="store_true",
+            help="Increase verbosity",
+            required=False,
+            default=SUPPRESS,
+            dest="verbose",
+        )
+        subparser.add_argument(
+            "-q",
+            "--quiet",
+            action="store_true",
+            help="Decrease verbosity",
+            required=False,
+            default=SUPPRESS,
+            dest="quiet",
+        )
+        return subparser
+
     parser.add_argument(
         "-q",
         "--quiet",
@@ -232,7 +259,8 @@ def build_parser() -> ArgumentParser:
     subs = parser.add_subparsers(dest="action", title="Positional Arguments")
 
     # --- init ---
-    init_parser = subs.add_parser(
+    init_parser = _add_subparser(
+        subs,
         "init",
         description=(
             "Initialize the project in the specified target folder. "
@@ -253,7 +281,8 @@ def build_parser() -> ArgumentParser:
     )
 
     # --- compile ---
-    subs.add_parser(
+    _add_subparser(
+        subs,
         "compile",
         description=(
             "Compile the configuration files in to var files. "
@@ -265,14 +294,16 @@ def build_parser() -> ArgumentParser:
     )
 
     # --- describe ---
-    subs.add_parser(
+    _add_subparser(
+        subs,
         "describe",
         help="Describe the current project configuration",
         formatter_class=fmt,
     )
 
     # --- robotserver ---
-    robotserver_parser = subs.add_parser(
+    robotserver_parser = _add_subparser(
+        subs,
         "robotserver",
         help="Start the Robot Server",
         formatter_class=fmt,
@@ -288,7 +319,8 @@ def build_parser() -> ArgumentParser:
     )
 
     # --- robottest ---
-    robottest_parser = subs.add_parser(
+    robottest_parser = _add_subparser(
+        subs,
         "robottest",
         help="Run Robot Tests",
         formatter_class=fmt,
@@ -319,7 +351,8 @@ def build_parser() -> ArgumentParser:
     )
 
     # --- zopetest ---
-    zopetest_parser = subs.add_parser(
+    zopetest_parser = _add_subparser(
+        subs,
         "zopetest",
         help="Run Zope Tests",
         formatter_class=fmt,
@@ -340,7 +373,8 @@ def build_parser() -> ArgumentParser:
     )
 
     # --- install ---
-    install_parser = subs.add_parser(
+    install_parser = _add_subparser(
+        subs,
         "install",
         help="Add one or more packages to your requirements and install them",
         formatter_class=fmt,
@@ -353,37 +387,46 @@ def build_parser() -> ArgumentParser:
     )
 
     # --- upgrade ---
-    subs.add_parser(
+    _add_subparser(
+        subs,
         "upgrade",
         help="Run Plone upgrade steps",
         formatter_class=fmt,
     )
 
     # --- supervisor ---
-    supervisor_parser = subs.add_parser(
-        "supervisor", help="Manage supervisor", formatter_class=fmt
+    supervisor_parser = _add_subparser(
+        subs, "supervisor", help="Manage supervisor", formatter_class=fmt
     )
     supervisor_subs = supervisor_parser.add_subparsers(
         dest="supervisor_action", help="Supervisor actions"
     )
-    supervisor_subs.add_parser(
-        "status", help="Status of supervisor (default)", formatter_class=fmt
+    _add_subparser(
+        supervisor_subs,
+        "status",
+        help="Status of supervisor (default)",
+        formatter_class=fmt,
     )
-    supervisor_subs.add_parser("start", help="Start supervisor", formatter_class=fmt)
-    supervisor_subs.add_parser("stop", help="Stop supervisor", formatter_class=fmt)
-    supervisor_subs.add_parser(
-        "restart", help="Restart supervisor", formatter_class=fmt
+    _add_subparser(
+        supervisor_subs, "start", help="Start supervisor", formatter_class=fmt
     )
-    supervisor_subs.add_parser(
-        "graceful", help="Graceful restart of supervisor", formatter_class=fmt
+    _add_subparser(supervisor_subs, "stop", help="Stop supervisor", formatter_class=fmt)
+    _add_subparser(
+        supervisor_subs, "restart", help="Restart supervisor", formatter_class=fmt
+    )
+    _add_subparser(
+        supervisor_subs,
+        "graceful",
+        help="Graceful restart of supervisor",
+        formatter_class=fmt,
     )
 
     # --- zeoserver ---
-    subs.add_parser("zeoserver", help="Start ZEO Server", formatter_class=fmt)
+    _add_subparser(subs, "zeoserver", help="Start ZEO Server", formatter_class=fmt)
 
     # --- zeoclient ---
-    zeoclient_parser = subs.add_parser(
-        "zeoclient", help="Start ZEO Client", formatter_class=fmt
+    zeoclient_parser = _add_subparser(
+        subs, "zeoclient", help="Start ZEO Client", formatter_class=fmt
     )
     zeoclient_parser.add_argument(
         "-n",
@@ -420,18 +463,22 @@ def build_parser() -> ArgumentParser:
     zeoclient_subs = zeoclient_parser.add_subparsers(
         dest="zeoclient_action", help="ZEO Client actions"
     )
-    zeoclient_subs.add_parser(
-        "console", help="Start the ZEO Client console (default behavior)"
+    _add_subparser(
+        zeoclient_subs,
+        "console",
+        help="Start the ZEO Client console (default behavior)",
     )
-    zeoclient_subs.add_parser("fg", help="Start the ZEO Client in foreground")
-    zeoclient_subs.add_parser("start", help="Start the ZEO Client in background")
-    zeoclient_subs.add_parser("stop", help="Stop the ZEO Client in background")
-    zeoclient_subs.add_parser("status", help="Status of the ZEO Client in background")
-    zeoclient_subs.add_parser("debug", help="Start the ZEO Client in debug mode")
+    _add_subparser(zeoclient_subs, "fg", help="Start the ZEO Client in foreground")
+    _add_subparser(zeoclient_subs, "start", help="Start the ZEO Client in background")
+    _add_subparser(zeoclient_subs, "stop", help="Stop the ZEO Client in background")
+    _add_subparser(
+        zeoclient_subs, "status", help="Status of the ZEO Client in background"
+    )  # noqa: E501
+    _add_subparser(zeoclient_subs, "debug", help="Start the ZEO Client in debug mode")
 
     # --- run ---
-    run_parser = subs.add_parser(
-        "run", help="Run an instance script", formatter_class=fmt
+    run_parser = _add_subparser(
+        subs, "run", help="Run an instance script", formatter_class=fmt
     )
     run_parser.add_argument(
         "args",
@@ -440,7 +487,8 @@ def build_parser() -> ArgumentParser:
     )
 
     # --- adduser ---
-    adduser_parser = subs.add_parser(
+    adduser_parser = _add_subparser(
+        subs,
         "adduser",
         help=(
             "Add a user. You need to provide at least a username, optionally a password"
@@ -460,15 +508,21 @@ def build_parser() -> ArgumentParser:
     adduser_parser.add_argument("password", type=str, help="Password", nargs="?")
 
     # --- db (backup / restore / pack) ---
-    db_parser = subs.add_parser(
+    db_parser = _add_subparser(
+        subs,
         "db",
         help="Database management commands (backup/restore/pack)",
         formatter_class=fmt,
     )
     db_subs = db_parser.add_subparsers(dest="db_action", help="Database actions")
-    db_subs.add_parser("backup", help="Backup the services", formatter_class=fmt)
-    db_subs.add_parser("restore", help="Restore the services", formatter_class=fmt)
-    db_pack_parser = db_subs.add_parser("pack", help="Pack the DB", formatter_class=fmt)
+    _add_subparser(db_subs, "backup", help="Backup the services", formatter_class=fmt)
+    _add_subparser(db_subs, "restore", help="Restore the services", formatter_class=fmt)
+    db_pack_parser = _add_subparser(
+        db_subs,
+        "pack",
+        help="Pack the DB",
+        formatter_class=fmt,
+    )
     db_pack_parser.add_argument(
         "-d",
         "--days",
@@ -479,7 +533,8 @@ def build_parser() -> ArgumentParser:
     )
 
     # --- dependencies ---
-    dependencies_parser = subs.add_parser(
+    dependencies_parser = _add_subparser(
+        subs,
         "dependencies",
         help="Install the dependencies",
         formatter_class=fmt,
@@ -495,7 +550,8 @@ def build_parser() -> ArgumentParser:
     )
 
     # --- test ---
-    subs.add_parser(
+    _add_subparser(
+        subs,
         "test",
         help="Run the tests for the given package",
         formatter_class=fmt,

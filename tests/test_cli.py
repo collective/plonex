@@ -65,6 +65,28 @@ class TestBuildParser(unittest.TestCase):
         args = self.parser.parse_args(["-V"])
         self.assertTrue(args.version)
 
+    def test_verbose_flag_after_top_level_command(self):
+        args = self.parser.parse_args(["compile", "-v"])
+        self.assertEqual(args.action, "compile")
+        self.assertTrue(args.verbose)
+
+    def test_verbose_flag_after_nested_command(self):
+        args = self.parser.parse_args(["supervisor", "status", "-v"])
+        self.assertEqual(args.action, "supervisor")
+        self.assertEqual(args.supervisor_action, "status")
+        self.assertTrue(args.verbose)
+
+    def test_quiet_flag_after_top_level_command(self):
+        args = self.parser.parse_args(["compile", "-q"])
+        self.assertEqual(args.action, "compile")
+        self.assertTrue(args.quiet)
+
+    def test_quiet_flag_after_nested_command(self):
+        args = self.parser.parse_args(["supervisor", "status", "-q"])
+        self.assertEqual(args.action, "supervisor")
+        self.assertEqual(args.supervisor_action, "status")
+        self.assertTrue(args.quiet)
+
     def test_target_flag(self):
         args = self.parser.parse_args(["-t", "/some/path", "compile"])
         self.assertEqual(args.target, "/some/path")
