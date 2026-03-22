@@ -41,9 +41,6 @@ class ZeoClient(BaseService):
     run_mode: Literal[
         "console",
         "fg",
-        "start",
-        "stop",
-        "status",
         "debug",
     ] = "console"  # This is the default for the supervisor program
 
@@ -125,7 +122,6 @@ class ZeoClient(BaseService):
                         "var_folder": self.var_folder,
                         "http_port": self.options["http_port"],
                         "http_address": self.options["http_address"],
-                        "fast_listen": self.options.get("fast_listen", "on"),
                         "threads": self.options.get("threads", 4),
                     },
                 ),
@@ -141,10 +137,8 @@ class ZeoClient(BaseService):
                     source_path="resource://plonex.zeoclient.templates:instance.j2",
                     target_path=self.tmp_folder / "bin" / "instance",
                     options={
-                        "context": self,
                         "python": self.virtualenv_dir / "bin" / "python",
                         "zope_conf_path": self.tmp_folder / "etc" / "zope.conf",
-                        "interpreter_path": self.tmp_folder / "bin" / "interpreter",
                         "wsgi_ini_path": self.tmp_folder / "etc" / "wsgi.ini",
                     },
                     mode=0o700,
@@ -231,7 +225,7 @@ class ZeoClient(BaseService):
     @property
     def command(self):
         """Before runniong check if the pid file is present and used"""
-        if self.run_mode != "stop" and self.pid_file.exists():
+        if self.pid_file.exists():
             pid = self.pid_file.read_text()
             try:
                 if os.kill(int(pid), 0) is None:

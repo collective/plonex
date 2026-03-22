@@ -70,11 +70,6 @@ def register_runtime_parsers(subs, add_subparser) -> None:
         help="Start the ZEO Client console (default behavior)",
     )
     add_subparser(zeoclient_subs, "fg", help="Start the ZEO Client in foreground")
-    add_subparser(zeoclient_subs, "start", help="Start the ZEO Client in background")
-    add_subparser(zeoclient_subs, "stop", help="Stop the ZEO Client in background")
-    add_subparser(
-        zeoclient_subs, "status", help="Status of the ZEO Client in background"
-    )
     add_subparser(zeoclient_subs, "debug", help="Start the ZEO Client in debug mode")
 
     run_parser = add_subparser(subs, "run", help="Run an instance script")

@@ -180,7 +180,7 @@ class TestBuildParser(unittest.TestCase):
         self.assertEqual(args.host, "127.0.0.1")
 
     def test_action_zeoclient_subcommands(self):
-        for sub in ("console", "fg", "start", "stop", "status", "debug"):
+        for sub in ("console", "fg", "debug"):
             args = self.parser.parse_args(["zeoclient", sub])
             self.assertEqual(args.zeoclient_action, sub)
 

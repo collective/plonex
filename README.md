@@ -543,8 +543,8 @@ zope_conf_additional:
 For example, `etc/zopeconf/cache.j2` could contain:
 
 ```text
-<product-config plone.recipe.zope2instance>
-  zpublisher-threads 4
+<product-config my.package>
+  some-setting value
 </product-config>
 ```
 

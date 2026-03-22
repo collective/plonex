@@ -1,19 +1,35 @@
 #!{{ python }}
 
-import plone.recipe.zope2instance.ctl
+import os
 import sys
+from pathlib import Path
+
+
+_BIN_DIR = Path(sys.executable).parent
+_WSGI_INI = "{{ wsgi_ini_path }}"
+_ZOPE_CONF = "{{ zope_conf_path }}"
+
+
+def main():
+    mode = sys.argv[1] if len(sys.argv) > 1 else "fg"
+
+    if mode in ("fg", "console"):
+        runwsgi = str(_BIN_DIR / "runwsgi")
+        os.execv(runwsgi, [runwsgi, _WSGI_INI])
+
+    elif mode == "debug":
+        zconsole = str(_BIN_DIR / "zconsole")
+        os.execv(zconsole, [zconsole, "debug", _ZOPE_CONF])
+
+    elif mode == "run":
+        zconsole = str(_BIN_DIR / "zconsole")
+        os.execv(zconsole, [zconsole, "run", _ZOPE_CONF] + sys.argv[2:])
+
+    else:
+        print(f"Unknown mode: {mode!r}", file=sys.stderr)
+        print("Usage: instance [fg|console|debug|run]", file=sys.stderr)
+        sys.exit(1)
+
 
 if __name__ == "__main__":
-    sys.exit(
-        plone.recipe.zope2instance.ctl.main(
-            [
-                "-C",
-                "{{ zope_conf_path }}",
-                "-p",
-                "{{ interpreter_path }}",
-                "-w",
-                "{{ wsgi_ini_path }}",
-            ]
-            + sys.argv[1:]
-        )
-    )
+    main()
