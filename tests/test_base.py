@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
 from plonex.base import BaseService
+from plonex.profile import ProfileService
 from textwrap import dedent
 from unittest import mock
 
@@ -195,6 +196,82 @@ class TestBaseService(unittest.TestCase):
         (etc_path / "plonex.yml").write_text("key: value\n")
         service = DummyService()
         self.assertEqual(service.plonex_options, {"key": "value"})
+
+    def test_plonex_options_merge_profiles_before_local(self):
+        etc_path = self.temp_dir / "etc"
+        etc_path.mkdir()
+        profile = self.temp_dir / "profiles" / "base"
+        (profile / "etc").mkdir(parents=True)
+        (profile / "etc" / "plonex.yml").write_text("http_port: 8080\ninstance: base\n")
+        (etc_path / "plonex.yml").write_text(
+            dedent(
+                f"""---
+                profiles:
+                  - {profile}
+                http_port: 8081
+                """
+            )
+        )
+        service = DummyService()
+        self.assertEqual(service.plonex_options["http_port"], 8081)
+        self.assertEqual(service.plonex_options["instance"], "base")
+
+    def test_plonex_options_profile_relative_to_target(self):
+        etc_path = self.temp_dir / "etc"
+        etc_path.mkdir()
+        profile = self.temp_dir / "profiles" / "base"
+        (profile / "etc").mkdir(parents=True)
+        (profile / "etc" / "plonex.yml").write_text("profile_option: true\n")
+        (etc_path / "plonex.yml").write_text(
+            "profiles:\n  - profiles/base\nlocal_option: true\n"
+        )
+        service = DummyService()
+        self.assertTrue(service.plonex_options["profile_option"])
+        self.assertTrue(service.plonex_options["local_option"])
+
+    def test_plonex_options_profile_can_chain_other_profiles(self):
+        etc_path = self.temp_dir / "etc"
+        etc_path.mkdir()
+        base_profile = self.temp_dir / "profiles" / "base"
+        child_profile = self.temp_dir / "profiles" / "child"
+        (base_profile / "etc").mkdir(parents=True)
+        (child_profile / "etc").mkdir(parents=True)
+        (base_profile / "etc" / "plonex.yml").write_text("base_only: true\n")
+        (child_profile / "etc" / "plonex.yml").write_text(
+            "profiles:\n  - ../base\nchild_only: true\n"
+        )
+        (etc_path / "plonex.yml").write_text("profiles:\n  - profiles/child\n")
+        service = DummyService()
+        self.assertTrue(service.plonex_options["base_only"])
+        self.assertTrue(service.plonex_options["child_only"])
+
+    def test_plonex_options_profile_invalid_shape_logs_error(self):
+        etc_path = self.temp_dir / "etc"
+        etc_path.mkdir()
+        (etc_path / "plonex.yml").write_text("profiles:\n  nested: nope\n")
+        service = DummyService()
+        self.assertEqual(service.plonex_options["profiles"], {"nested": "nope"})
+        self.assertTrue(
+            any("'profiles' option" in str(error) for error in service.logger.errors)
+        )
+
+    def test_plonex_options_profile_git_url_uses_cloned_source(self):
+        etc_path = self.temp_dir / "etc"
+        etc_path.mkdir()
+        cloned_profile = self.temp_dir / "cloned-profile"
+        (cloned_profile / "etc").mkdir(parents=True)
+        (cloned_profile / "etc" / "plonex.yml").write_text("remote: true\n")
+        (etc_path / "plonex.yml").write_text(
+            "profiles:\n  - https://github.com/example/plonex-profile.git\n"
+        )
+        with mock.patch.object(
+            ProfileService,
+            "_clone_remote_source",
+            return_value=cloned_profile,
+        ) as mock_clone:
+            service = DummyService()
+            self.assertTrue(service.plonex_options["remote"])
+        mock_clone.assert_called_once()
 
     # --- config_files_options_mapping ---
 

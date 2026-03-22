@@ -45,6 +45,84 @@ class BaseService:
             "target": self.target.absolute().as_posix(),
         }
 
+    def _load_yaml_mapping(self, path: Path) -> dict:
+        if not path.exists():
+            self.logger.warning("Config file %r does not exist", path)
+            return {}
+
+        file_options = yaml.safe_load(path.read_text()) or {}
+        if not isinstance(file_options, dict):
+            self.logger.error("The config file %r should contain a dict", path)
+            return {}
+        return file_options
+
+    def _normalize_profiles(self, profiles: Any, source: Path) -> list[str | Path]:
+        if profiles is None:
+            return []
+        if isinstance(profiles, str):
+            profiles = [profiles]
+        if not isinstance(profiles, list) or not all(
+            isinstance(item, str) for item in profiles
+        ):
+            self.logger.error(
+                "The 'profiles' option in %r should be a string or a list of strings",
+                source,
+            )
+            return []
+        return profiles
+
+    def _resolve_profile_source(
+        self,
+        profile: str | Path,
+        relative_to: Path,
+    ) -> str | Path:
+        if isinstance(profile, Path):
+            return profile
+
+        source_path = Path(profile).expanduser()
+        if source_path.is_absolute() or profile.startswith(
+            ("git@", "http://", "https://", "git://", "ssh://")
+        ):
+            return profile
+        return relative_to / source_path
+
+    def _load_profile_options(
+        self,
+        profile: str | Path,
+        relative_to: Path,
+        seen: set[Path] | None = None,
+    ) -> dict:
+        from plonex.profile import ProfileService
+
+        resolved_profile = self._resolve_profile_source(profile, relative_to)
+        profile_service = ProfileService(source=resolved_profile, target=self.target)
+        profile_root = profile_service.source_path
+
+        if seen is None:
+            seen = set()
+        if profile_root in seen:
+            return {}
+        seen.add(profile_root)
+
+        profile_options: dict = {}
+        profile_plonex_yml = profile_root / "etc" / "plonex.yml"
+        if not profile_plonex_yml.exists():
+            self.logger.warning("No plonex.yml file found in profile %r", profile_root)
+            return profile_options
+
+        raw_profile_options = self._load_yaml_mapping(profile_plonex_yml)
+        nested_profiles = self._normalize_profiles(
+            raw_profile_options.get("profiles"),
+            profile_plonex_yml,
+        )
+        for nested_profile in nested_profiles:
+            profile_options.update(
+                self._load_profile_options(nested_profile, profile_root, seen)
+            )
+
+        profile_options.update(raw_profile_options)
+        return profile_options
+
     @cached_property
     def plonex_options(self) -> dict:
         """Return the options from the plonex.yml file"""
@@ -52,7 +130,18 @@ class BaseService:
         if not plonex_yml.exists():
             self.logger.warning("No plonex.yml file found in %r", self.target)
             return {}
-        return yaml.safe_load(plonex_yml.read_text()) or {}
+
+        local_options = self._load_yaml_mapping(plonex_yml)
+        profiles = self._normalize_profiles(local_options.get("profiles"), plonex_yml)
+
+        merged_profile_options = {}
+        for profile in profiles:
+            merged_profile_options.update(
+                self._load_profile_options(profile, self.target)
+            )
+
+        merged_profile_options.update(local_options)
+        return merged_profile_options
 
     @cached_property
     def additional_plonex_options(self) -> dict[Path, dict]:
@@ -66,14 +155,7 @@ class BaseService:
         paths += list(self.target.glob(f"etc/plonex-{self.name}.*.yml"))
 
         for path in paths:
-            if not path.exists():
-                self.logger.warning("Config file %r does not exist", path)
-                file_options = {}
-            else:
-                file_options = yaml.safe_load(path.read_text())
-                if not isinstance(file_options, dict):
-                    self.logger.error("The config file %r should contain a dict", path)
-                    file_options = {}
+            file_options = self._load_yaml_mapping(path)
             mapping[path] = file_options
         return mapping
 
@@ -83,14 +165,7 @@ class BaseService:
         mapping = {}
         for path in self.config_files:
             path = Path(path).absolute()
-            if not path.exists():
-                self.logger.warning("Config file %r does not exist", path)
-                file_options = {}
-            else:
-                file_options = yaml.safe_load(path.read_text())
-                if not isinstance(file_options, dict):
-                    self.logger.error("The config file %r should contain a dict", path)
-                    file_options = {}
+            file_options = self._load_yaml_mapping(path)
             mapping[path] = file_options
         return mapping
 

@@ -86,6 +86,97 @@ By default, `plonex` shows the command help.
 If you want a different behavior, set either `default_action` or
 `default_actions` in `etc/plonex.yml`.
 
+## Profiles
+
+You can extend a project from one or more profiles declared in `etc/plonex.yml`.
+
+Example:
+
+```yaml
+profiles:
+  - /path/to/plonex-profile
+  - https://github.com/example/plonex-profile.git
+
+http_port: 8081
+```
+
+Profile configuration is loaded before the local project configuration, so the
+local `etc/plonex.yml` remains the highest-precedence place for site-specific
+overrides such as ports, hostnames, and service settings.
+
+Profiles can themselves declare `profiles`, which allows a profile to extend
+another profile before the local project overrides both.
+
+Relative profile paths in the project `etc/plonex.yml` are resolved from the
+project root. Relative profile paths declared inside a profile are resolved from
+that profile root.
+
+One practical way to organize profiles inside a repository is:
+
+```text
+myproject/
+├── etc/
+│   └── plonex.yml
+└── profiles/
+    ├── default/
+    │   └── etc/
+    │       └── plonex.yml
+    ├── production/
+    │   └── etc/
+    │       └── plonex.yml
+    └── development/
+        └── etc/
+            └── plonex.yml
+```
+
+For example, `profiles/default/etc/plonex.yml` can hold shared defaults used by
+every environment:
+
+```yaml
+plone_version: 6.1.4
+http_address: 0.0.0.0
+zeo_address: var/zeo.sock
+environment_vars:
+  TZ: Europe/Rome
+```
+
+Then `profiles/production/etc/plonex.yml` can extend `default` and add
+production-specific values:
+
+```yaml
+profiles:
+  - ../default
+
+http_port: 8080
+debug_mode: false
+```
+
+And `profiles/development/etc/plonex.yml` can also extend `default` but keep
+more developer-friendly settings:
+
+```yaml
+profiles:
+  - ../default
+
+http_port: 8081
+debug_mode: true
+log_level: debug
+```
+
+Finally, the project `etc/plonex.yml` chooses which profile to inherit from and
+keeps the final local overrides:
+
+```yaml
+profiles:
+  - profiles/development
+
+http_port: 8082
+```
+
+In this example the resulting `http_port` is `8082`, because the local
+`etc/plonex.yml` overrides `profiles/development`, which overrides
+`profiles/default`.
+
 Single action examples:
 
 ```yaml
@@ -271,11 +362,13 @@ Options are merged in this order (higher wins):
 1. `etc/plonex-<service>.yml`
 1. `etc/plonex.*.yml` (alphabetical precedence)
 1. `etc/plonex.yml`
+1. Profiles declared by `etc/plonex.yml` and nested profile `plonex.yml` files
 1. Service defaults
 
 Why this matters:
 
 - you can keep sane defaults in `etc/plonex.yml`,
+- inherit shared defaults from one or more profiles,
 - add machine- or developer-specific overrides in `etc/plonex.local.yml`,
 - and still force one-off values from the command line when needed.
 
