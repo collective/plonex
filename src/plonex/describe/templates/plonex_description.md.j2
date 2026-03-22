@@ -26,10 +26,59 @@ The markdown version of this file is located at [{{ context.display_path(context
 > ---
 
 
+## Configuration Summary
+
+- **Plone Version**: `{{ context.plone_version or "unknown" }}`
+- **Python Version**: `{{ context.python_version }}`
+- **Python Executable**: [{{ context.display_path(context.python_executable) }}](file://{{ context.python_executable }})
+- **Base Constraint**: `{{ context.base_constraint or "not configured" }}`
+- **Supervisor Configuration**: `{{ context.supervisor_configuration_status }}`
+- **Profiles**:
+{%- if context.profiles %}
+{%- for profile in context.profiles %}
+	- `{{ profile }}`
+{%- endfor %}
+{%- else %}
+	- none
+{%- endif %}
+- **Additional Config Files**:
+{%- if context.additional_config_files %}
+{%- for path in context.additional_config_files %}
+	- [{{ context.display_path(path) }}](file://{{ path }})
+{%- endfor %}
+{%- else %}
+	- none
+{%- endif %}
+- **Extra Config Files**:
+{%- if context.explicit_config_files %}
+{%- for path in context.explicit_config_files %}
+	- [{{ context.display_path(path) }}](file://{{ path }})
+{%- endfor %}
+{%- else %}
+	- none
+{%- endif %}
+- **Configured Services**:
+{%- if context.configured_services %}
+{%- for service in context.configured_services %}
+	- `{{ service }}`
+{%- endfor %}
+{%- else %}
+	- none
+{%- endif %}
+
+
 ## Project Files
 
-{%- for label, path in context.project_files %}
+{%- for group_label, entries in context.project_file_groups %}
+### {{ group_label }}
+
+{%- for label, path, children in entries %}
 - **{{ label }}**: [{{ context.display_path(path) }}](file://{{ path }})
+{%- for child_label, child_path in children %}
+	- **{{ child_label }}**: [{{ context.display_path(child_path) }}](file://{{ child_path }})
+{%- endfor %}
+{%- endfor %}
+
 {%- endfor %}
 
 

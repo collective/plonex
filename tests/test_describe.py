@@ -50,6 +50,12 @@ class TestDescribeService(PloneXTestCase):
 
     def test_project_files(self):
         with temp_cwd() as cwd:
+            (cwd / "etc" / "requirements.d").mkdir(parents=True)
+            (cwd / "etc" / "constraints.d").mkdir(parents=True)
+            requirement_fragment = cwd / "etc" / "requirements.d" / "010-extra.txt"
+            constraint_fragment = cwd / "etc" / "constraints.d" / "010-extra.txt"
+            requirement_fragment.write_text("foo\n")
+            constraint_fragment.write_text("bar==1.0\n")
             svc = DescribeService()
             self.assertEqual(
                 svc.project_files,
@@ -68,6 +74,75 @@ class TestDescribeService(PloneXTestCase):
                         "Markdown description",
                         cwd / "var" / "plonex_description" / "index.md",
                     ),
+                    ("Requirement fragment 010-extra.txt", requirement_fragment),
+                    ("Constraint fragment 010-extra.txt", constraint_fragment),
+                ],
+            )
+
+    def test_project_file_groups(self):
+        with temp_cwd() as cwd:
+            (cwd / "etc" / "requirements.d").mkdir(parents=True)
+            (cwd / "etc" / "constraints.d").mkdir(parents=True)
+            requirement_fragment = cwd / "etc" / "requirements.d" / "010-extra.txt"
+            constraint_fragment = cwd / "etc" / "constraints.d" / "010-extra.txt"
+            requirement_fragment.write_text("foo\n")
+            constraint_fragment.write_text("bar==1.0\n")
+            svc = DescribeService()
+            self.assertEqual(
+                svc.project_file_groups,
+                [
+                    (
+                        "Source Files",
+                        [
+                            (
+                                "Requirements directory",
+                                cwd / "etc" / "requirements.d",
+                                [("010-extra.txt", requirement_fragment)],
+                            ),
+                            (
+                                "Constraints directory",
+                                cwd / "etc" / "constraints.d",
+                                [("010-extra.txt", constraint_fragment)],
+                            ),
+                            ("Configuration", cwd / "etc" / "plonex.yml", []),
+                        ],
+                    ),
+                    (
+                        "Compiled Files",
+                        [
+                            ("Compiled configuration", cwd / "var" / "plonex.yml", []),
+                            (
+                                "Compiled requirements",
+                                cwd / "var" / "requirements.txt",
+                                [],
+                            ),
+                            (
+                                "Compiled constraints",
+                                cwd / "var" / "constraints.txt",
+                                [],
+                            ),
+                        ],
+                    ),
+                    (
+                        "Runtime Files",
+                        [
+                            (
+                                "Supervisor configuration",
+                                cwd / "tmp" / "supervisor" / "etc" / "supervisord.conf",
+                                [],
+                            ),
+                        ],
+                    ),
+                    (
+                        "Reports",
+                        [
+                            (
+                                "Markdown description",
+                                cwd / "var" / "plonex_description" / "index.md",
+                                [],
+                            ),
+                        ],
+                    ),
                 ],
             )
 
@@ -79,6 +154,20 @@ class TestDescribeService(PloneXTestCase):
             )
             self.assertEqual(
                 svc.display_path(Path("/tmp/outside.txt")), "/tmp/outside.txt"
+            )
+
+    def test_display_source(self):
+        with temp_cwd() as cwd:
+            svc = DescribeService()
+            self.assertEqual(
+                svc.display_source(cwd / "var" / "plonex.yml"), "var/plonex.yml"
+            )
+            self.assertEqual(svc.display_source("etc/custom.txt"), "etc/custom.txt")
+            self.assertEqual(
+                svc.display_source(
+                    "https://dist.plone.org/release/6.1.2/constraints.txt"
+                ),
+                "https://dist.plone.org/release/6.1.2/constraints.txt",
             )
 
     def test_supervisor_status(self):
@@ -103,16 +192,46 @@ class TestDescribeService(PloneXTestCase):
             (cwd / ".venv" / "bin").mkdir(parents=True)
             (cwd / ".venv" / "bin" / "activate").touch()
             (cwd / "etc").mkdir()
-            (cwd / "etc" / "plonex.yml").write_text("mykey: myvalue\n")
+            (cwd / "etc" / "plonex.yml").write_text(
+                "mykey: myvalue\n"
+                "plone_version: 6.1.2\n"
+                "profiles:\n"
+                "  - profiles/base\n"
+                "plonex_base_constraint: etc/custom-constraints.txt\n"
+                "services:\n"
+                "  - template:\n"
+                "      run_for: describe\n"
+            )
+            (cwd / "etc" / "plonex.describe.yml").write_text("log_level: DEBUG\n")
             (cwd / "etc" / "requirements.d").mkdir()
+            (cwd / "etc" / "requirements.d" / "010-extra.txt").write_text("foo\n")
             (cwd / "etc" / "constraints.d").mkdir()
+            (cwd / "etc" / "constraints.d" / "010-extra.txt").write_text("bar==1.0\n")
+            (cwd / "etc" / "custom-constraints.txt").write_text("foo==1.0\n")
+            (cwd / "profiles" / "base" / "etc").mkdir(parents=True)
+            (cwd / "profiles" / "base" / "etc" / "plonex.yml").write_text(
+                "profile_option: true\n"
+            )
+            (cwd / "tmp" / "supervisor" / "etc").mkdir(parents=True)
+            (cwd / "tmp" / "supervisor" / "etc" / "supervisord.conf").write_text(
+                "[supervisord]\n"
+            )
             developed_package_path = cwd / "src" / "my.package"
             developed_package_path.mkdir(parents=True)
 
             with mock.patch(
                 "plonex.describe.InstallService.ensure_virtualenv",
                 return_value=None,
-            ), mock.patch("plonex.describe.Supervisor") as MockSupervisor, mock.patch(
+            ), mock.patch(
+                "plonex.describe.BaseService.execute_command",
+                side_effect=lambda command, cwd=None, stream_output=False: (
+                    "Python 3.13.7\n"
+                    if len(command) == 2 and str(command[1]) == "--version"
+                    else ""
+                ),
+            ), mock.patch(
+                "plonex.describe.Supervisor"
+            ) as MockSupervisor, mock.patch(
                 "plonex.describe.Console"
             ) as MockConsole:
                 MockSupervisor.return_value.__enter__ = mock.Mock(
@@ -150,8 +269,60 @@ class TestDescribeService(PloneXTestCase):
                     f"[etc/plonex.yml](file://{cwd / 'etc' / 'plonex.yml'})",
                     rendered,
                 )
+                self.assertIn("**Plone Version**: `6.1.2`", rendered)
+                self.assertIn("**Python Version**: `Python 3.13.7`", rendered)
+                self.assertIn(
+                    f"[.venv/bin/python](file://{cwd / '.venv' / 'bin' / 'python'})",
+                    rendered,
+                )
+                self.assertIn(
+                    "**Base Constraint**: `etc/custom-constraints.txt`",
+                    rendered,
+                )
+                self.assertIn("**Supervisor Configuration**: `present`", rendered)
+                self.assertIn("- `profiles/base`", rendered)
+                self.assertIn(
+                    (
+                        f"[etc/plonex.describe.yml](file://"
+                        f"{cwd / 'etc' / 'plonex.describe.yml'})"
+                    ),
+                    rendered,
+                )
+                self.assertIn(
+                    (
+                        f"- **Requirements directory**: "
+                        f"[etc/requirements.d](file://{cwd / 'etc' / 'requirements.d'})"
+                    ),
+                    rendered,
+                )
+                self.assertIn(
+                    (
+                        f"**010-extra.txt**: [etc/requirements.d/010-extra.txt]"
+                        f"(file://{cwd / 'etc' / 'requirements.d' / '010-extra.txt'})"
+                    ),
+                    rendered,
+                )
+                self.assertIn(
+                    (
+                        f"- **Constraints directory**: "
+                        f"[etc/constraints.d](file://{cwd / 'etc' / 'constraints.d'})"
+                    ),
+                    rendered,
+                )
+                self.assertIn(
+                    (
+                        f"**010-extra.txt**: [etc/constraints.d/010-extra.txt]"
+                        f"(file://{cwd / 'etc' / 'constraints.d' / '010-extra.txt'})"
+                    ),
+                    rendered,
+                )
+                self.assertIn("- `template`", rendered)
                 self.assertIn(
                     f"`my.package` → [src/my.package](file://{developed_package_path})",
                     rendered,
                 )
+                self.assertIn("### Source Files", rendered)
+                self.assertIn("### Compiled Files", rendered)
+                self.assertIn("### Runtime Files", rendered)
+                self.assertIn("### Reports", rendered)
                 MockConsole.return_value.print.assert_called_once()

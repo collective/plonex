@@ -38,9 +38,82 @@ class DescribeService(BaseService):
         except ValueError:
             return str(path)
 
+    def display_source(self, source: str | Path | None) -> str:
+        if source is None:
+            return ""
+        if isinstance(source, Path):
+            return self.display_path(source)
+        if source.startswith(("http://", "https://", "resource://")):
+            return source
+        source_path = Path(source)
+        if source_path.is_absolute():
+            return self.display_path(source_path)
+        return source
+
+    @property
+    def plone_version(self) -> str:
+        return str(self.options.get("plone_version", ""))
+
+    @property
+    def python_executable(self) -> Path:
+        return self.virtualenv_dir / "bin" / "python"
+
+    @property
+    def python_version(self) -> str:
+        return self.execute_command([self.python_executable, "--version"]).strip()
+
+    @property
+    def base_constraint(self) -> str:
+        install_service = InstallService(target=self.target)
+        return self.display_source(install_service.plonex_base_constraint)
+
+    @property
+    def profiles(self) -> list[str]:
+        profiles = self.options.get("profiles") or []
+        if isinstance(profiles, str):
+            profiles = [profiles]
+        return (
+            [str(profile) for profile in profiles] if isinstance(profiles, list) else []
+        )
+
+    @property
+    def additional_config_files(self) -> list[Path]:
+        return sorted(self.additional_plonex_options)
+
+    @property
+    def explicit_config_files(self) -> list[Path]:
+        return sorted(self.config_files_options_mapping)
+
+    @property
+    def requirement_fragments(self) -> list[Path]:
+        folder = self.target / "etc" / "requirements.d"
+        return sorted(folder.iterdir()) if folder.exists() else []
+
+    @property
+    def constraint_fragments(self) -> list[Path]:
+        folder = self.target / "etc" / "constraints.d"
+        return sorted(folder.iterdir()) if folder.exists() else []
+
+    @property
+    def configured_services(self) -> list[str]:
+        services = self.options.get("services") or []
+        names = []
+        if isinstance(services, list):
+            for spec in services:
+                if isinstance(spec, dict) and len(spec) == 1:
+                    names.append(str(next(iter(spec))))
+        return names
+
+    @property
+    def supervisor_configuration_status(self) -> str:
+        supervisor_conf = (
+            self.target / "tmp" / "supervisor" / "etc" / "supervisord.conf"
+        )
+        return "present" if supervisor_conf.exists() else "missing"
+
     @property
     def project_files(self) -> list[tuple[str, Path]]:
-        return [
+        files = [
             ("Source configuration", self.target / "etc" / "plonex.yml"),
             ("Source requirements", self.target / "etc" / "requirements.d"),
             ("Source constraints", self.target / "etc" / "constraints.d"),
@@ -52,6 +125,62 @@ class DescribeService(BaseService):
                 self.target / "tmp" / "supervisor" / "etc" / "supervisord.conf",
             ),
             ("Markdown description", self.description_path),
+        ]
+        files.extend(
+            (f"Requirement fragment {path.name}", path)
+            for path in self.requirement_fragments
+        )
+        files.extend(
+            (f"Constraint fragment {path.name}", path)
+            for path in self.constraint_fragments
+        )
+        return files
+
+    @property
+    def project_file_groups(
+        self,
+    ) -> list[tuple[str, list[tuple[str, Path, list[tuple[str, Path]]]]]]:
+        return [
+            (
+                "Source Files",
+                [
+                    (
+                        "Requirements directory",
+                        self.target / "etc" / "requirements.d",
+                        [(path.name, path) for path in self.requirement_fragments],
+                    ),
+                    (
+                        "Constraints directory",
+                        self.target / "etc" / "constraints.d",
+                        [(path.name, path) for path in self.constraint_fragments],
+                    ),
+                    ("Configuration", self.target / "etc" / "plonex.yml", []),
+                ],
+            ),
+            (
+                "Compiled Files",
+                [
+                    ("Compiled configuration", self.var_folder / "plonex.yml", []),
+                    ("Compiled requirements", self.var_folder / "requirements.txt", []),
+                    ("Compiled constraints", self.var_folder / "constraints.txt", []),
+                ],
+            ),
+            (
+                "Runtime Files",
+                [
+                    (
+                        "Supervisor configuration",
+                        self.target / "tmp" / "supervisor" / "etc" / "supervisord.conf",
+                        [],
+                    ),
+                ],
+            ),
+            (
+                "Reports",
+                [
+                    ("Markdown description", self.description_path, []),
+                ],
+            ),
         ]
 
     @property
