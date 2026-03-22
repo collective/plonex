@@ -1,6 +1,3 @@
-from pathlib import Path
-
-
 def register_setup_parsers(subs, add_subparser) -> None:
     """Register setup and information CLI parsers."""
     init_parser = add_subparser(
@@ -19,7 +16,7 @@ def register_setup_parsers(subs, add_subparser) -> None:
             "Path where the project will be initialized. "
             "Defaults to the current working directory."
         ),
-        default=str(Path.cwd()),
+        default=None,
         nargs="?",
     )
 

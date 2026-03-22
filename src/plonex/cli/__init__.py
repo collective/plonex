@@ -18,6 +18,7 @@ from plonex.upgrade import UpgradeService
 from plonex.zeoclient import ZeoClient
 from plonex.zeoserver import ZeoServer
 from plonex.zopetest import ZopeTest
+from rich.console import Console
 
 import logging
 import shlex
@@ -29,6 +30,18 @@ def build_parser():
     # plonex.cli.autocomplete before invoking build_parser().
     _cli_parser.autocomplete = autocomplete
     return _cli_parser.build_parser()
+
+
+def _prompt_init_target(default_target: Path | None = None) -> Path:
+    default_path = default_target or Path.cwd()
+    console = Console()
+    try:
+        response = console.input(
+            f"Please select the target folder (default: {default_path}): "
+        ).strip()
+    except EOFError:
+        response = ""
+    return Path(response) if response else default_path
 
 
 def _resolve_target(args) -> Path:
@@ -269,7 +282,8 @@ def main() -> None:
         return
 
     if args.action == "init":
-        with InitService(target=args.target) as svc:
+        init_target = Path(args.target) if args.target else _prompt_init_target()
+        with InitService(target=init_target) as svc:
             svc.run()
         return
 

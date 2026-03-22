@@ -98,6 +98,11 @@ class TestBuildParser(unittest.TestCase):
         self.assertEqual(args.action, "init")
         self.assertEqual(args.target, "/tmp/project")
 
+    def test_action_init_without_target(self):
+        args = self.parser.parse_args(["init"])
+        self.assertEqual(args.action, "init")
+        self.assertIsNone(args.target)
+
     def test_action_compile(self):
         args = self.parser.parse_args(["compile"])
         self.assertEqual(args.action, "compile")
@@ -384,7 +389,23 @@ class TestMain(unittest.TestCase):
             )
             MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
             self._run(["init", target_str])
-        MockSvc.assert_called_once_with(target=target_str)
+        MockSvc.assert_called_once_with(target=self.temp_dir)
+        MockSvc.return_value.run.assert_called_once()
+
+    def test_action_init_prompts_for_target(self):
+        with mock.patch("plonex.cli.Console") as MockConsole:
+            with mock.patch("plonex.cli.InitService") as MockSvc:
+                MockConsole.return_value.input.return_value = ""
+                MockSvc.return_value.__enter__ = mock.Mock(
+                    return_value=MockSvc.return_value
+                )
+                MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
+                with mock.patch("pathlib.Path.cwd", return_value=self.temp_dir):
+                    self._run(["init"])
+        MockConsole.return_value.input.assert_called_once_with(
+            f"Please select the target folder (default: {self.temp_dir}): "
+        )
+        MockSvc.assert_called_once_with(target=self.temp_dir)
         MockSvc.return_value.run.assert_called_once()
 
     def _run_with_target(self, argv):

@@ -172,6 +172,7 @@ What happens:
 `init [target]`
 
 - Initialize project folders and base config.
+- If `target` is omitted, `plonex` prompts for a folder and suggests the current directory as the default.
 
 `compile`
 
