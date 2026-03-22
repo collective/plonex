@@ -56,6 +56,26 @@ class BaseService:
             return {}
         return file_options
 
+    @property
+    def legacy_constraints_file(self) -> Path:
+        return self.target / "etc" / "constraints.d" / "000-plonex.txt"
+
+    def _legacy_plone_version(self) -> str | None:
+        path = self.legacy_constraints_file
+        if not path.exists():
+            return None
+
+        for line in path.read_text().splitlines():
+            line = line.strip()
+            if line.startswith("Plone=="):
+                return line.split("==", 1)[1].strip()
+            if line.startswith("Products.CMFPlone=="):
+                return line.split("==", 1)[1].strip()
+            marker = "https://dist.plone.org/release/"
+            if marker in line and "/constraints.txt" in line:
+                return line.split(marker, 1)[1].split("/constraints.txt", 1)[0]
+        return None
+
     def _normalize_profiles(self, profiles: Any, source: Path) -> list[str | Path]:
         if profiles is None:
             return []
@@ -127,20 +147,52 @@ class BaseService:
     def plonex_options(self) -> dict:
         """Return the options from the plonex.yml file"""
         plonex_yml = self.target / "etc" / "plonex.yml"
+        local_options = {}
         if not plonex_yml.exists():
             self.logger.warning("No plonex.yml file found in %r", self.target)
-            return {}
-
-        local_options = self._load_yaml_mapping(plonex_yml)
-        profiles = self._normalize_profiles(local_options.get("profiles"), plonex_yml)
-
         merged_profile_options = {}
-        for profile in profiles:
-            merged_profile_options.update(
-                self._load_profile_options(profile, self.target)
+        if plonex_yml.exists():
+            local_options = self._load_yaml_mapping(plonex_yml)
+            profiles = self._normalize_profiles(
+                local_options.get("profiles"), plonex_yml
             )
 
-        merged_profile_options.update(local_options)
+            for profile in profiles:
+                merged_profile_options.update(
+                    self._load_profile_options(profile, self.target)
+                )
+
+            merged_profile_options.update(local_options)
+
+        if self.legacy_constraints_file.exists():
+            legacy_plone_version = self._legacy_plone_version()
+            if (
+                "plone_version" in merged_profile_options
+                or "plonex_base_constraint" in merged_profile_options
+            ):
+                self.logger.warning(
+                    "Ignoring legacy constraints file %r because "
+                    "plone_version or plonex_base_constraint is "
+                    "configured in etc/plonex.yml. Remove the file.",
+                    self.legacy_constraints_file,
+                )
+            elif legacy_plone_version:
+                self.logger.warning(
+                    "Ignoring legacy constraints file %r. Using "
+                    "plone_version=%s for compatibility; add it to "
+                    "etc/plonex.yml and remove the file.",
+                    self.legacy_constraints_file,
+                    legacy_plone_version,
+                )
+                merged_profile_options["plone_version"] = legacy_plone_version
+            else:
+                self.logger.warning(
+                    "Ignoring legacy constraints file %r. Configure "
+                    "plone_version or plonex_base_constraint in "
+                    "etc/plonex.yml and remove the file.",
+                    self.legacy_constraints_file,
+                )
+
         return merged_profile_options
 
     @cached_property

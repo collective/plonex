@@ -177,6 +177,54 @@ In this example the resulting `http_port` is `8082`, because the local
 `etc/plonex.yml` overrides `profiles/development`, which overrides
 `profiles/default`.
 
+## Base Constraints
+
+`plonex` generates a merged `var/constraints.txt` for installation.
+
+By default it starts from the Plone release constraints selected by
+`plone_version`. The generated `etc/plonex.yml` does not include a
+`plonex_base_constraint` entry unless you decide to add one.
+
+Default behavior:
+
+```yaml
+plone_version: 6.1.4
+```
+
+This means the base constraint is effectively:
+
+```yaml
+https://dist.plone.org/release/{{ plone_version }}/constraints.txt
+```
+
+If you want to override that base, add
+`plonex_base_constraint`.
+
+Supported values are:
+
+- remote URLs
+- local files relative to the project root
+- `resource://package:path` references
+
+Examples:
+
+```yaml
+plonex_base_constraint: https://example.org/constraints/base.txt
+```
+
+```yaml
+plonex_base_constraint: etc/constraints/base.txt
+```
+
+```yaml
+plonex_base_constraint: resource://my.package:constraints/base.txt
+```
+
+If an old `etc/constraints.d/000-plonex.txt` file still exists, `plonex` warns
+that it is ignored and suggests removing it. For compatibility, if neither
+`plone_version` nor `plonex_base_constraint` is configured, `plonex` still tries
+to infer `plone_version` from that legacy file.
+
 Single action examples:
 
 ```yaml

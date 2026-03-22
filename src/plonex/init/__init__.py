@@ -7,8 +7,6 @@ from plonex.supervisor import Supervisor
 from plonex.template import TemplateService
 from textwrap import dedent
 
-import requests
-
 
 @dataclass(kw_only=True)
 class InitService(BaseService):
@@ -50,25 +48,6 @@ class InitService(BaseService):
                         name="requirements",
                         source_path="resource://plonex.init.templates:default_requirements.txt.j2",  # noqa: E501
                         target_path=etc_folder / "requirements.d" / "000-plonex.txt",
-                    )
-                )
-            if not (self.target / "etc" / "constraints.d" / "000-plonex.txt").exists():
-                self.logger.info(
-                    "Fetching the constraints.txt file for Plone %s",
-                    self.options["plone_version"],
-                )
-
-                self.pre_services.append(
-                    TemplateService(
-                        name="constraints",
-                        source_path="resource://plonex.init.templates:default_constraints.txt.j2",  # noqa: E501
-                        target_path=etc_folder / "constraints.d" / "000-plonex.txt",
-                        options={
-                            "constraints": requests.get(
-                                f"https://dist.plone.org/release/{self.options['plone_version']}/constraints.txt",  # noqa: E501
-                                timeout=30,
-                            ).text,
-                        },
                     )
                 )
 
