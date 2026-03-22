@@ -4,9 +4,9 @@ from importlib.metadata import version
 from pathlib import Path
 from plonex.cli import _configure_logging
 from plonex.cli import _resolve_target
-from plonex.cli import _service_from_config
 from plonex.cli import build_parser
 from plonex.cli import main
+from plonex.cli.dependencies import _service_from_config
 from runpy import run_path
 from types import SimpleNamespace
 from unittest import mock
@@ -575,7 +575,9 @@ class TestServiceFromConfig(unittest.TestCase):
                 _service_from_config({"nope": {}}, cwd)
 
     def test_module_main_guard(self):
-        cli_path = Path(__file__).parent.parent / "src" / "plonex" / "cli.py"
+        cli_path = (
+            Path(__file__).parent.parent / "src" / "plonex" / "cli" / "__main__.py"
+        )
         with mock.patch.object(sys, "argv", ["plonex", "-V"]):
             with mock.patch("builtins.print") as mock_print:
                 run_path(str(cli_path), run_name="__main__")

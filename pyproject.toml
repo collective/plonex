@@ -43,7 +43,7 @@ classifiers = [
 ]
 
 [project.scripts]
-plonex = "plonex:cli.main"
+plonex = "plonex.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/collective/plonex"
