@@ -6,6 +6,7 @@ from jinja2 import BaseLoader
 from jinja2 import Environment
 from pathlib import Path
 from plonex import logger
+from plonex.config import normalize_options
 from rich.console import Console
 from tempfile import mkdtemp
 from typing import Any
@@ -300,6 +301,7 @@ class BaseService:
         options_as_yaml_text = yaml.dump(options)
         env = Environment(loader=BaseLoader())
         counter = 0
+        resolved_options = options_as_yaml_text
         while counter < 10:
             resolved_options = env.from_string(options_as_yaml_text).render(
                 keep_training_newline=True, **options
@@ -311,7 +313,11 @@ class BaseService:
         else:
             self.logger.error("Too many iterations while resolving options")
 
-        return yaml.safe_load(resolved_options)
+        resolved = yaml.safe_load(resolved_options) or {}
+        if not isinstance(resolved, dict):
+            self.logger.error("Resolved options should contain a dict")
+            return {}
+        return normalize_options(resolved, self.logger)
 
     @cached_property
     def console(self) -> Console:
@@ -436,9 +442,9 @@ class BaseService:
         command_list: list[str] = list(map(str, command))
         command_str: str = " ".join(command_list)
         stream_output = "fg" in command_list
+        start_time = time.time()
         try:
             self.logger.debug("Running %r", command_str)
-            start_time = time.time()
             try:
                 self.execute_command(
                     command_list,

@@ -7,6 +7,7 @@ from itertools import chain
 from pathlib import Path
 from plonex import logger
 from plonex.compile import CompileService
+from plonex.config import normalize_default_actions
 from plonex.describe import DescribeService
 from plonex.init import InitService
 from plonex.install import InstallService
@@ -20,7 +21,6 @@ from plonex.zopetest import ZopeTest
 from rich.console import Console
 
 import logging
-import shlex
 import sys
 
 
@@ -98,52 +98,9 @@ def _configure_logging(args, target: Path) -> None:
             logger.setLevel(log_level)
 
 
-def _normalize_default_actions(options: dict) -> list[list[str]] | None:
-    raw_default_actions = options.get("default_actions")
-    raw_default_action = options.get("default_action")
-    if raw_default_actions is None and raw_default_action is None:
-        return None
-
-    def normalize_action(action) -> list[str]:
-        if isinstance(action, str):
-            tokens = shlex.split(action)
-        elif isinstance(action, list) and all(isinstance(item, str) for item in action):
-            tokens = list(action)
-        else:
-            raise ValueError(
-                "Each default action should be a string or a list of strings"
-            )
-        if not tokens:
-            raise ValueError("Default actions cannot be empty")
-        return tokens
-
-    if raw_default_actions is not None:
-        if isinstance(raw_default_actions, str):
-            return [normalize_action(raw_default_actions)]
-        if isinstance(raw_default_actions, list):
-            if not raw_default_actions:
-                raise ValueError("The 'default_actions' option cannot be empty")
-            return [normalize_action(action) for action in raw_default_actions]
-        raise ValueError(
-            "The 'default_actions' option should be a string, a list of strings, "
-            "or a list of actions"
-        )
-
-    if isinstance(raw_default_action, str):
-        return [normalize_action(raw_default_action)]
-    if isinstance(raw_default_action, list):
-        if not raw_default_action:
-            raise ValueError("The 'default_actions' option cannot be empty")
-        return [normalize_action(raw_default_action)]
-
-    raise ValueError(
-        "The 'default_action' option should be a string or a list of strings"
-    )
-
-
 def _load_default_actions(target: Path) -> list[list[str]] | None:
     with InitService(target=target) as init:
-        return _normalize_default_actions(init.options)
+        return normalize_default_actions(init.options)
 
 
 def _dispatch(args, parser, target: Path) -> None:

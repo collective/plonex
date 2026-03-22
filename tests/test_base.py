@@ -552,6 +552,20 @@ class TestBaseService(unittest.TestCase):
             any("Too many iterations" in str(error) for error in service.logger.errors)
         )
 
+    def test_options_normalize_supervisor_graceful_interval(self):
+        service = DummyService(cli_options={"supervisor_graceful_interval": "2.5"})
+        self.assertEqual(service.options["supervisor_graceful_interval"], 2.5)
+
+    def test_options_invalid_supervisor_graceful_interval_falls_back(self):
+        service = DummyService(cli_options={"supervisor_graceful_interval": -1})
+        self.assertEqual(service.options["supervisor_graceful_interval"], 1.0)
+        self.assertTrue(
+            any(
+                "supervisor_graceful_interval" in str(error)
+                for error in service.logger.errors
+            )
+        )
+
     # --- run with empty command ---
 
     def test_run_with_empty_command(self):
