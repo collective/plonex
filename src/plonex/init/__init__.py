@@ -5,6 +5,7 @@ from plonex.base import BaseService
 from plonex.install import InstallService
 from plonex.supervisor import Supervisor
 from plonex.template import TemplateService
+from textwrap import dedent
 
 import requests
 
@@ -81,14 +82,13 @@ class InitService(BaseService):
         gitignore = self.target / ".gitignore"
         if not gitignore.exists():
             gitignore.write_text(
-                "\n".join(
-                    (
-                        "/.venv",
-                        "/tmp",
-                        "/var",
-                    )
+                dedent(
+                    """\
+                    /.venv
+                    /tmp
+                    /var
+                    """
                 )
-                + "\n"
             )
             self.logger.debug("Initializing a .gitignore file")
         git_repo = self.target / ".git"
