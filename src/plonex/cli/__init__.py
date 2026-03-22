@@ -13,7 +13,6 @@ from plonex.install import InstallService
 from plonex.robotserver import RobotServer
 from plonex.robottest import RobotTest
 from plonex.supervisor import Supervisor
-from plonex.test import TestService
 from plonex.upgrade import UpgradeService
 from plonex.zeoclient import ZeoClient
 from plonex.zeoserver import ZeoServer
@@ -252,16 +251,11 @@ def _dispatch(args, parser, target: Path) -> None:
         with InstallService(target=target) as svc:
             svc.run(save_constraints=args.persist_constraints)
 
-    elif args.action == "test":
-        _run_service_dependencies(target, "test")
-        with TestService() as svc:
-            svc.run()
-
     elif args.action == "install":
         _run_service_dependencies(target, "install")
-        with InstallService() as svc:
+        with InstallService(target=target) as svc:
             svc.add_packages(args.package)
-        with InstallService() as svc:
+        with InstallService(target=target) as svc:
             svc.run()
 
     elif args.action == "upgrade":

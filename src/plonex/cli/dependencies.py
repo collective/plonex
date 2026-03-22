@@ -10,7 +10,6 @@ from plonex.robotserver import RobotServer
 from plonex.robottest import RobotTest
 from plonex.supervisor import Supervisor
 from plonex.template import TemplateService
-from plonex.test import TestService
 from plonex.upgrade import UpgradeService
 from plonex.zeoclient import ZeoClient
 from plonex.zeoserver import ZeoServer
@@ -35,7 +34,6 @@ def _service_registry() -> dict[str, type[BaseService]]:
         RobotServer,
         RobotTest,
         Supervisor,
-        TestService,
         UpgradeService,
         ZeoClient,
         ZeoServer,

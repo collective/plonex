@@ -64,9 +64,3 @@ def register_test_parsers(subs, add_subparser) -> None:
         default="",
         dest="test",
     )
-
-    add_subparser(
-        subs,
-        "test",
-        help="Run the tests for the given package",
-    )

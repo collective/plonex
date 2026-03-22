@@ -141,7 +141,6 @@ def build_parser() -> ArgumentParser:
                 "Test commands:": [
                     "robotserver",
                     "robottest",
-                    "test",
                     "zopetest",
                 ],
             },

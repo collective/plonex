@@ -223,10 +223,6 @@ class TestBuildParser(unittest.TestCase):
         args = self.parser.parse_args(["dependencies", "--persist"])
         self.assertTrue(args.persist_constraints)
 
-    def test_action_test(self):
-        args = self.parser.parse_args(["test"])
-        self.assertEqual(args.action, "test")
-
 
 class TestResolveTarget(unittest.TestCase):
 
@@ -463,10 +459,6 @@ class TestMain(unittest.TestCase):
             self._run_with_target(["db"])
         mock_help.assert_called_once()
 
-    def test_action_test(self):
-        svc = self._run_service(["test"], "plonex.cli.TestService")
-        svc.return_value.run.assert_called_once()
-
     def test_action_zeoclient_host_port(self):
         with mock.patch("plonex.cli.ZeoClient") as MockSvc:
             MockSvc.return_value.__enter__ = mock.Mock(
@@ -573,6 +565,13 @@ class TestMain(unittest.TestCase):
                 MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
                 self._run_with_target(["install", "my.package"])
         mock_deps.assert_called_once_with(self.temp_dir.resolve(), "install")
+        self.assertEqual(
+            MockSvc.call_args_list,
+            [
+                mock.call(target=self.temp_dir.resolve()),
+                mock.call(target=self.temp_dir.resolve()),
+            ],
+        )
         MockSvc.return_value.add_packages.assert_called_once_with(["my.package"])
         MockSvc.return_value.run.assert_called_once()
 
