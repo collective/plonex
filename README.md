@@ -454,6 +454,79 @@ Recommended pattern:
 - keep machine-specific path overrides in `etc/plonex.local.yml`,
 - add `run_for` only where generation must be scoped to specific commands.
 
+More examples:
+
+- Add extra ZCML includes for the ZEO client:
+
+```yaml
+zcml_additional:
+  - etc/zcml/010-my-package-meta.zcml
+  - etc/zcml/020-my-package-configure.zcml
+  - etc/zcml/030-my-package-overrides.zcml
+```
+
+These files are rendered or copied into `tmp/zeoclient/etc/package-includes/`
+before `plonex zeoclient ...` runs. File names matter: `plonex` expects the
+usual `-meta.zcml`, `-configure.zcml`, or `-overrides.zcml` suffixes.
+
+- Add extra `zope.conf` snippets for the ZEO client:
+
+```yaml
+zope_conf_additional:
+  - etc/zopeconf/cache.j2
+  - etc/zopeconf/instancesettings.conf
+```
+
+For example, `etc/zopeconf/cache.j2` could contain:
+
+```text
+<product-config plone.recipe.zope2instance>
+  zpublisher-threads 4
+</product-config>
+```
+
+Each listed file is appended to the generated `tmp/zeoclient/etc/zope.conf`.
+Jinja templates can use the current service context.
+
+- Generate a Supervisor program for an auxiliary service such as a websocket
+  worker, Celery worker, or custom script:
+
+```yaml
+services:
+  - template:
+      run_for: supervisor
+      source_path: resource://plonex.supervisor.templates:program.conf.j2
+      target_path: tmp/supervisor/etc/supervisor/worker.conf
+      options:
+        program: worker
+        command: .venv/bin/python -m mypackage.worker
+        process_name: worker
+        directory: "{{ target }}"
+        priority: 20
+```
+
+That way `plonex supervisor start` manages not only `zeoserver` and
+`zeoclient`, but also your additional long-running process.
+
+- Combine service dependencies and zeoclient extras in the same project:
+
+```yaml
+zcml_additional:
+  - etc/zcml/020-my-package-configure.zcml
+
+zope_conf_additional:
+  - etc/zopeconf/cache.j2
+
+services:
+  - template:
+      run_for: supervisor
+      source: etc/templates/worker.conf.j2
+      target: tmp/supervisor/etc/supervisor/worker.conf
+```
+
+This keeps all project-specific runtime wiring in `etc/plonex.yml` while still
+letting the generated files live under `tmp/`.
+
 ## Under the hood
 
 `plonex` is a wrapper around executables inside your virtualenv. Paths are resolved from the project target (typically `.venv/bin/...`).
