@@ -719,3 +719,99 @@ class TestInit(PloneXTestCase):
                     for call in mock_warning.call_args_list
                 )
             )
+
+    def test_update_gitman_sources_runs_when_configured(self):
+        with temp_cwd() as cwd:
+            install = InstallService(
+                dont_ask=True,
+                cli_options={
+                    "sources": {
+                        "my.package": {
+                            "repo": "https://github.com/example/my.package.git"
+                        }
+                    }
+                },
+            )
+            venv_bin = cwd / ".venv" / "bin"
+            venv_bin.mkdir(parents=True)
+            (venv_bin / "activate").touch()
+            (venv_bin / "uv").touch()
+            (venv_bin / "pip").touch()
+            (venv_bin / "gitman").touch()
+            constraints_file = install.var_folder / "constraints.txt"
+            requirements_file = install.var_folder / "requirements.txt"
+            constraints_file.write_text("# header\n")
+            requirements_file.write_text("# header\n")
+
+            with (
+                mock.patch.object(InstallService, "ensure_virtualenv"),
+                mock.patch.object(InstallService, "make_requirements_txt"),
+                mock.patch.object(InstallService, "make_constraints_txt"),
+                mock.patch.object(install, "run_command"),
+                mock.patch("plonex.install.SourcesService") as MockGitman,
+                mock.patch.object(install, "execute_command", return_value=""),
+                mock.patch(
+                    "plonex.install.RequirementsFile.from_file",
+                    side_effect=[
+                        SimpleNamespace(requirements=[], options=[]),
+                        SimpleNamespace(requirements=[]),
+                    ],
+                ),
+            ):
+                MockGitman.return_value.__enter__ = mock.Mock(
+                    return_value=MockGitman.return_value
+                )
+                MockGitman.return_value.__exit__ = mock.Mock(return_value=False)
+                with install:
+                    install.requirements_txt = requirements_file
+                    install.constrainst_txt = constraints_file
+                    install.run(update_sources=True)
+
+            MockGitman.assert_called_once_with(target=cwd)
+            MockGitman.return_value.run_update.assert_called_once_with(assume_yes=True)
+
+    def test_run_uses_sources_update_before_dependencies_config(self):
+        with temp_cwd() as cwd:
+            install = InstallService(
+                dont_ask=True,
+                cli_options={
+                    "sources_update_before_dependencies": True,
+                    "sources": {
+                        "my.package": {
+                            "repo": "https://github.com/example/my.package.git"
+                        }
+                    },
+                },
+            )
+            venv_bin = cwd / ".venv" / "bin"
+            venv_bin.mkdir(parents=True)
+            (venv_bin / "activate").touch()
+            (venv_bin / "uv").touch()
+            (venv_bin / "pip").touch()
+            (venv_bin / "gitman").touch()
+            constraints_file = install.var_folder / "constraints.txt"
+            requirements_file = install.var_folder / "requirements.txt"
+            constraints_file.write_text("# header\n")
+            requirements_file.write_text("# header\n")
+
+            with (
+                mock.patch.object(InstallService, "ensure_virtualenv"),
+                mock.patch.object(InstallService, "make_requirements_txt"),
+                mock.patch.object(InstallService, "make_constraints_txt"),
+                mock.patch.object(install, "run_command"),
+                mock.patch.object(install, "update_gitman_sources") as mock_update,
+                mock.patch.object(install, "execute_command", return_value=""),
+                mock.patch(
+                    "plonex.install.RequirementsFile.from_file",
+                    side_effect=[
+                        SimpleNamespace(requirements=[], options=[]),
+                        SimpleNamespace(requirements=[]),
+                    ],
+                ),
+            ):
+                with install:
+                    install.requirements_txt = requirements_file
+                    install.constrainst_txt = constraints_file
+                    install.run(update_sources=None)
+
+            mock_update.assert_called_once()

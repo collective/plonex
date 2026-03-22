@@ -34,6 +34,8 @@ The markdown version of this file is located at [{{ context.display_path(context
 - **Base Constraint**: `{{ context.base_constraint or "not configured" }}`
 - **Supervisor Configuration**: `{{ context.supervisor_configuration_status }}`
 - **Supervisor Graceful Interval**: `{{ context.supervisor_graceful_interval }}s`
+- **Sources Checkouts**: `{{ context.sources_count }}`
+- **Compiled Sources File** (`gitman.yml`): [{{ context.display_path(context.compiled_gitman_file) }}](file://{{ context.compiled_gitman_file }})
 - **Profiles**:
 {%- if context.profiles %}
 {%- for profile in context.profiles %}
@@ -81,6 +83,21 @@ The markdown version of this file is located at [{{ context.display_path(context
 {%- endfor %}
 
 {%- endfor %}
+
+
+## Sources Status
+
+{%- if context.sources_status_rows %}
+| Source | Folder | Repo URL | Health | Details |
+| --- | --- | --- | --- | --- |
+{%- for source_name, folder, repo_url, health_symbol, details in context.sources_status_rows %}
+| `{{ source_name }}` | `{{ folder }}` | `{{ repo_url }}` | {{ health_symbol }} | {{ details }} |
+{%- endfor %}
+
+Legend: ✓ clean, ⚠ warning, ✗ error
+{%- else %}
+No configured sources found.
+{%- endif %}
 
 
 ## Developed packages

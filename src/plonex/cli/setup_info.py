@@ -1,3 +1,65 @@
+def _register_sources_subcommands(parser) -> None:
+    sources_subs = parser.add_subparsers(dest="sources_action")
+    sources_subs.add_parser("update", help="Update configured sources")
+    sources_subs.add_parser("list", help="List configured sources and status")
+    sources_subs.add_parser("missing", help="Show configured sources that are missing")
+    clone_missing_parser = sources_subs.add_parser(
+        "clone-missing", help="Clone configured missing sources"
+    )
+    clone_missing_parser.add_argument(
+        "-y",
+        "--yes",
+        help="Skip confirmation prompt",
+        required=False,
+        default=False,
+        action="store_true",
+        dest="sources_yes",
+    )
+    force_update_parser = sources_subs.add_parser(
+        "force-update",
+        help="Force update configured sources",
+    )
+    force_update_parser.add_argument(
+        "-y",
+        "--yes",
+        help="Skip confirmation prompt",
+        required=False,
+        default=False,
+        action="store_true",
+        dest="sources_yes",
+    )
+    sources_subs.add_parser("tainted", help="Show sources with local changes")
+    suggest_existing_parser = sources_subs.add_parser(
+        "suggest-existing",
+        help="Suggest source config entries for unmanaged existing checkouts",
+    )
+    suggest_apply_group = suggest_existing_parser.add_mutually_exclusive_group()
+    suggest_apply_group.add_argument(
+        "--apply",
+        help="Write suggestions into etc/plonex.yml",
+        required=False,
+        default=False,
+        action="store_true",
+        dest="sources_apply",
+    )
+    suggest_apply_group.add_argument(
+        "--apply-local",
+        help="Write suggestions into etc/plonex-sources.local.yml",
+        required=False,
+        default=False,
+        action="store_true",
+        dest="sources_apply_local",
+    )
+    suggest_apply_group.add_argument(
+        "--apply-profile",
+        help="Write suggestions into the etc/plonex.yml of the first configured profile",  # noqa: E501
+        required=False,
+        default=False,
+        action="store_true",
+        dest="sources_apply_profile",
+    )
+
+
 def register_setup_parsers(subs, add_subparser) -> None:
     """Register setup and information CLI parsers."""
     init_parser = add_subparser(
@@ -85,3 +147,18 @@ def register_setup_parsers(subs, add_subparser) -> None:
         default=False,
         action="store_true",
     )
+    dependencies_parser.add_argument(
+        "--update-sources",
+        help="Update sources before installing dependencies",
+        required=False,
+        default=None,
+        action="store_true",
+        dest="update_sources",
+    )
+
+    sources_parser = add_subparser(
+        subs,
+        "sources",
+        help="Manage project sources (uses Gitman under the hood)",
+    )
+    _register_sources_subcommands(sources_parser)

@@ -124,6 +124,7 @@ def build_parser() -> ArgumentParser:
                     "compile",
                     "dependencies",
                     "describe",
+                    "sources",
                     "init",
                     "install",
                     "upgrade",

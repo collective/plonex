@@ -6,6 +6,7 @@ from importlib import resources
 from pathlib import Path
 from pip_requirements_parser import RequirementsFile  # type: ignore
 from plonex.base import BaseService
+from plonex.sources import SourcesService
 from rich.console import Console
 from tempfile import NamedTemporaryFile
 from urllib.parse import urljoin
@@ -488,6 +489,15 @@ class InstallService(BaseService):
             str(self.constrainst_txt.absolute()),
         ]
 
+    @property
+    def sources_update_before_dependencies(self) -> bool:
+        return bool(self.options.get("sources_update_before_dependencies", False))
+
+    @BaseService.entered_only
+    def update_gitman_sources(self) -> None:
+        with SourcesService(target=self.target) as gitman_service:
+            gitman_service.run_update(assume_yes=True)
+
     def __enter__(self):
         super().__enter__()
         self.ensure_virtualenv()
@@ -496,9 +506,20 @@ class InstallService(BaseService):
         return self
 
     @BaseService.entered_only
-    def run(self, save_constraints: bool = False):
+    def run(
+        self,
+        save_constraints: bool = False,
+        update_sources: bool | None = None,
+    ):
         # Check if we have a virtualenv and if not create one
         self.ensure_virtualenv()
+        should_update_sources = (
+            update_sources
+            if update_sources is not None
+            else self.sources_update_before_dependencies
+        )
+        if should_update_sources:
+            self.update_gitman_sources()
         super().run()
         # Run pip freeze and compare the output with the constraints
         # to see if we are missing something

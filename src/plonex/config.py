@@ -26,6 +26,18 @@ def _normalize_non_negative_float(option_name: str, value: Any) -> float:
     return result
 
 
+def _normalize_sources(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise ValueError("The 'sources' option should be a mapping")
+    return dict(value)
+
+
+def _normalize_bool_option(option_name: str, value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    raise ValueError(f"The '{option_name}' option should be a boolean")
+
+
 SUPPORTED_OPTION_SPECS: dict[str, OptionSpec] = {
     "default_action": OptionSpec(name="default_action"),
     "default_actions": OptionSpec(name="default_actions"),
@@ -33,6 +45,15 @@ SUPPORTED_OPTION_SPECS: dict[str, OptionSpec] = {
     "plone_version": OptionSpec(name="plone_version"),
     "plonex_base_constraint": OptionSpec(name="plonex_base_constraint"),
     "profiles": OptionSpec(name="profiles"),
+    "sources": OptionSpec(name="sources", default={}, normalize=_normalize_sources),
+    "sources_location": OptionSpec(name="sources_location", default="src"),
+    "sources_update_before_dependencies": OptionSpec(
+        name="sources_update_before_dependencies",
+        default=False,
+        normalize=lambda value: _normalize_bool_option(
+            "sources_update_before_dependencies", value
+        ),
+    ),
     "supervisor_graceful_interval": OptionSpec(
         name="supervisor_graceful_interval",
         default=1.0,
@@ -45,6 +66,7 @@ SUPPORTED_OPTION_SPECS: dict[str, OptionSpec] = {
 
 def normalize_options(options: Mapping[str, Any], logger) -> dict[str, Any]:
     normalized = dict(options)
+
     for key, spec in SUPPORTED_OPTION_SPECS.items():
         if key not in normalized or spec.normalize is None:
             continue

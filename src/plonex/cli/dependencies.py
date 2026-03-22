@@ -8,6 +8,7 @@ from plonex.init import InitService
 from plonex.install import InstallService
 from plonex.robotserver import RobotServer
 from plonex.robottest import RobotTest
+from plonex.sources import SourcesService
 from plonex.supervisor import Supervisor
 from plonex.template import TemplateService
 from plonex.upgrade import UpgradeService
@@ -29,6 +30,7 @@ def _service_registry() -> dict[str, type[BaseService]]:
         CompileService,
         DescribeService,
         DirectoryService,
+        SourcesService,
         InitService,
         InstallService,
         RobotServer,

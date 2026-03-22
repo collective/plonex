@@ -5,6 +5,7 @@ from pathlib import Path
 from plonex.base import BaseService
 from plonex.compile import CompileService
 from plonex.install import InstallService
+from plonex.sources import SourcesService
 from plonex.supervisor import Supervisor
 from plonex.template import TemplateService
 from rich.console import Console
@@ -125,12 +126,96 @@ class DescribeService(BaseService):
         return float(value)
 
     @property
+    def sources_options(self) -> dict:
+        sources = self.options.get("sources")
+        return sources if isinstance(sources, dict) else {}
+
+    @property
+    def sources_count(self) -> int:
+        return len(self.sources_options)
+
+    @property
+    def compiled_gitman_file(self) -> Path:
+        return self.var_folder / "gitman.yml"
+
+    @property
+    def sources_status_rows(self) -> list[tuple[str, str, str, str, str]]:
+        """Return sources status rows for the markdown report table.
+
+        Columns are: source, folder, repo_url, health_symbol, details
+        """
+        service = SourcesService(target=self.target)
+        rows: list[tuple[str, str, str, str, str]] = []
+
+        for source_name, path in sorted(service.configured_checkouts().items()):
+            source_options = service.sources.get(source_name)
+            configured_repo = None
+            configured_rev = None
+            if isinstance(source_options, dict):
+                configured_repo = source_options.get("repo")
+                configured_rev = source_options.get("rev")
+
+            detected_repo = None
+            details: list[str] = []
+            health_symbol = "✓"
+
+            if not path.exists():
+                health_symbol = "✗"
+                details.append("missing")
+            elif not (path / ".git").exists():
+                health_symbol = "⚠"
+                details.append("not-git")
+            else:
+                detected_repo = service._git_remote_url(path)
+                branch = service._git_current_branch(path)
+                if service._has_modifications(path):
+                    health_symbol = "⚠"
+                    details.append("modified")
+
+                if branch:
+                    details.append(f"branch:{branch}")
+                    if (
+                        isinstance(configured_rev, str)
+                        and configured_rev
+                        and configured_rev != branch
+                    ):
+                        details.append(f"expected:{configured_rev}")
+                else:
+                    details.append("detached")
+
+                if (
+                    isinstance(configured_repo, str)
+                    and configured_repo
+                    and detected_repo
+                    and configured_repo != detected_repo
+                ):
+                    health_symbol = "✗"
+                    details.append("repo-mismatch")
+
+            repo_url = (
+                detected_repo
+                or (configured_repo if isinstance(configured_repo, str) else None)
+                or "-"
+            )
+            rows.append(
+                (
+                    source_name,
+                    self.display_path(path),
+                    repo_url,
+                    health_symbol,
+                    ", ".join(details) if details else "-",
+                )
+            )
+        return rows
+
+    @property
     def project_files(self) -> list[tuple[str, Path]]:
         files = [
             ("Source configuration", self.target / "etc" / "plonex.yml"),
             ("Source requirements", self.target / "etc" / "requirements.d"),
             ("Source constraints", self.target / "etc" / "constraints.d"),
             ("Compiled configuration", self.var_folder / "plonex.yml"),
+            ("Compiled sources (gitman.yml)", self.compiled_gitman_file),
             ("Compiled requirements", self.var_folder / "requirements.txt"),
             ("Compiled constraints", self.var_folder / "constraints.txt"),
             (
@@ -175,6 +260,11 @@ class DescribeService(BaseService):
                 "Compiled Files",
                 [
                     ("Compiled configuration", self.var_folder / "plonex.yml", []),
+                    (
+                        "Compiled sources (gitman.yml)",
+                        self.compiled_gitman_file,
+                        [],
+                    ),
                     ("Compiled requirements", self.var_folder / "requirements.txt", []),
                     ("Compiled constraints", self.var_folder / "constraints.txt", []),
                 ],

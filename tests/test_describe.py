@@ -66,6 +66,7 @@ class TestDescribeService(PloneXTestCase):
                     ("Source requirements", cwd / "etc" / "requirements.d"),
                     ("Source constraints", cwd / "etc" / "constraints.d"),
                     ("Compiled configuration", cwd / "var" / "plonex.yml"),
+                    ("Compiled sources (gitman.yml)", cwd / "var" / "gitman.yml"),
                     ("Compiled requirements", cwd / "var" / "requirements.txt"),
                     ("Compiled constraints", cwd / "var" / "constraints.txt"),
                     (
@@ -117,6 +118,11 @@ class TestDescribeService(PloneXTestCase):
                         "Compiled Files",
                         [
                             ("Compiled configuration", cwd / "var" / "plonex.yml", []),
+                            (
+                                "Compiled sources (gitman.yml)",
+                                cwd / "var" / "gitman.yml",
+                                [],
+                            ),
                             (
                                 "Compiled requirements",
                                 cwd / "var" / "requirements.txt",
@@ -216,6 +222,9 @@ class TestDescribeService(PloneXTestCase):
                 "mykey: myvalue\n"
                 "plone_version: 6.1.2\n"
                 "supervisor_graceful_interval: 2.5\n"
+                "sources:\n"
+                "    my.package:\n"
+                "      repo: https://github.com/example/my.package.git\n"
                 "profiles:\n"
                 "  - profiles/base\n"
                 "plonex_base_constraint: etc/custom-constraints.txt\n"
@@ -272,11 +281,16 @@ class TestDescribeService(PloneXTestCase):
                         svc.run()
 
                 self.assertTrue((cwd / "var" / "plonex.yml").exists())
+                self.assertTrue((cwd / "var" / "gitman.yml").exists())
                 self.assertTrue((cwd / "var" / "requirements.txt").exists())
                 self.assertTrue((cwd / "var" / "constraints.txt").exists())
                 rendered = (cwd / "var" / "plonex_description" / "index.md").read_text()
                 self.assertIn(
                     f"[var/plonex.yml](file://{cwd / 'var' / 'plonex.yml'})",
+                    rendered,
+                )
+                self.assertIn(
+                    f"[var/gitman.yml](file://{cwd / 'var' / 'gitman.yml'})",
                     rendered,
                 )
                 self.assertIn(
@@ -306,6 +320,7 @@ class TestDescribeService(PloneXTestCase):
                     "**Supervisor Graceful Interval**: `2.5s`",
                     rendered,
                 )
+                self.assertIn("**Sources Checkouts**: `1`", rendered)
                 self.assertIn("- `profiles/base`", rendered)
                 self.assertIn(
                     (
@@ -351,6 +366,16 @@ class TestDescribeService(PloneXTestCase):
                 self.assertIn("### Compiled Files", rendered)
                 self.assertIn("### Runtime Files", rendered)
                 self.assertIn("### Reports", rendered)
+                self.assertIn("## Sources Status", rendered)
+                self.assertIn(
+                    "| Source | Folder | Repo URL | Health | Details |",
+                    rendered,
+                )
+                self.assertIn(
+                    "| `my.package` | `src/my.package` | `https://github.com/example/my.package.git` | ⚠ | not-git |",  # noqa: E501
+                    rendered,
+                )
+                self.assertIn("Legend: ✓ clean, ⚠ warning, ✗ error", rendered)
                 MockConsole.return_value.print.assert_called_once()
 
     def test_run_generates_html_and_browse(self):

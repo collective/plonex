@@ -13,6 +13,7 @@ from plonex.init import InitService
 from plonex.install import InstallService
 from plonex.robotserver import RobotServer
 from plonex.robottest import RobotTest
+from plonex.sources import SourcesService
 from plonex.supervisor import Supervisor
 from plonex.upgrade import UpgradeService
 from plonex.zeoclient import ZeoClient
@@ -214,7 +215,37 @@ def _dispatch(args, parser, target: Path) -> None:
     elif args.action == "dependencies":
         _run_service_dependencies(target, "dependencies")
         with InstallService(target=target) as svc:
-            svc.run(save_constraints=args.persist_constraints)
+            svc.run(
+                save_constraints=args.persist_constraints,
+                update_sources=getattr(args, "update_sources", None),
+            )
+
+    elif args.action == "sources":
+        _run_service_dependencies(target, "sources")
+        sources_action = getattr(args, "sources_action", None) or "update"
+        with SourcesService(target=target) as svc:
+            if sources_action == "update":
+                svc.run_update()
+            elif sources_action == "list":
+                svc.run_list()
+            elif sources_action == "missing":
+                svc.run_show_missing()
+            elif sources_action == "clone-missing":
+                svc.run_clone_missing(assume_yes=getattr(args, "sources_yes", False))
+            elif sources_action == "force-update":
+                svc.run_update(
+                    force=True, assume_yes=getattr(args, "sources_yes", False)
+                )
+            elif sources_action == "tainted":
+                svc.run_show_tainted()
+            elif sources_action == "suggest-existing":
+                svc.run_suggest_existing(
+                    apply=getattr(args, "sources_apply", False),
+                    apply_local=getattr(args, "sources_apply_local", False),
+                    apply_profile=getattr(args, "sources_apply_profile", False),
+                )
+            else:
+                parser.print_help()
 
     elif args.action == "install":
         _run_service_dependencies(target, "install")

@@ -30,3 +30,41 @@ class TestConfig(unittest.TestCase):
         self.assertTrue(
             any("supervisor_graceful_interval" in str(error) for error in logger.errors)
         )
+
+    def test_normalize_options_sources_mapping(self):
+        logger = DummyLogger()
+        result = normalize_options(
+            {
+                "sources": {
+                    "my.package": {"repo": "https://github.com/example/my.package.git"}
+                }
+            },
+            logger,
+        )
+        self.assertEqual(
+            result["sources"],
+            {"my.package": {"repo": "https://github.com/example/my.package.git"}},
+        )
+        self.assertEqual(logger.errors, [])
+
+    def test_normalize_options_sources_update_before_dependencies_invalid(self):
+        logger = DummyLogger()
+        result = normalize_options(
+            {"sources_update_before_dependencies": "yes"},
+            logger,
+        )
+        self.assertFalse(result["sources_update_before_dependencies"])
+        self.assertTrue(
+            any(
+                "sources_update_before_dependencies" in str(error)
+                for error in logger.errors
+            )
+        )
+
+    def test_normalize_options_invalid_sources(self):
+        logger = DummyLogger()
+        result = normalize_options({"sources": []}, logger)
+        self.assertEqual(result["sources"], {})
+        self.assertTrue(
+            any("'sources' option" in str(error) for error in logger.errors)
+        )

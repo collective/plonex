@@ -329,6 +329,17 @@ still wins over YAML when both are provided.
 `compile`
 
 - Compile merged configuration into `var/plonex.yml`.
+- If `sources` is configured, compile also generates `var/gitman.yml`.
+- The default checkout location is `src` when `sources_location` is omitted.
+
+Example:
+
+```yaml
+sources:
+  my.package:
+    repo: https://github.com/example/my.package.git
+    rev: main
+```
 
 `describe`
 
@@ -341,10 +352,44 @@ still wins over YAML when both are provided.
 
 - Install from merged requirements/constraints.
 - `-p, --persist`: save auto-detected missing constraints.
+- `--update-sources`: update sources before installing dependencies (uses Gitman under the hood).
+
+To enable source updates by default in project configuration:
+
+```yaml
+sources_update_before_dependencies: true
+sources:
+  my.package:
+    repo: https://github.com/example/my.package.git
+    rev: main
+```
 
 `install <package> [<package> ...]`
 
 - Add one or more packages and run dependency installation.
+
+`sources [update|force-update|tainted|list|missing|clone-missing|suggest-existing]`
+
+- Manage configured source checkouts (uses Gitman under the hood).
+- `update`: run a regular sources update (executed by Gitman).
+- `force-update`: run a forced update (`--force`), asking for confirmation by
+  default.
+- `force-update --yes`: skip confirmation.
+- `tainted`: list checkouts with local changes.
+- `list`: show configured checkouts and whether each is clean, tainted, or missing.
+- `missing`: show configured checkouts that are not present on disk.
+- `clone-missing`: clone missing configured checkouts (using `repo` and optional `rev`).
+- `clone-missing --yes`: skip confirmation prompt before cloning.
+- `suggest-existing`: inspect existing unmanaged checkouts and print a ready-to-paste
+  YAML snippet for `etc/plonex.yml` with inferred `repo` and `rev`.
+- `suggest-existing --apply`: write inferred entries into `etc/plonex.yml`.
+- `suggest-existing --apply-local`: write inferred entries into
+  `etc/plonex-sources.local.yml`.
+- `suggest-existing --apply-profile`: write inferred entries into
+  the `etc/plonex.yml` of the first configured profile.
+
+When unmanaged existing checkouts are detected, `sources list` and `sources tainted`
+also print a suggested `sources` section to add into `etc/plonex.yml`.
 
 `upgrade`
 

@@ -39,3 +39,33 @@ class TestCompileService(PloneXTestCase):
             with CompileService() as svc:
                 svc.run()
             self.assertTrue((cwd / "var" / "plonex.yml").exists())
+
+    def test_run_generates_gitman_file(self):
+        with temp_cwd() as cwd:
+            (cwd / "etc").mkdir()
+            (cwd / "etc" / "plonex.yml").write_text(
+                "sources:\n"
+                "    my.package:\n"
+                "      repo: https://github.com/example/my.package.git\n"
+                "      rev: main\n"
+            )
+            with CompileService() as svc:
+                svc.run()
+            result = (cwd / "var" / "gitman.yml").read_text()
+            self.assertIn("location: src", result)
+            self.assertIn("my.package:", result)
+            self.assertIn("repo: https://github.com/example/my.package.git", result)
+
+    def test_run_generates_gitman_file_with_custom_location(self):
+        with temp_cwd() as cwd:
+            (cwd / "etc").mkdir()
+            (cwd / "etc" / "plonex.yml").write_text(
+                "sources_location: external\n"
+                "sources:\n"
+                "    my.package:\n"
+                "      repo: https://github.com/example/my.package.git\n"
+            )
+            with CompileService() as svc:
+                svc.run()
+            result = (cwd / "var" / "gitman.yml").read_text()
+            self.assertIn("location: external", result)

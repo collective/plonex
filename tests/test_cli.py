@@ -233,6 +233,78 @@ class TestBuildParser(unittest.TestCase):
         args = self.parser.parse_args(["dependencies", "--persist"])
         self.assertTrue(args.persist_constraints)
 
+    def test_action_dependencies_update_sources(self):
+        args = self.parser.parse_args(["dependencies", "--update-sources"])
+        self.assertEqual(args.action, "dependencies")
+        self.assertTrue(args.update_sources)
+
+    def test_action_sources_default(self):
+        args = self.parser.parse_args(["sources"])
+        self.assertEqual(args.action, "sources")
+        self.assertIsNone(args.sources_action)
+
+    def test_action_sources_update(self):
+        args = self.parser.parse_args(["sources", "update"])
+        self.assertEqual(args.action, "sources")
+        self.assertEqual(args.sources_action, "update")
+
+    def test_action_sources_force_update(self):
+        args = self.parser.parse_args(["sources", "force-update", "--yes"])
+        self.assertEqual(args.action, "sources")
+        self.assertEqual(args.sources_action, "force-update")
+        self.assertTrue(args.sources_yes)
+
+    def test_action_sources_tainted(self):
+        args = self.parser.parse_args(["sources", "tainted"])
+        self.assertEqual(args.action, "sources")
+        self.assertEqual(args.sources_action, "tainted")
+
+    def test_action_sources_list(self):
+        args = self.parser.parse_args(["sources", "list"])
+        self.assertEqual(args.action, "sources")
+        self.assertEqual(args.sources_action, "list")
+
+    def test_action_sources_missing(self):
+        args = self.parser.parse_args(["sources", "missing"])
+        self.assertEqual(args.action, "sources")
+        self.assertEqual(args.sources_action, "missing")
+
+    def test_action_sources_clone_missing(self):
+        args = self.parser.parse_args(["sources", "clone-missing"])
+        self.assertEqual(args.action, "sources")
+        self.assertEqual(args.sources_action, "clone-missing")
+
+    def test_action_sources_clone_missing_yes(self):
+        args = self.parser.parse_args(["sources", "clone-missing", "--yes"])
+        self.assertEqual(args.action, "sources")
+        self.assertEqual(args.sources_action, "clone-missing")
+        self.assertTrue(args.sources_yes)
+
+    def test_action_sources_suggest_existing(self):
+        args = self.parser.parse_args(["sources", "suggest-existing"])
+        self.assertEqual(args.action, "sources")
+        self.assertEqual(args.sources_action, "suggest-existing")
+
+    def test_action_sources_suggest_existing_apply_local(self):
+        args = self.parser.parse_args(["sources", "suggest-existing", "--apply-local"])
+        self.assertEqual(args.action, "sources")
+        self.assertEqual(args.sources_action, "suggest-existing")
+        self.assertTrue(args.sources_apply_local)
+
+    def test_action_sources_suggest_existing_apply(self):
+        args = self.parser.parse_args(["sources", "suggest-existing", "--apply"])
+        self.assertEqual(args.action, "sources")
+        self.assertEqual(args.sources_action, "suggest-existing")
+        self.assertTrue(args.sources_apply)
+
+    def test_action_sources_suggest_existing_apply_profile(self):
+        args = self.parser.parse_args(
+            ["sources", "suggest-existing", "--apply-profile"]
+        )
+        self.assertEqual(args.action, "sources")
+        self.assertEqual(args.sources_action, "suggest-existing")
+        self.assertTrue(args.sources_apply_profile)
+
 
 class TestResolveTarget(unittest.TestCase):
 
@@ -565,7 +637,166 @@ class TestMain(unittest.TestCase):
                 MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
                 self._run_with_target(["dependencies", "--persist"])
         mock_deps.assert_called_once_with(self.temp_dir.resolve(), "dependencies")
-        MockSvc.return_value.run.assert_called_once_with(save_constraints=True)
+        MockSvc.return_value.run.assert_called_once_with(
+            save_constraints=True,
+            update_sources=None,
+        )
+
+    def test_action_dependencies_with_update_sources(self):
+        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.InstallService") as MockSvc:
+                MockSvc.return_value.__enter__ = mock.Mock(
+                    return_value=MockSvc.return_value
+                )
+                MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
+                self._run_with_target(["dependencies", "--update-sources"])
+        mock_deps.assert_called_once_with(self.temp_dir.resolve(), "dependencies")
+        MockSvc.return_value.run.assert_called_once_with(
+            save_constraints=False,
+            update_sources=True,
+        )
+
+    def test_action_sources_update(self):
+        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.SourcesService") as MockSvc:
+                MockSvc.return_value.__enter__ = mock.Mock(
+                    return_value=MockSvc.return_value
+                )
+                MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
+                self._run_with_target(["sources", "update"])
+        mock_deps.assert_called_once_with(self.temp_dir.resolve(), "sources")
+        MockSvc.return_value.run_update.assert_called_once_with()
+
+    def test_action_sources_force_update(self):
+        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.SourcesService") as MockSvc:
+                MockSvc.return_value.__enter__ = mock.Mock(
+                    return_value=MockSvc.return_value
+                )
+                MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
+                self._run_with_target(["sources", "force-update", "--yes"])
+        mock_deps.assert_called_once_with(self.temp_dir.resolve(), "sources")
+        MockSvc.return_value.run_update.assert_called_once_with(
+            force=True,
+            assume_yes=True,
+        )
+
+    def test_action_sources_tainted(self):
+        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.SourcesService") as MockSvc:
+                MockSvc.return_value.__enter__ = mock.Mock(
+                    return_value=MockSvc.return_value
+                )
+                MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
+                self._run_with_target(["sources", "tainted"])
+        mock_deps.assert_called_once_with(self.temp_dir.resolve(), "sources")
+        MockSvc.return_value.run_show_tainted.assert_called_once_with()
+
+    def test_action_sources_list(self):
+        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.SourcesService") as MockSvc:
+                MockSvc.return_value.__enter__ = mock.Mock(
+                    return_value=MockSvc.return_value
+                )
+                MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
+                self._run_with_target(["sources", "list"])
+        mock_deps.assert_called_once_with(self.temp_dir.resolve(), "sources")
+        MockSvc.return_value.run_list.assert_called_once_with()
+
+    def test_action_sources_missing(self):
+        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.SourcesService") as MockSvc:
+                MockSvc.return_value.__enter__ = mock.Mock(
+                    return_value=MockSvc.return_value
+                )
+                MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
+                self._run_with_target(["sources", "missing"])
+        mock_deps.assert_called_once_with(self.temp_dir.resolve(), "sources")
+        MockSvc.return_value.run_show_missing.assert_called_once_with()
+
+    def test_action_sources_clone_missing(self):
+        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.SourcesService") as MockSvc:
+                MockSvc.return_value.__enter__ = mock.Mock(
+                    return_value=MockSvc.return_value
+                )
+                MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
+                self._run_with_target(["sources", "clone-missing"])
+        mock_deps.assert_called_once_with(self.temp_dir.resolve(), "sources")
+        MockSvc.return_value.run_clone_missing.assert_called_once_with(assume_yes=False)
+
+    def test_action_sources_clone_missing_yes(self):
+        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.SourcesService") as MockSvc:
+                MockSvc.return_value.__enter__ = mock.Mock(
+                    return_value=MockSvc.return_value
+                )
+                MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
+                self._run_with_target(["sources", "clone-missing", "--yes"])
+        mock_deps.assert_called_once_with(self.temp_dir.resolve(), "sources")
+        MockSvc.return_value.run_clone_missing.assert_called_once_with(assume_yes=True)
+
+    def test_action_sources_suggest_existing(self):
+        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.SourcesService") as MockSvc:
+                MockSvc.return_value.__enter__ = mock.Mock(
+                    return_value=MockSvc.return_value
+                )
+                MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
+                self._run_with_target(["sources", "suggest-existing"])
+        mock_deps.assert_called_once_with(self.temp_dir.resolve(), "sources")
+        MockSvc.return_value.run_suggest_existing.assert_called_once_with(
+            apply=False,
+            apply_local=False,
+            apply_profile=False,
+        )
+
+    def test_action_sources_suggest_existing_apply_local(self):
+        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.SourcesService") as MockSvc:
+                MockSvc.return_value.__enter__ = mock.Mock(
+                    return_value=MockSvc.return_value
+                )
+                MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
+                self._run_with_target(["sources", "suggest-existing", "--apply-local"])
+        mock_deps.assert_called_once_with(self.temp_dir.resolve(), "sources")
+        MockSvc.return_value.run_suggest_existing.assert_called_once_with(
+            apply=False,
+            apply_local=True,
+            apply_profile=False,
+        )
+
+    def test_action_sources_suggest_existing_apply(self):
+        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.SourcesService") as MockSvc:
+                MockSvc.return_value.__enter__ = mock.Mock(
+                    return_value=MockSvc.return_value
+                )
+                MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
+                self._run_with_target(["sources", "suggest-existing", "--apply"])
+        mock_deps.assert_called_once_with(self.temp_dir.resolve(), "sources")
+        MockSvc.return_value.run_suggest_existing.assert_called_once_with(
+            apply=True,
+            apply_local=False,
+            apply_profile=False,
+        )
+
+    def test_action_sources_suggest_existing_apply_profile(self):
+        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.SourcesService") as MockSvc:
+                MockSvc.return_value.__enter__ = mock.Mock(
+                    return_value=MockSvc.return_value
+                )
+                MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
+                self._run_with_target(
+                    ["sources", "suggest-existing", "--apply-profile"]
+                )
+        mock_deps.assert_called_once_with(self.temp_dir.resolve(), "sources")
+        MockSvc.return_value.run_suggest_existing.assert_called_once_with(
+            apply=False,
+            apply_local=False,
+            apply_profile=True,
+        )
 
     def test_action_supervisor_graceful(self):
         with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:

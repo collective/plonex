@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from plonex.base import BaseService
+from plonex.sources import SourcesService
 from yaml import dump
 
 
@@ -18,3 +19,7 @@ class CompileService(BaseService):
         """Compile the configuration files in to a var files"""
         self.logger.info(f"Compiling configuration files in to {self.target_file}")
         self.target_file.write_text(dump(self.options, sort_keys=True))
+        with SourcesService(target=self.target) as gitman_service:
+            gitman_file = gitman_service.compile_config()
+        if gitman_file is not None:
+            self.logger.info(f"Compiling gitman configuration in to {gitman_file}")
