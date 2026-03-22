@@ -58,6 +58,9 @@ plonex [--target PATH] [--verbose] [--quiet] [--version] <command> ...
 
 For all commands except `init`, `plonex` resolves the target by walking upward until it finds `etc/plonex.yml`.
 
+If you run `plonex` without a command, it displays the help message unless a
+default action is configured in `etc/plonex.yml`.
+
 ## How to think about plonex
 
 `plonex` separates intent from implementation.
@@ -73,6 +76,50 @@ This approach has a few practical benefits:
 
 In other words, `plonex` behaves like an orchestration layer over project runtime
 tools, while still letting you control details through configuration.
+
+## Default actions
+
+You can configure what happens when you run `plonex` with no explicit command.
+
+By default, `plonex` shows the command help.
+
+If you want a different behavior, set either `default_action` or
+`default_actions` in `etc/plonex.yml`.
+
+Single action examples:
+
+```yaml
+default_action: describe
+```
+
+```yaml
+default_action: zeoclient fg
+```
+
+Equivalent list form:
+
+```yaml
+default_action:
+  - zeoclient
+  - fg
+```
+
+If you want to run multiple commands in sequence, use `default_actions`:
+
+```yaml
+default_actions:
+  - supervisor start
+  - zeoclient fg
+```
+
+This is useful when you want plain `plonex` to bootstrap a common local
+workflow, for example starting Supervisor first and then bringing up the client.
+
+Notes:
+
+- `default_actions` runs in order.
+- each action can be written as a shell-like string or a list of tokens.
+- command-line global options such as `-v` and `-q` still apply.
 
 ## Typical workflows
 

@@ -331,15 +331,50 @@ class TestMain(unittest.TestCase):
             self._run(["-V"])
         mock_print.assert_called_once_with(version("plonex"))
 
-    def test_no_action_prints_help(self):
-        # No subcommand: resolving target would fail;
-        # instead parser.print_help is called
+    def test_no_action_prints_help_by_default(self):
         with mock.patch("plonex.cli._resolve_target") as mock_rt:
             with mock.patch("plonex.cli._configure_logging"):
-                with mock.patch("argparse.ArgumentParser.print_help") as mock_help:
-                    mock_rt.return_value = self.temp_dir
-                    self._run([])
+                with mock.patch("plonex.cli._load_default_actions") as mock_defaults:
+                    with mock.patch("argparse.ArgumentParser.print_help") as mock_help:
+                        mock_rt.return_value = self.temp_dir
+                        mock_defaults.return_value = None
+                        self._run([])
         mock_help.assert_called_once()
+
+    def test_no_action_runs_configured_default_actions(self):
+        etc = self.temp_dir / "etc"
+        etc.mkdir(exist_ok=True)
+        (etc / "plonex.yml").write_text(
+            "default_actions:\n" "  - supervisor start\n" "  - zeoclient fg\n"
+        )
+        with mock.patch("plonex.cli._configure_logging"):
+            with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
+                with mock.patch("plonex.cli.Supervisor") as MockSupervisor:
+                    with mock.patch("plonex.cli.ZeoClient") as MockClient:
+                        MockSupervisor.return_value.__enter__ = mock.Mock(
+                            return_value=MockSupervisor.return_value
+                        )
+                        MockSupervisor.return_value.__exit__ = mock.Mock(
+                            return_value=False
+                        )
+                        MockClient.return_value.__enter__ = mock.Mock(
+                            return_value=MockClient.return_value
+                        )
+                        MockClient.return_value.__exit__ = mock.Mock(return_value=False)
+                        with mock.patch.object(
+                            sys, "argv", ["plonex", "-t", str(self.temp_dir)]
+                        ):
+                            main()
+        self.assertEqual(
+            mock_deps.call_args_list,
+            [
+                mock.call(self.temp_dir.resolve(), "supervisor"),
+                mock.call(self.temp_dir.resolve(), "zeoclient"),
+            ],
+        )
+        MockSupervisor.return_value.run.assert_called_once()
+        _, zeoclient_kwargs = MockClient.call_args
+        self.assertEqual(zeoclient_kwargs["run_mode"], "fg")
 
     def test_action_init(self):
         target_str = str(self.temp_dir)

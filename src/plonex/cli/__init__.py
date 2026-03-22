@@ -1,6 +1,7 @@
 from . import parser as _cli_parser
 from .dependencies import _run_service_dependencies
 from argcomplete import autocomplete
+from argparse import Namespace
 from importlib.metadata import version
 from itertools import chain
 from pathlib import Path
@@ -19,6 +20,7 @@ from plonex.zeoserver import ZeoServer
 from plonex.zopetest import ZopeTest
 
 import logging
+import shlex
 import sys
 
 
@@ -84,22 +86,55 @@ def _configure_logging(args, target: Path) -> None:
             logger.setLevel(log_level)
 
 
-def main() -> None:
-    parser = build_parser()
-    args = parser.parse_args()
+def _normalize_default_actions(options: dict) -> list[list[str]] | None:
+    raw_default_actions = options.get("default_actions")
+    raw_default_action = options.get("default_action")
+    if raw_default_actions is None and raw_default_action is None:
+        return None
 
-    if args.version:
-        print(version("plonex"))
-        return
+    def normalize_action(action) -> list[str]:
+        if isinstance(action, str):
+            tokens = shlex.split(action)
+        elif isinstance(action, list) and all(isinstance(item, str) for item in action):
+            tokens = list(action)
+        else:
+            raise ValueError(
+                "Each default action should be a string or a list of strings"
+            )
+        if not tokens:
+            raise ValueError("Default actions cannot be empty")
+        return tokens
 
-    if args.action == "init":
-        with InitService(target=args.target) as svc:
-            svc.run()
-        return
+    if raw_default_actions is not None:
+        if isinstance(raw_default_actions, str):
+            return [normalize_action(raw_default_actions)]
+        if isinstance(raw_default_actions, list):
+            if not raw_default_actions:
+                raise ValueError("The 'default_actions' option cannot be empty")
+            return [normalize_action(action) for action in raw_default_actions]
+        raise ValueError(
+            "The 'default_actions' option should be a string, a list of strings, "
+            "or a list of actions"
+        )
 
-    target = _resolve_target(args)
-    _configure_logging(args, target)
+    if isinstance(raw_default_action, str):
+        return [normalize_action(raw_default_action)]
+    if isinstance(raw_default_action, list):
+        if not raw_default_action:
+            raise ValueError("The 'default_actions' option cannot be empty")
+        return [normalize_action(raw_default_action)]
 
+    raise ValueError(
+        "The 'default_action' option should be a string or a list of strings"
+    )
+
+
+def _load_default_actions(target: Path) -> list[list[str]] | None:
+    with InitService(target=target) as init:
+        return _normalize_default_actions(init.options)
+
+
+def _dispatch(args, parser, target: Path) -> None:
     if args.action == "compile":
         _run_service_dependencies(target, "compile")
         with CompileService(target=target) as svc:
@@ -223,6 +258,43 @@ def main() -> None:
 
     else:
         parser.print_help()
+
+
+def main() -> None:
+    parser = build_parser()
+    args = parser.parse_args()
+
+    if args.version:
+        print(version("plonex"))
+        return
+
+    if args.action == "init":
+        with InitService(target=args.target) as svc:
+            svc.run()
+        return
+
+    target = _resolve_target(args)
+    _configure_logging(args, target)
+    if args.action:
+        _dispatch(args, parser, target)
+        return
+
+    try:
+        default_actions = _load_default_actions(target)
+    except ValueError as exc:
+        logger.error(str(exc))
+        sys.exit(1)
+
+    if not default_actions:
+        parser.print_help()
+        return
+
+    for action_tokens in default_actions:
+        default_args = parser.parse_args(
+            action_tokens,
+            namespace=Namespace(**vars(args)),
+        )
+        _dispatch(default_args, parser, target)
 
 
 if __name__ == "__main__":

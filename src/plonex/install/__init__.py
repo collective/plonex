@@ -164,7 +164,7 @@ class InstallService(BaseService):
                     name = self.resolve_package_name_from_path(requirement)
                 except Exception as e:
                     name = requirement.link.filename
-                    self.logger.warning(
+                    self.logger.info(
                         "Could not resolve package name for requirement %r: %s",
                         requirement,
                         e,
@@ -188,7 +188,7 @@ class InstallService(BaseService):
                     name = self.resolve_package_name_from_path(requirement)
                 except Exception as e:
                     name = requirement.link.filename
-                    self.logger.warning(
+                    self.logger.info(
                         "Could not resolve package name for requirement %r: %s",
                         requirement,
                         e,
