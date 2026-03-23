@@ -152,6 +152,13 @@ class Supervisor(BaseService):
         self.print(output)
 
     @BaseService.entered_only
+    def run(self):
+        if self.is_running():
+            self.logger.info("supervisord is already running")
+            return
+        super().run()
+
+    @BaseService.entered_only
     def run_restart(self):
         if not self.is_running():
             self.logger.info("supervisord is not running, starting it instead")

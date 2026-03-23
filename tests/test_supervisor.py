@@ -267,6 +267,17 @@ class TestSupervisor(PloneXTestCase):
                         supervisor.run_stop()
                     mock_print.assert_called_once()
 
+    def test_run_when_already_running(self):
+        """Test run() does not invoke supervisord when already running"""
+        with temp_supervisor() as supervisor:
+            with mock.patch.object(supervisor, "is_running", return_value=True):
+                with mock.patch.object(
+                    Supervisor,
+                    "run_command",
+                ) as mock_run_command:
+                    supervisor.run()
+                mock_run_command.assert_not_called()
+
     def test_run_restart_when_not_running(self):
         """Test run_restart() when not running calls run()"""
         with temp_supervisor() as supervisor:
