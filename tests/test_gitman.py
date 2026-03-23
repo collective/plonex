@@ -3,6 +3,8 @@ from .utils import temp_cwd
 from plonex.sources import SourcesService
 from unittest import mock
 
+import sh
+
 
 class TestSourcesService(PloneXTestCase):
 
@@ -33,10 +35,10 @@ class TestSourcesService(PloneXTestCase):
             with SourcesService() as svc:
                 with (
                     mock.patch.object(svc, "ask_for_value", return_value="n"),
-                    mock.patch.object(svc, "run_command") as mock_run,
+                    mock.patch.object(svc, "execute_command") as mock_exec,
                 ):
                     svc.run_update(force=True, assume_yes=False)
-            mock_run.assert_not_called()
+            mock_exec.assert_not_called()
 
     def test_run_update_uses_gitman_file_folder_as_cwd(self):
         with temp_cwd() as cwd:
@@ -47,9 +49,28 @@ class TestSourcesService(PloneXTestCase):
                 "      repo: https://github.com/example/my.package.git\n"
             )
             with SourcesService() as svc:
-                with mock.patch.object(svc, "run_command") as mock_run:
+                with mock.patch.object(svc, "execute_command") as mock_exec:
                     svc.run_update()
-            mock_run.assert_called_once_with(["gitman", "update"], cwd=cwd / "var")
+            mock_exec.assert_called_once_with(
+                ["gitman", "update"],
+                cwd=cwd / "var",
+                stream_output=False,
+            )
+
+    def test_run_update_runs_gitman_for_each_source(self):
+        with temp_cwd() as cwd:
+            (cwd / "etc").mkdir()
+            (cwd / "etc" / "plonex.yml").write_text(
+                "sources:\n"
+                "    foo.package:\n"
+                "      repo: https://github.com/example/foo.package.git\n"
+                "    bar.package:\n"
+                "      repo: https://github.com/example/bar.package.git\n"
+            )
+            with SourcesService() as svc:
+                with mock.patch.object(svc, "execute_command") as mock_exec:
+                    svc.run_update()
+            self.assertEqual(mock_exec.call_count, 2)
 
     def test_run_update_with_glob_writes_filtered_gitman_file(self):
         with temp_cwd() as cwd:
@@ -62,7 +83,7 @@ class TestSourcesService(PloneXTestCase):
                 "      repo: https://github.com/example/bar.package.git\n"
             )
             with SourcesService() as svc:
-                with mock.patch.object(svc, "run_command"):
+                with mock.patch.object(svc, "execute_command"):
                     svc.run_update(glob="foo")
             rendered = (cwd / "var" / "gitman.yml").read_text()
             self.assertIn("- name: foo.package", rendered)
@@ -149,7 +170,7 @@ class TestSourcesService(PloneXTestCase):
             )
             self.assertFalse((cwd / "src").exists())
             with SourcesService() as svc:
-                with mock.patch.object(svc, "run_command"):
+                with mock.patch.object(svc, "execute_command"):
                     svc.run_update()
             self.assertTrue((cwd / "src").exists())
 
@@ -163,37 +184,109 @@ class TestSourcesService(PloneXTestCase):
             )
             with SourcesService() as svc:
                 with (
-                    mock.patch.object(svc, "run_command") as mock_run,
-                    mock.patch.object(svc.logger, "error") as mock_error,
+                    mock.patch.object(svc, "execute_command") as mock_exec,
+                    mock.patch.object(svc.logger, "warning") as mock_warning,
                 ):
                     svc.run_update()
-            mock_run.assert_not_called()
-            self.assertTrue(
-                any(
-                    "Invalid source name" in str(call)
-                    for call in mock_error.call_args_list
-                )
+            mock_exec.assert_not_called()
+            mock_warning.assert_called_once()
+            self.assertEqual(
+                mock_warning.call_args.args,
+                ("Sources update completed with %d failure(s)", 1),
             )
 
     def test_run_update_missing_repo_does_not_invoke_gitman(self):
         with temp_cwd() as cwd:
             (cwd / "etc").mkdir()
             (cwd / "etc" / "plonex.yml").write_text(
-                "sources:\n" "    my.package:\n" "      rev: main\n"
+                "sources:\n    my.package:\n      rev: main\n"
             )
             with SourcesService() as svc:
                 with (
-                    mock.patch.object(svc, "run_command") as mock_run,
-                    mock.patch.object(svc.logger, "error") as mock_error,
+                    mock.patch.object(svc, "execute_command") as mock_exec,
+                    mock.patch.object(svc.logger, "warning") as mock_warning,
                 ):
                     svc.run_update()
-            mock_run.assert_not_called()
+            mock_exec.assert_not_called()
+            mock_warning.assert_called_once()
+            self.assertEqual(
+                mock_warning.call_args.args,
+                ("Sources update completed with %d failure(s)", 1),
+            )
+
+    def test_run_update_reports_gitman_failure_reason(self):
+        with temp_cwd() as cwd:
+            (cwd / "etc").mkdir()
+            (cwd / "etc" / "plonex.yml").write_text(
+                "sources:\n"
+                "    my.package:\n"
+                "      repo: https://github.com/example/my.package.git\n"
+            )
+            with SourcesService() as svc:
+                error_cls = getattr(sh, "ErrorReturnCode_1", sh.ErrorReturnCode)
+                error = error_cls(
+                    full_cmd=["gitman", "update"],
+                    stdout=b"",
+                    stderr=b"network unavailable\n",
+                )
+                with (
+                    mock.patch.object(
+                        svc,
+                        "execute_command",
+                        side_effect=error,
+                    ),
+                    mock.patch.object(svc.logger, "isEnabledFor", return_value=True),
+                    mock.patch.object(svc.console, "print") as mock_print,
+                ):
+                    svc.run_update()
             self.assertTrue(
                 any(
-                    "missing non-empty 'repo'" in str(call)
-                    for call in mock_error.call_args_list
+                    "network unavailable" in str(call)
+                    for call in mock_print.call_args_list
                 )
             )
+
+    def test_run_update_streams_progress_per_source(self):
+        with temp_cwd() as cwd:
+            (cwd / "etc").mkdir()
+            (cwd / "etc" / "plonex.yml").write_text(
+                "sources:\n"
+                "    foo.package:\n"
+                "      repo: https://github.com/example/foo.package.git\n"
+                "    bar.package:\n"
+                "      repo: https://github.com/example/bar.package.git\n"
+            )
+            with SourcesService() as svc:
+                with (
+                    mock.patch.object(svc.logger, "isEnabledFor", return_value=True),
+                    mock.patch.object(svc, "execute_command") as mock_exec,
+                    mock.patch.object(svc.console, "print") as mock_print,
+                ):
+                    svc.run_update()
+            self.assertEqual(mock_exec.call_count, 2)
+            rendered = "\n".join(
+                str(call.args[0]) for call in mock_print.call_args_list if call.args
+            )
+            self.assertIn("foo.package: updating", rendered)
+            self.assertIn("bar.package: updating", rendered)
+
+    def test_run_update_quiet_does_not_print_report(self):
+        with temp_cwd() as cwd:
+            (cwd / "etc").mkdir()
+            (cwd / "etc" / "plonex.yml").write_text(
+                "sources:\n"
+                "    my.package:\n"
+                "      repo: https://github.com/example/my.package.git\n"
+            )
+            with SourcesService() as svc:
+                with (
+                    mock.patch.object(svc.logger, "isEnabledFor", return_value=False),
+                    mock.patch.object(svc, "execute_command") as mock_exec,
+                    mock.patch.object(svc.console, "print") as mock_print,
+                ):
+                    svc.run_update()
+            mock_exec.assert_called_once()
+            mock_print.assert_not_called()
 
     def test_run_show_tainted(self):
         with temp_cwd() as cwd:

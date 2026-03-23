@@ -6,7 +6,9 @@ from plonex.base import BaseService
 from rich.console import Console
 from rich.table import Table
 from typing import Any
+from typing import Sequence
 
+import logging
 import sh  # type: ignore[import-untyped]
 import yaml
 
@@ -128,7 +130,9 @@ class SourcesService(BaseService):
             return None
         if not self._validate_sources_for_gitman(sources_dict):
             return None
-        self.gitman_file.write_text(yaml.dump(options, sort_keys=True))
+        self.gitman_file.write_text(
+            yaml.dump(options, sort_keys=True), encoding="utf-8"
+        )
         return self.gitman_file
 
     def _normalize_glob(self, glob_pattern: str | None) -> str | None:
@@ -347,6 +351,61 @@ class SourcesService(BaseService):
                 tainted.append(checkout)
         return tainted
 
+    def _source_update_blocker(
+        self,
+        source_name: str,
+        source_options: Any,
+        force: bool,
+    ) -> str | None:
+        if not isinstance(source_name, str) or not source_name.strip():
+            return "invalid source name"
+        if not isinstance(source_options, dict):
+            return "invalid source mapping"
+        repo = source_options.get("repo")
+        if not isinstance(repo, str) or not repo.strip():
+            return "missing repo URL"
+
+        checkout = self._checkout_path(source_name, source_options)
+        if checkout.exists() and not (checkout / ".git").exists():
+            return f"{self._display_path(checkout)} exists but is not a git checkout"
+        if (
+            (checkout / ".git").exists()
+            and self._has_modifications(checkout)
+            and not force
+        ):
+            return "local changes detected (use force-update to override)"
+        return None
+
+    @staticmethod
+    def _error_reason(exc: sh.ErrorReturnCode) -> str:
+        stderr = str(getattr(exc, "stderr", "") or "").strip()
+        stdout = str(getattr(exc, "stdout", "") or "").strip()
+        combined = stderr or stdout
+        if not combined:
+            return f"gitman failed with exit code {exc.exit_code}"
+        for line in combined.splitlines():
+            clean = line.strip()
+            if clean:
+                return clean
+        return f"gitman failed with exit code {exc.exit_code}"
+
+    def _run_gitman_update_once(
+        self,
+        command: Sequence[str],
+        source_name: str,
+        source_options: Any,
+    ) -> tuple[bool, str]:
+        compiled = self.compile_config(sources_dict={source_name: source_options})
+        if compiled is None:
+            return False, "invalid source configuration"
+        try:
+            self.execute_command(
+                command, cwd=self.gitman_file.parent, stream_output=False
+            )
+        except sh.ErrorReturnCode as exc:
+            return False, self._error_reason(exc)
+        return True, "updated"
+
     @BaseService.entered_only
     def run_update(
         self,
@@ -369,10 +428,6 @@ class SourcesService(BaseService):
             self.checkout_root,
         )
         self.checkout_root.mkdir(parents=True, exist_ok=True)
-        compiled = self.compile_config(sources_dict=filtered_sources)
-        if compiled is None:
-            self.logger.error("Cannot update sources: invalid sources configuration")
-            return
 
         confirmed = self.assume_yes if assume_yes is None else assume_yes
         if force and not confirmed:
@@ -387,7 +442,44 @@ class SourcesService(BaseService):
         command = self.command + ["update"]
         if force:
             command.append("--force")
-        self.run_command(command, cwd=self.gitman_file.parent)
+
+        results: list[tuple[str, bool, str]] = []
+        show_live_report = self.logger.isEnabledFor(logging.INFO)
+        if show_live_report:
+            self.print("[bold]Sources update report[/bold]")
+
+        for source_name, source_options in sorted(filtered_sources.items()):
+            if show_live_report:
+                self.print(f"[cyan]⏳[/cyan] {source_name}: updating...")
+            blocker = self._source_update_blocker(
+                str(source_name), source_options, force
+            )
+            if blocker is not None:
+                results.append((str(source_name), False, blocker))
+                if show_live_report:
+                    self.print(f"[red]❌[/red] {source_name}: {blocker}")
+                continue
+            ok, reason = self._run_gitman_update_once(
+                command,
+                str(source_name),
+                source_options,
+            )
+            results.append((str(source_name), ok, reason))
+            if show_live_report:
+                glyph = "✅" if ok else "❌"
+                style = "green" if ok else "red"
+                self.print(f"[{style}]{glyph}[/{style}] {source_name}: {reason}")
+
+        if not results:
+            self.print("No sources to update.")
+            return
+
+        failed = [entry for entry in results if not entry[1]]
+        if failed:
+            self.logger.warning(
+                "Sources update completed with %d failure(s)",
+                len(failed),
+            )
 
     @BaseService.entered_only
     def run_list(self, glob: str | None = None) -> None:
