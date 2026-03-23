@@ -52,8 +52,9 @@ class TestCompileService(PloneXTestCase):
             with CompileService() as svc:
                 svc.run()
             result = (cwd / "var" / "gitman.yml").read_text()
-            self.assertIn("location: src", result)
-            self.assertIn("my.package:", result)
+            self.assertIn(f"location: {cwd / 'src'}", result)
+            self.assertIn("- name: my.package", result)
+            self.assertIn("type: git", result)
             self.assertIn("repo: https://github.com/example/my.package.git", result)
 
     def test_run_generates_gitman_file_with_custom_location(self):
@@ -68,4 +69,4 @@ class TestCompileService(PloneXTestCase):
             with CompileService() as svc:
                 svc.run()
             result = (cwd / "var" / "gitman.yml").read_text()
-            self.assertIn("location: external", result)
+            self.assertIn(f"location: {cwd / 'external'}", result)

@@ -18,8 +18,9 @@ class TestSourcesService(PloneXTestCase):
                 target = svc.compile_config()
             self.assertEqual(target, cwd / "var" / "gitman.yml")
             rendered = (cwd / "var" / "gitman.yml").read_text()
-            self.assertIn("location: src", rendered)
-            self.assertIn("my.package:", rendered)
+            self.assertIn(f"location: {cwd / 'src'}", rendered)
+            self.assertIn("- name: my.package", rendered)
+            self.assertIn("type: git", rendered)
 
     def test_run_update_force_without_confirmation(self):
         with temp_cwd() as cwd:
@@ -36,6 +37,75 @@ class TestSourcesService(PloneXTestCase):
                 ):
                     svc.run_update(force=True, assume_yes=False)
             mock_run.assert_not_called()
+
+    def test_run_update_uses_gitman_file_folder_as_cwd(self):
+        with temp_cwd() as cwd:
+            (cwd / "etc").mkdir()
+            (cwd / "etc" / "plonex.yml").write_text(
+                "sources:\n"
+                "    my.package:\n"
+                "      repo: https://github.com/example/my.package.git\n"
+            )
+            with SourcesService() as svc:
+                with mock.patch.object(svc, "run_command") as mock_run:
+                    svc.run_update()
+            mock_run.assert_called_once_with(["gitman", "update"], cwd=cwd / "var")
+
+    def test_run_update_creates_checkout_root(self):
+        with temp_cwd() as cwd:
+            (cwd / "etc").mkdir()
+            (cwd / "etc" / "plonex.yml").write_text(
+                "sources:\n"
+                "    my.package:\n"
+                "      repo: https://github.com/example/my.package.git\n"
+            )
+            self.assertFalse((cwd / "src").exists())
+            with SourcesService() as svc:
+                with mock.patch.object(svc, "run_command"):
+                    svc.run_update()
+            self.assertTrue((cwd / "src").exists())
+
+    def test_run_update_invalid_empty_source_name_does_not_invoke_gitman(self):
+        with temp_cwd() as cwd:
+            (cwd / "etc").mkdir()
+            (cwd / "etc" / "plonex.yml").write_text(
+                "sources:\n"
+                "  '':\n"
+                "    repo: https://github.com/example/invalid.git\n"
+            )
+            with SourcesService() as svc:
+                with (
+                    mock.patch.object(svc, "run_command") as mock_run,
+                    mock.patch.object(svc.logger, "error") as mock_error,
+                ):
+                    svc.run_update()
+            mock_run.assert_not_called()
+            self.assertTrue(
+                any(
+                    "Invalid source name" in str(call)
+                    for call in mock_error.call_args_list
+                )
+            )
+
+    def test_run_update_missing_repo_does_not_invoke_gitman(self):
+        with temp_cwd() as cwd:
+            (cwd / "etc").mkdir()
+            (cwd / "etc" / "plonex.yml").write_text(
+                "sources:\n" "    my.package:\n" "      rev: main\n"
+            )
+            with SourcesService() as svc:
+                with (
+                    mock.patch.object(svc, "run_command") as mock_run,
+                    mock.patch.object(svc.logger, "error") as mock_error,
+                ):
+                    svc.run_update()
+            mock_run.assert_not_called()
+            self.assertTrue(
+                any(
+                    "missing non-empty 'repo'" in str(call)
+                    for call in mock_error.call_args_list
+                )
+            )
 
     def test_run_show_tainted(self):
         with temp_cwd() as cwd:

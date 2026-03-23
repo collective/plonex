@@ -34,9 +34,22 @@ class SourcesService(BaseService):
     def compiled_gitman_options(self) -> dict[str, Any] | None:
         if not self.sources_options:
             return None
+        rendered_sources: list[dict[str, Any]] = []
+        for source_name, source_options in self.sources_options.items():
+            if not isinstance(source_options, dict):
+                continue
+            entry: dict[str, Any] = {
+                "name": str(source_name),
+                "type": str(source_options.get("type", "git")),
+                "repo": source_options.get("repo"),
+            }
+            rev = source_options.get("rev")
+            if isinstance(rev, str) and rev.strip():
+                entry["rev"] = rev
+            rendered_sources.append(entry)
         return {
-            "location": str(self.options.get("sources_location", "src")),
-            "sources": dict(self.sources_options),
+            "location": str(self.checkout_root),
+            "sources": rendered_sources,
         }
 
     @property
@@ -52,6 +65,32 @@ class SourcesService(BaseService):
     def sources(self) -> dict[str, Any]:
         return self.sources_options
 
+    def _validate_sources_for_gitman(self) -> bool:
+        valid = True
+        for source_name, source_options in self.sources_options.items():
+            if not isinstance(source_name, str) or not source_name.strip():
+                self.logger.error(
+                    "Invalid source name %r: it must be a non-empty string",
+                    source_name,
+                )
+                valid = False
+                continue
+            if not isinstance(source_options, dict):
+                self.logger.error(
+                    "Invalid source mapping for %r: expected a YAML mapping",
+                    source_name,
+                )
+                valid = False
+                continue
+            repo = source_options.get("repo")
+            if not isinstance(repo, str) or not repo.strip():
+                self.logger.error(
+                    "Invalid source mapping for %r: missing non-empty 'repo'",
+                    source_name,
+                )
+                valid = False
+        return valid
+
     @property
     def command(self) -> list[str]:
         gitman_bin = self.target / ".venv" / "bin" / "gitman"
@@ -61,6 +100,8 @@ class SourcesService(BaseService):
     def compile_config(self) -> Path | None:
         options = self.compiled_gitman_options
         if options is None:
+            return None
+        if not self._validate_sources_for_gitman():
             return None
         self.gitman_file.write_text(yaml.dump(options, sort_keys=True))
         return self.gitman_file
@@ -253,7 +294,15 @@ class SourcesService(BaseService):
             self.logger.info("Skipping sources update: no sources configured")
             return
 
-        self.compile_config()
+        self.logger.info(
+            "Ensuring sources location exists: %s",
+            self.checkout_root,
+        )
+        self.checkout_root.mkdir(parents=True, exist_ok=True)
+        compiled = self.compile_config()
+        if compiled is None:
+            self.logger.error("Cannot update sources: invalid sources configuration")
+            return
 
         confirmed = self.assume_yes if assume_yes is None else assume_yes
         if force and not confirmed:
@@ -268,7 +317,7 @@ class SourcesService(BaseService):
         command = self.command + ["update"]
         if force:
             command.append("--force")
-        self.run_command(command)
+        self.run_command(command, cwd=self.gitman_file.parent)
 
     @BaseService.entered_only
     def run_list(self) -> None:

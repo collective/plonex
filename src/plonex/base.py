@@ -447,9 +447,14 @@ class BaseService:
         return ["true"]  # pragma: no cover
 
     @entered_only
-    def run_command(self, command: Sequence[str | Path | int]):
+    def run_command(
+        self,
+        command: Sequence[str | Path | int],
+        cwd: Path | None = None,
+    ):
         """Run a command"""
-        self.logger.debug("Entering %s", self.target)
+        command_cwd = cwd or self.target
+        self.logger.debug("Entering %s", command_cwd)
         command_list: list[str] = list(map(str, command))
         command_str: str = " ".join(command_list)
         stream_output = "fg" in command_list
@@ -459,7 +464,7 @@ class BaseService:
             try:
                 self.execute_command(
                     command_list,
-                    cwd=self.target,
+                    cwd=command_cwd,
                     stream_output=stream_output,
                 )
             except sh.ErrorReturnCode as e:
