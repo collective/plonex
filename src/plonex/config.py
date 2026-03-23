@@ -38,6 +38,16 @@ def _normalize_bool_option(option_name: str, value: Any) -> bool:
     raise ValueError(f"The '{option_name}' option should be a boolean")
 
 
+def _normalize_pip_requirements(value: Any) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, list) and all(isinstance(item, str) for item in value):
+        return value
+    raise ValueError(
+        "The 'pip_requirements' option should be a string or a list of strings"
+    )
+
+
 SUPPORTED_OPTION_SPECS: dict[str, OptionSpec] = {
     "default_action": OptionSpec(name="default_action"),
     "default_actions": OptionSpec(name="default_actions"),
@@ -45,6 +55,11 @@ SUPPORTED_OPTION_SPECS: dict[str, OptionSpec] = {
     "plone_version": OptionSpec(name="plone_version"),
     "plonex_base_constraint": OptionSpec(name="plonex_base_constraint"),
     "profiles": OptionSpec(name="profiles"),
+    "pip_requirements": OptionSpec(
+        name="pip_requirements",
+        default=["Plone", "rich", "supervisor", "ZEO"],
+        normalize=_normalize_pip_requirements,
+    ),
     "sources": OptionSpec(name="sources", default={}, normalize=_normalize_sources),
     "sources_location": OptionSpec(name="sources_location", default="src"),
     "sources_update_before_dependencies": OptionSpec(
