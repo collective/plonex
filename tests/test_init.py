@@ -66,6 +66,20 @@ class TestInit(PloneXTestCase):
             # No pre_services should be created
             self.assertEqual(len(svc.pre_services), 0)
 
+    def test_post_init_skips_default_requirements_when_profile_has_it(self):
+        with temp_cwd() as cwd:
+            etc = cwd / "etc"
+            etc.mkdir()
+            (etc / "plonex.yml").write_text("profiles:\n  - profiles/base\n")
+            profile_requirements = cwd / "profiles" / "base" / "etc" / "requirements.d"
+            profile_requirements.mkdir(parents=True)
+            (cwd / "profiles" / "base" / "etc" / "plonex.yml").write_text("{}\n")
+            (profile_requirements / "000-plonex.txt").write_text("plone\n")
+
+            svc = InitService()
+            names = [service.name for service in svc.pre_services]
+            self.assertNotIn("requirements", names)
+
     def test_constructor(self):
         """Test that the context manager sets up the init service"""
         with temp_init() as svc:

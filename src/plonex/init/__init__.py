@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from functools import cached_property
 from importlib.metadata import version
+from pathlib import Path
 from plonex.base import BaseService
 from plonex.install import InstallService
 from plonex.supervisor import Supervisor
@@ -42,7 +43,16 @@ class InitService(BaseService):
                         options=self.options,
                     )
                 )
-            if not (etc_folder / "requirements.d" / "000-plonex.txt").exists():
+            has_local_default_requirements = (
+                etc_folder / "requirements.d" / "000-plonex.txt"
+            ).exists()
+            has_profile_default_requirements = (
+                self._profile_default_requirements_path() is not None
+            )
+            if (
+                not has_local_default_requirements
+                and not has_profile_default_requirements
+            ):
                 self.pre_services.append(
                     TemplateService(
                         name="requirements",
@@ -50,6 +60,59 @@ class InitService(BaseService):
                         target_path=etc_folder / "requirements.d" / "000-plonex.txt",
                     )
                 )
+
+    def _collect_profile_roots(
+        self,
+        profile: str | Path,
+        relative_to: Path,
+        seen: set[Path],
+    ) -> list[Path]:
+        from plonex.profile import ProfileService
+
+        resolved_profile = self._resolve_profile_source(profile, relative_to)
+        profile_service = ProfileService(source=resolved_profile, target=self.target)
+        profile_root = profile_service.source_path.resolve()
+
+        if profile_root in seen:
+            return []
+        seen.add(profile_root)
+
+        roots: list[Path] = []
+        profile_plonex_yml = profile_root / "etc" / "plonex.yml"
+        if profile_plonex_yml.exists():
+            raw_profile_options = self._load_yaml_mapping(profile_plonex_yml)
+            nested_profiles = self._normalize_profiles(
+                raw_profile_options.get("profiles"),
+                profile_plonex_yml,
+            )
+            for nested_profile in nested_profiles:
+                roots.extend(
+                    self._collect_profile_roots(nested_profile, profile_root, seen)
+                )
+
+        roots.append(profile_root)
+        return roots
+
+    @cached_property
+    def profile_roots(self) -> list[Path]:
+        plonex_yml = self.target / "etc" / "plonex.yml"
+        if not plonex_yml.exists():
+            return []
+
+        raw_local = self._load_yaml_mapping(plonex_yml)
+        raw_profiles = self._normalize_profiles(raw_local.get("profiles"), plonex_yml)
+        seen: set[Path] = set()
+        roots: list[Path] = []
+        for profile in raw_profiles:
+            roots.extend(self._collect_profile_roots(profile, self.target, seen))
+        return roots
+
+    def _profile_default_requirements_path(self) -> Path | None:
+        for root in self.profile_roots:
+            candidate = root / "etc" / "requirements.d" / "000-plonex.txt"
+            if candidate.exists():
+                return candidate
+        return None
 
     def run(self):
         """Run the init command"""
