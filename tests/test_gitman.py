@@ -51,6 +51,94 @@ class TestSourcesService(PloneXTestCase):
                     svc.run_update()
             mock_run.assert_called_once_with(["gitman", "update"], cwd=cwd / "var")
 
+    def test_run_update_with_glob_writes_filtered_gitman_file(self):
+        with temp_cwd() as cwd:
+            (cwd / "etc").mkdir()
+            (cwd / "etc" / "plonex.yml").write_text(
+                "sources:\n"
+                "    foo.package:\n"
+                "      repo: https://github.com/example/foo.package.git\n"
+                "    bar.package:\n"
+                "      repo: https://github.com/example/bar.package.git\n"
+            )
+            with SourcesService() as svc:
+                with mock.patch.object(svc, "run_command"):
+                    svc.run_update(glob="foo")
+            rendered = (cwd / "var" / "gitman.yml").read_text()
+            self.assertIn("- name: foo.package", rendered)
+            self.assertNotIn("- name: bar.package", rendered)
+
+    def test_missing_checkouts_with_glob_filters_sources(self):
+        with temp_cwd() as cwd:
+            (cwd / "etc").mkdir()
+            (cwd / "etc" / "plonex.yml").write_text(
+                "sources:\n"
+                "    present.package:\n"
+                "      repo: https://github.com/example/present.package.git\n"
+                "    missing.package:\n"
+                "      repo: https://github.com/example/missing.package.git\n"
+                "    other.package:\n"
+                "      repo: https://github.com/example/other.package.git\n"
+            )
+            present = cwd / "src" / "present.package"
+            present.mkdir(parents=True)
+            with SourcesService() as svc:
+                missing = svc.missing_checkouts("missing")
+            self.assertEqual(
+                missing, {"missing.package": cwd / "src" / "missing.package"}
+            )
+
+    def test_run_clone_missing_with_glob_clones_only_matching_source(self):
+        with temp_cwd() as cwd:
+            (cwd / "etc").mkdir()
+            (cwd / "etc" / "plonex.yml").write_text(
+                "sources:\n"
+                "    foo.package:\n"
+                "      repo: https://github.com/example/foo.package.git\n"
+                "      rev: main\n"
+                "    bar.package:\n"
+                "      repo: https://github.com/example/bar.package.git\n"
+                "      rev: main\n"
+            )
+            with SourcesService() as svc:
+                with mock.patch.object(svc, "run_command") as mock_run:
+                    svc.run_clone_missing(assume_yes=True, glob="foo")
+            self.assertEqual(mock_run.call_count, 2)
+            mock_run.assert_any_call(
+                [
+                    "git",
+                    "clone",
+                    "https://github.com/example/foo.package.git",
+                    str(cwd / "src" / "foo.package"),
+                ]
+            )
+            mock_run.assert_any_call(
+                ["git", "-C", str(cwd / "src" / "foo.package"), "checkout", "main"]
+            )
+
+    def test_list_tainted_with_glob_filters_sources(self):
+        with temp_cwd() as cwd:
+            foo_checkout = cwd / "src" / "foo.package"
+            bar_checkout = cwd / "src" / "bar.package"
+            (cwd / "etc").mkdir()
+            foo_checkout.mkdir(parents=True)
+            bar_checkout.mkdir(parents=True)
+            (foo_checkout / ".git").mkdir()
+            (bar_checkout / ".git").mkdir()
+            (cwd / "etc" / "plonex.yml").write_text(
+                "sources:\n"
+                "    foo.package:\n"
+                "      repo: https://github.com/example/foo.package.git\n"
+                "    bar.package:\n"
+                "      repo: https://github.com/example/bar.package.git\n"
+            )
+            with SourcesService() as svc:
+                with mock.patch.object(
+                    svc, "execute_command", return_value=" M setup.py\n"
+                ):
+                    tainted = svc.list_tainted("foo")
+            self.assertEqual(tainted, [foo_checkout])
+
     def test_run_update_creates_checkout_root(self):
         with temp_cwd() as cwd:
             (cwd / "etc").mkdir()

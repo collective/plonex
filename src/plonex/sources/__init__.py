@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from dataclasses import field
+from fnmatch import fnmatch
 from pathlib import Path
 from plonex.base import BaseService
 from rich.console import Console
@@ -30,12 +31,19 @@ class SourcesService(BaseService):
         sources = self.options.get("sources")
         return sources if isinstance(sources, dict) else {}
 
-    @property
-    def compiled_gitman_options(self) -> dict[str, Any] | None:
-        if not self.sources_options:
+    def _get_compiled_gitman_options(
+        self, sources_dict: dict[str, Any] | None = None
+    ) -> dict[str, Any] | None:
+        """Generate compiled gitman options from sources dict.
+
+        Args:
+            sources_dict: Sources dict to compile. If None, uses self.sources_options.
+        """
+        sources = sources_dict if sources_dict is not None else self.sources_options
+        if not sources:
             return None
         rendered_sources: list[dict[str, Any]] = []
-        for source_name, source_options in self.sources_options.items():
+        for source_name, source_options in sources.items():
             if not isinstance(source_options, dict):
                 continue
             entry: dict[str, Any] = {
@@ -53,6 +61,10 @@ class SourcesService(BaseService):
         }
 
     @property
+    def compiled_gitman_options(self) -> dict[str, Any] | None:
+        return self._get_compiled_gitman_options()
+
+    @property
     def has_sources(self) -> bool:
         return len(self.sources_options) > 0
 
@@ -65,9 +77,17 @@ class SourcesService(BaseService):
     def sources(self) -> dict[str, Any]:
         return self.sources_options
 
-    def _validate_sources_for_gitman(self) -> bool:
+    def _validate_sources_for_gitman(
+        self, sources_dict: dict[str, Any] | None = None
+    ) -> bool:
+        """Validate sources for gitman.
+
+        Args:
+            sources_dict: Sources dict to validate. If None, uses self.sources_options.
+        """
+        sources = sources_dict if sources_dict is not None else self.sources_options
         valid = True
-        for source_name, source_options in self.sources_options.items():
+        for source_name, source_options in sources.items():
             if not isinstance(source_name, str) or not source_name.strip():
                 self.logger.error(
                     "Invalid source name %r: it must be a non-empty string",
@@ -97,14 +117,55 @@ class SourcesService(BaseService):
         executable = str(gitman_bin) if gitman_bin.exists() else "gitman"
         return [executable]
 
-    def compile_config(self) -> Path | None:
-        options = self.compiled_gitman_options
+    def compile_config(self, sources_dict: dict[str, Any] | None = None) -> Path | None:
+        """Compile gitman config from sources dict.
+
+        Args:
+            sources_dict: Sources dict to compile. If None, uses self.sources_options.
+        """
+        options = self._get_compiled_gitman_options(sources_dict)
         if options is None:
             return None
-        if not self._validate_sources_for_gitman():
+        if not self._validate_sources_for_gitman(sources_dict):
             return None
         self.gitman_file.write_text(yaml.dump(options, sort_keys=True))
         return self.gitman_file
+
+    def _normalize_glob(self, glob_pattern: str | None) -> str | None:
+        """Normalize glob pattern: if no * is present, add * at beginning and end.
+
+        Examples:
+          "foo" -> "*foo*"
+          "*foo" -> "*foo" (unchanged)
+          "foo*" -> "foo*" (unchanged)
+          "*foo*" -> "*foo*" (unchanged)
+        """
+        if glob_pattern is None:
+            return None
+        if "*" not in glob_pattern:
+            return f"*{glob_pattern}*"
+        return glob_pattern
+
+    def _filter_sources(
+        self, sources_dict: dict[str, Any], glob_pattern: str | None
+    ) -> dict[str, Any]:
+        """Filter sources by glob pattern.
+
+        If glob_pattern is None, returns all sources.
+        """
+        if glob_pattern is None:
+            return sources_dict
+
+        normalized = self._normalize_glob(glob_pattern)
+        if normalized is None:
+            return sources_dict
+
+        filtered = {
+            name: options
+            for name, options in sources_dict.items()
+            if fnmatch(str(name), normalized)
+        }
+        return filtered
 
     def _checkout_path(self, source_name: str, source_options: Any) -> Path:
         if isinstance(source_options, dict):
@@ -119,16 +180,17 @@ class SourcesService(BaseService):
         except ValueError:
             return str(path)
 
-    def configured_checkouts(self) -> dict[str, Path]:
+    def configured_checkouts(self, glob: str | None = None) -> dict[str, Path]:
+        sources = self._filter_sources(self.sources, glob)
         return {
             str(source_name): self._checkout_path(str(source_name), source_options)
-            for source_name, source_options in self.sources.items()
+            for source_name, source_options in sources.items()
         }
 
-    def missing_checkouts(self) -> dict[str, Path]:
+    def missing_checkouts(self, glob: str | None = None) -> dict[str, Path]:
         return {
             source_name: path
-            for source_name, path in self.configured_checkouts().items()
+            for source_name, path in self.configured_checkouts(glob).items()
             if not path.exists()
         }
 
@@ -265,9 +327,10 @@ class SourcesService(BaseService):
                 return max(2, leading_spaces)
         return fallback
 
-    def list_tainted(self) -> list[Path]:
+    def list_tainted(self, glob: str | None = None) -> list[Path]:
         tainted: list[Path] = []
-        for source_name, source_options in self.sources.items():
+        sources = self._filter_sources(self.sources, glob)
+        for source_name, source_options in sources.items():
             checkout = self._checkout_path(str(source_name), source_options)
             if not checkout.exists():
                 continue
@@ -289,9 +352,16 @@ class SourcesService(BaseService):
         self,
         force: bool = False,
         assume_yes: bool | None = None,
+        glob: str | None = None,
     ) -> None:
         if not self.has_sources:
             self.logger.info("Skipping sources update: no sources configured")
+            return
+
+        # Filter sources by glob pattern
+        filtered_sources = self._filter_sources(self.sources_options, glob)
+        if not filtered_sources:
+            self.logger.info("No sources match the glob pattern %r", glob)
             return
 
         self.logger.info(
@@ -299,7 +369,7 @@ class SourcesService(BaseService):
             self.checkout_root,
         )
         self.checkout_root.mkdir(parents=True, exist_ok=True)
-        compiled = self.compile_config()
+        compiled = self.compile_config(sources_dict=filtered_sources)
         if compiled is None:
             self.logger.error("Cannot update sources: invalid sources configuration")
             return
@@ -320,8 +390,8 @@ class SourcesService(BaseService):
         self.run_command(command, cwd=self.gitman_file.parent)
 
     @BaseService.entered_only
-    def run_list(self) -> None:
-        checkouts = self.configured_checkouts()
+    def run_list(self, glob: str | None = None) -> None:
+        checkouts = self.configured_checkouts(glob)
         if not checkouts:
             self.print("No configured sources checkouts.")
             return
@@ -414,8 +484,8 @@ class SourcesService(BaseService):
             self._print_suggestion_block(console)
 
     @BaseService.entered_only
-    def run_show_missing(self) -> None:
-        missing = self.missing_checkouts()
+    def run_show_missing(self, glob: str | None = None) -> None:
+        missing = self.missing_checkouts(glob)
         if not missing:
             self.print("No missing checkouts.")
             return
@@ -425,8 +495,10 @@ class SourcesService(BaseService):
             console.print(f"- {source_name}: {self._display_path(path)}")
 
     @BaseService.entered_only
-    def run_clone_missing(self, assume_yes: bool | None = None) -> None:
-        missing = self.missing_checkouts()
+    def run_clone_missing(
+        self, assume_yes: bool | None = None, glob: str | None = None
+    ) -> None:
+        missing = self.missing_checkouts(glob)
         if not missing:
             self.print("No missing checkouts.")
             return
@@ -532,8 +604,9 @@ class SourcesService(BaseService):
         self._print_suggestion_block(console)
 
     @BaseService.entered_only
-    def run_show_tainted(self) -> None:
-        tainted = self.list_tainted()
+    @BaseService.entered_only
+    def run_show_tainted(self, glob: str | None = None) -> None:
+        tainted = self.list_tainted(glob)
         if not tainted:
             self.print("No tainted checkouts found.")
             return

@@ -226,21 +226,26 @@ def _dispatch(args, parser, target: Path) -> None:
     elif args.action == "sources":
         _run_service_dependencies(target, "sources")
         sources_action = getattr(args, "sources_action", None) or "update"
+        glob_pattern = getattr(args, "glob", None)
         with SourcesService(target=target) as svc:
             if sources_action == "update":
-                svc.run_update()
+                svc.run_update(glob=glob_pattern)
             elif sources_action == "list":
-                svc.run_list()
+                svc.run_list(glob=glob_pattern)
             elif sources_action == "missing":
-                svc.run_show_missing()
+                svc.run_show_missing(glob=glob_pattern)
             elif sources_action == "clone-missing":
-                svc.run_clone_missing(assume_yes=getattr(args, "sources_yes", False))
+                svc.run_clone_missing(
+                    assume_yes=getattr(args, "sources_yes", False), glob=glob_pattern
+                )
             elif sources_action == "force-update":
                 svc.run_update(
-                    force=True, assume_yes=getattr(args, "sources_yes", False)
+                    force=True,
+                    assume_yes=getattr(args, "sources_yes", False),
+                    glob=glob_pattern,
                 )
             elif sources_action == "tainted":
-                svc.run_show_tainted()
+                svc.run_show_tainted(glob=glob_pattern)
             elif sources_action == "suggest-existing":
                 svc.run_suggest_existing(
                     apply=getattr(args, "sources_apply", False),

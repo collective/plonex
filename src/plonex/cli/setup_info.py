@@ -1,10 +1,38 @@
 def _register_sources_subcommands(parser) -> None:
     sources_subs = parser.add_subparsers(dest="sources_action")
-    sources_subs.add_parser("update", help="Update configured sources")
-    sources_subs.add_parser("list", help="List configured sources and status")
-    sources_subs.add_parser("missing", help="Show configured sources that are missing")
+    update_parser = sources_subs.add_parser("update", help="Update configured sources")
+    update_parser.add_argument(
+        "glob",
+        help="Glob pattern to filter sources (e.g., 'foo' matches '*foo*')",
+        default=None,
+        nargs="?",
+    )
+    list_parser = sources_subs.add_parser(
+        "list", help="List configured sources and status"
+    )
+    list_parser.add_argument(
+        "glob",
+        help="Glob pattern to filter sources (e.g., 'foo' matches '*foo*')",
+        default=None,
+        nargs="?",
+    )
+    missing_parser = sources_subs.add_parser(
+        "missing", help="Show configured sources that are missing"
+    )
+    missing_parser.add_argument(
+        "glob",
+        help="Glob pattern to filter sources (e.g., 'foo' matches '*foo*')",
+        default=None,
+        nargs="?",
+    )
     clone_missing_parser = sources_subs.add_parser(
         "clone-missing", help="Clone configured missing sources"
+    )
+    clone_missing_parser.add_argument(
+        "glob",
+        help="Glob pattern to filter sources (e.g., 'foo' matches '*foo*')",
+        default=None,
+        nargs="?",
     )
     clone_missing_parser.add_argument(
         "-y",
@@ -20,6 +48,12 @@ def _register_sources_subcommands(parser) -> None:
         help="Force update configured sources",
     )
     force_update_parser.add_argument(
+        "glob",
+        help="Glob pattern to filter sources (e.g., 'foo' matches '*foo*')",
+        default=None,
+        nargs="?",
+    )
+    force_update_parser.add_argument(
         "-y",
         "--yes",
         help="Skip confirmation prompt",
@@ -28,7 +62,15 @@ def _register_sources_subcommands(parser) -> None:
         action="store_true",
         dest="sources_yes",
     )
-    sources_subs.add_parser("tainted", help="Show sources with local changes")
+    tainted_parser = sources_subs.add_parser(
+        "tainted", help="Show sources with local changes"
+    )
+    tainted_parser.add_argument(
+        "glob",
+        help="Glob pattern to filter sources (e.g., 'foo' matches '*foo*')",
+        default=None,
+        nargs="?",
+    )
     suggest_existing_parser = sources_subs.add_parser(
         "suggest-existing",
         help="Suggest source config entries for unmanaged existing checkouts",
