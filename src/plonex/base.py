@@ -12,6 +12,7 @@ from rich.console import Console
 from tempfile import mkdtemp
 from typing import Any
 from typing import Callable
+from typing import ClassVar
 from typing import Sequence
 
 import logging
@@ -32,6 +33,7 @@ class BaseService:
     """
 
     name: str = "base"
+    stream_output: ClassVar[bool] = False
     target: Path = field(default_factory=Path.cwd)
     cli_options: dict = field(default_factory=dict)
     config_files: list[str | Path] = field(default_factory=list)
@@ -138,12 +140,63 @@ class BaseService:
             profile_plonex_yml,
         )
         for nested_profile in nested_profiles:
-            profile_options.update(
-                self._load_profile_options(nested_profile, profile_root, seen)
+            profile_options = self._merge_options_with_prefixes(
+                profile_options,
+                self._load_profile_options(nested_profile, profile_root, seen),
             )
 
-        profile_options.update(raw_profile_options)
+        profile_options = self._merge_options_with_prefixes(
+            profile_options,
+            raw_profile_options,
+        )
         return profile_options
+
+    def _merge_options_with_prefixes(
+        self,
+        base_options: dict,
+        incoming_options: dict,
+    ) -> dict:
+        merged = dict(base_options)
+        for key, value in incoming_options.items():
+            if key.startswith("+") and key[1:] in merged:
+                real_key = key[1:]
+                if isinstance(merged[real_key], list):
+                    merged[real_key].extend(value)
+                elif isinstance(merged[real_key], dict):
+                    merged[real_key].update(value)
+                else:
+                    self.logger.error(
+                        "Cannot add to option %r of type %r option %r of type %r",
+                        real_key,
+                        type(merged[real_key]),
+                        key,
+                        type(value),
+                    )
+            elif key.startswith("-") and key[1:] in merged:
+                real_key = key[1:]
+                if isinstance(merged[real_key], list):
+                    for item in value:
+                        try:
+                            merged[real_key].remove(item)
+                        except ValueError:
+                            self.logger.warning(
+                                "Cannot remove item %r from option %r",
+                                item,
+                                real_key,
+                            )
+                elif isinstance(merged[real_key], dict):
+                    for item in value:
+                        try:
+                            del merged[real_key][item]
+                        except KeyError:
+                            self.logger.warning(
+                                "Cannot remove item %r from option %r",
+                                item,
+                                real_key,
+                            )
+            else:
+                merged[key] = value
+        return merged
 
     @cached_property
     def plonex_options(self) -> dict:
@@ -152,7 +205,7 @@ class BaseService:
         local_options = {}
         if not plonex_yml.exists():
             self.logger.warning("No plonex.yml file found in %r", self.target)
-        merged_profile_options = {}
+        merged_profile_options: dict = {}
         if plonex_yml.exists():
             local_options = self._load_yaml_mapping(plonex_yml)
             profiles = self._normalize_profiles(
@@ -160,11 +213,15 @@ class BaseService:
             )
 
             for profile in profiles:
-                merged_profile_options.update(
-                    self._load_profile_options(profile, self.target)
+                merged_profile_options = self._merge_options_with_prefixes(
+                    merged_profile_options,
+                    self._load_profile_options(profile, self.target),
                 )
 
-            merged_profile_options.update(local_options)
+            merged_profile_options = self._merge_options_with_prefixes(
+                merged_profile_options,
+                local_options,
+            )
 
         if self.legacy_constraints_file.exists():
             warning_key = f"legacy-constraints:{self.legacy_constraints_file}"
@@ -259,50 +316,7 @@ class BaseService:
             if not isinstance(file_options, dict):
                 self.logger.error("The config file %r should contain a dict", path)
                 continue
-
-            for key in file_options:
-                # If the key starts with + or - we want to modify an existing value
-                # We will pick the right strategy based
-                # on the type of the existing value
-                # Supported types are list and dicts
-                if key.startswith("+") and key[1:] in options:
-                    real_key = key[1:]
-                    if isinstance(options[real_key], list):
-                        options[real_key].extend(file_options[key])
-                    elif isinstance(options[real_key], dict):
-                        options[real_key].update(file_options[key])
-                    else:
-                        self.logger.error(
-                            "Cannot add to option %r of type %r option %r of type %r",
-                            real_key,
-                            type(options[real_key]),
-                            key,
-                            type(file_options[key]),
-                        )
-                elif key.startswith("-") and key[1:] in options:
-                    real_key = key[1:]
-                    if isinstance(options[real_key], list):
-                        for item in file_options[key]:
-                            try:
-                                options[real_key].remove(item)
-                            except ValueError:
-                                self.logger.warning(
-                                    "Cannot remove item %r from option %r",
-                                    item,
-                                    real_key,
-                                )
-                    elif isinstance(options[real_key], dict):
-                        for item in file_options[key]:
-                            try:
-                                del options[real_key][item]
-                            except KeyError:
-                                self.logger.warning(
-                                    "Cannot remove item %r from option %r",
-                                    item,
-                                    real_key,
-                                )
-                else:
-                    options[key] = file_options[key]
+            options = self._merge_options_with_prefixes(options, file_options)
         options.update(self.config_files_options)
         options.update(self.cli_options)
 
@@ -457,7 +471,7 @@ class BaseService:
         self.logger.debug("Entering %s", command_cwd)
         command_list: list[str] = list(map(str, command))
         command_str: str = " ".join(command_list)
-        stream_output = "fg" in command_list
+        stream_output = self.stream_output or "fg" in command_list
         start_time = time.time()
         try:
             self.logger.debug("Running %r", command_str)

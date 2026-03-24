@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from plonex.base import BaseService
 from textwrap import dedent
+from typing import ClassVar
 
 import sh  # type: ignore[import-untyped]
 
@@ -10,6 +11,7 @@ import sh  # type: ignore[import-untyped]
 class ZopeTest(BaseService):
 
     name: str = "zopetest"
+    stream_output: ClassVar[bool] = True
     package: str = ""
     test: str = ""
 

@@ -37,6 +37,12 @@ class EmptyCommandService(DummyService):
         return []
 
 
+@dataclass(kw_only=True)
+class StreamingService(DummyService):
+
+    stream_output = True
+
+
 class TestBaseService(unittest.TestCase):
 
     def setUp(self):
@@ -245,6 +251,40 @@ class TestBaseService(unittest.TestCase):
         self.assertTrue(service.plonex_options["base_only"])
         self.assertTrue(service.plonex_options["child_only"])
 
+    def test_plonex_options_profile_plus_services_extends(self):
+        etc_path = self.temp_dir / "etc"
+        etc_path.mkdir()
+        base_profile = self.temp_dir / "profiles" / "base"
+        child_profile = self.temp_dir / "profiles" / "child"
+        (base_profile / "etc").mkdir(parents=True)
+        (child_profile / "etc").mkdir(parents=True)
+        (base_profile / "etc" / "plonex.yml").write_text("services:\n  - zeoserver\n")
+        (child_profile / "etc" / "plonex.yml").write_text(
+            "profiles:\n  - ../base\n+services:\n  - zeoclient\n"
+        )
+        (etc_path / "plonex.yml").write_text("profiles:\n  - profiles/child\n")
+
+        service = DummyService()
+        self.assertEqual(service.plonex_options["services"], ["zeoserver", "zeoclient"])
+
+    def test_plonex_options_profile_minus_services_removes(self):
+        etc_path = self.temp_dir / "etc"
+        etc_path.mkdir()
+        base_profile = self.temp_dir / "profiles" / "base"
+        child_profile = self.temp_dir / "profiles" / "child"
+        (base_profile / "etc").mkdir(parents=True)
+        (child_profile / "etc").mkdir(parents=True)
+        (base_profile / "etc" / "plonex.yml").write_text(
+            "services:\n  - zeoserver\n  - zeoclient\n"
+        )
+        (child_profile / "etc" / "plonex.yml").write_text(
+            "profiles:\n  - ../base\n-services:\n  - zeoclient\n"
+        )
+        (etc_path / "plonex.yml").write_text("profiles:\n  - profiles/child\n")
+
+        service = DummyService()
+        self.assertEqual(service.plonex_options["services"], ["zeoserver"])
+
     def test_plonex_options_profile_invalid_shape_logs_error(self):
         etc_path = self.temp_dir / "etc"
         etc_path.mkdir()
@@ -440,6 +480,17 @@ class TestBaseService(unittest.TestCase):
             ["instance", "start"],
             cwd=service.target,
             stream_output=False,
+        )
+
+    def test_run_command_stream_output_enabled_for_service_flag(self):
+        """run_command enables output streaming when service opts in"""
+        with StreamingService() as service:
+            with mock.patch.object(service, "execute_command") as m_execute:
+                service.run_command(["instance", "start"])
+        m_execute.assert_called_once_with(
+            ["instance", "start"],
+            cwd=service.target,
+            stream_output=True,
         )
 
     def test_execute_command_stream_output_uses_foreground_mode(self):
