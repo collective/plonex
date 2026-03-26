@@ -12,7 +12,6 @@ from rich.console import Console
 from tempfile import mkdtemp
 from typing import Any
 from typing import Callable
-from typing import ClassVar
 from typing import Sequence
 
 import logging
@@ -33,7 +32,6 @@ class BaseService:
     """
 
     name: str = "base"
-    stream_output: ClassVar[bool] = False
     target: Path = field(default_factory=Path.cwd)
     cli_options: dict = field(default_factory=dict)
     config_files: list[str | Path] = field(default_factory=list)
@@ -471,7 +469,7 @@ class BaseService:
         self.logger.debug("Entering %s", command_cwd)
         command_list: list[str] = list(map(str, command))
         command_str: str = " ".join(command_list)
-        stream_output = self.stream_output or "fg" in command_list
+        stream_output = "fg" in command_list
         start_time = time.time()
         try:
             self.logger.debug("Running %r", command_str)

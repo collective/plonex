@@ -117,7 +117,7 @@ class InitService(BaseService):
     def run(self):
         """Run the init command"""
         with InstallService(target=self.target) as install:
-            install.run(save_constraints=True)
+            install.run(persist_local=True)
         with Supervisor(target=self.target) as supervisor:
             supervisor.initialize_configuration()
         self.logger.info("Project initialized in %s", self.target)

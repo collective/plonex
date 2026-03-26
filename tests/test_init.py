@@ -176,6 +176,7 @@ class TestInit(PloneXTestCase):
                 with mock.patch.object(InitService, "execute_command"):
                     with InitService() as svc:
                         svc.run()
+            MockInstall.return_value.run.assert_called_once_with(persist_local=True)
             self.assertTrue((cwd / ".gitignore").exists())
 
     def test_run_skips_gitignore_if_exists(self):
