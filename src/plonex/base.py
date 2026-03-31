@@ -12,6 +12,7 @@ from rich.console import Console
 from tempfile import mkdtemp
 from typing import Any
 from typing import Callable
+from typing import ClassVar
 from typing import Sequence
 
 import logging
@@ -40,6 +41,8 @@ class BaseService:
     post_services: None | list = field(default=None, init=False)
     logger: logging.Logger = field(default=logger, init=False)
     _entered: bool = field(default=False, init=False)
+
+    stream_output: ClassVar[bool] = False
 
     @cached_property
     def options_defaults(self) -> dict:
@@ -469,16 +472,11 @@ class BaseService:
         self.logger.debug("Entering %s", command_cwd)
         command_list: list[str] = list(map(str, command))
         command_str: str = " ".join(command_list)
-        stream_output = "fg" in command_list
         start_time = time.time()
         try:
             self.logger.debug("Running %r", command_str)
             try:
-                self.execute_command(
-                    command_list,
-                    cwd=command_cwd,
-                    stream_output=stream_output,
-                )
+                self.execute_command(command_list, cwd=command_cwd)
             except sh.ErrorReturnCode as e:
                 self.logger.error(e)
                 sys.exit(e.exit_code)
@@ -488,13 +486,16 @@ class BaseService:
             stop_time = time.time()
             self.logger.debug("Time taken: %.1f seconds", stop_time - start_time)
 
-    @staticmethod
+    @classmethod
     def execute_command(
+        cls,
         command: Sequence[str | Path | int],
         cwd: Path | None = None,
-        stream_output: bool = False,
+        stream_output: bool | None = None,
     ) -> str:
         """Execute a command with sh and return stdout as text."""
+        if stream_output is None:
+            stream_output = cls.stream_output
         command_list = list(map(str, command))
         executable, *args = command_list
         kwargs: dict[str, Any] = {"_cwd": str(cwd)} if cwd else {}

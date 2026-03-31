@@ -7,6 +7,7 @@ from random import choice
 from string import ascii_letters
 from string import digits
 from string import punctuation
+from typing import ClassVar
 from typing import Literal
 
 import os
@@ -47,6 +48,7 @@ class ZeoClient(BaseService):
     # This service has some folders
     tmp_folder: Path | None = None
     var_folder: Path | None = None
+    stream_output: ClassVar[bool] = True
 
     @property
     def options_defaults(self):
