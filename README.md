@@ -5,7 +5,7 @@ Plone deployment CLI.
 `plonex` is a helper tool designed to simplify everyday project operations with Plone.
 
 > [!NOTE]
-> `plonex` At the moment `plonex` is in early development and may have breaking changes. Use with caution and report issues.
+> At the moment `plonex` is in early development and may have breaking changes. Use with caution and report issues.
 
 ## Quickstart
 
@@ -76,6 +76,9 @@ This approach has a few practical benefits:
 
 In other words, `plonex` behaves like an orchestration layer over project runtime
 tools, while still letting you control details through configuration.
+
+You can still see what happens when you run a command passing the `-v/--verbose` flag or setting `log_level: debug` in YAML.
+This is useful for troubleshooting and understanding the underlying behavior.
 
 ## Default actions
 
@@ -220,10 +223,11 @@ plonex_base_constraint: etc/constraints/base.txt
 plonex_base_constraint: resource://my.package:constraints/base.txt
 ```
 
-If an old `etc/constraints.d/000-plonex.txt` file still exists, `plonex` warns
-that it is ignored and suggests removing it. For compatibility, if neither
-`plone_version` nor `plonex_base_constraint` is configured, `plonex` still tries
-to infer `plone_version` from that legacy file.
+> [!NOTE]
+> If an old `etc/constraints.d/000-plonex.txt` file still exists, `plonex` warns
+> that it is ignored and suggests removing it. For compatibility, if neither
+> `plone_version` nor `plonex_base_constraint` is configured, `plonex` still tries
+> to infer `plone_version` from that legacy file.
 
 Single action examples:
 
@@ -301,20 +305,20 @@ plonex supervisor graceful --interval 2.0
 
 What happens:
 
-- `plonex` generates `etc/supervisord.conf` and service templates if needed.
+- `plonex` generates `tmp/supervisor/etc/supervisord.conf` and service templates if needed.
 - it runs `supervisord` and `supervisorctl` from your project virtualenv.
-- status/restart actions use the same generated config file, so behavior is consistent.
 - `plonex supervisor graceful` restarts each configured service one by one in the
   order reported by `supervisorctl status`.
-- `--interval` controls the pause between service restarts.
+- `--interval` controls the pause between service restarts. The default interval is `1` second.
 
 You can also set the default interval in YAML:
 
 ```yaml
-supervisor_graceful_interval: 2.0
+supervisor_graceful_interval: 10
 ```
 
-Put that in `etc/plonex.yml` or another merged plonex config file. The CLI flag
+Put that in `etc/plonex.yml` or another merged plonex config file.
+The CLI flag
 still wins over YAML when both are provided.
 
 ## Commands

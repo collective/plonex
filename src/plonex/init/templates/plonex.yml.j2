@@ -8,29 +8,34 @@ log_level: info
 #   - zeoclient fg
 # sources_update_before_dependencies: true
 # sources:
-#   my.package:
-#     repo: https://github.com/example/my.package.git
-#     rev: main
+#   plone.reload:
+#     repo: https://github.com/plone/plone.reload
+#     rev: master
+#   If no rev is specified, it defaults to main,
+#   which is the default branch for most repositories.
+#   You can also specify a different branch or a specific commit hash.
+#   plone.restapi:
+#     repo: git@github.com:plone/plone.restapi.git
 environment_vars:
     PYTHONWARNINGS: ignore:::pkg_resources
 services:
     - template:
         run_for: supervisor
         source_path: resource://plonex.supervisor.templates:program.conf.j2
-        target_path: tmp/supervisor/etc/supervisor/zeoserver.conf
+        target_path: "{{ '{{ target }}' }}/tmp/supervisor/etc/supervisor/zeoserver.conf"
         options:
             program: zeoserver
             command: plonex zeoserver
             process_name: zeoserver
-            directory: "{{ target }}"
+            directory: "{{ '{{ target }}' }}"
             priority: 1
     - template:
         run_for: supervisor
         source_path: resource://plonex.supervisor.templates:program.conf.j2
-        target_path: tmp/supervisor/etc/supervisor/zeoclient.conf
+        target_path: "{{ '{{ target }}' }}/tmp/supervisor/etc/supervisor/zeoclient.conf"
         options:
             program: zeoclient
             command: plonex zeoclient
             process_name: zeoclient
-            directory: "{{ target }}"
+            directory: "{{ '{{ target }}' }}"
             priority: 2

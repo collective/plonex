@@ -53,7 +53,7 @@ class SourcesService(BaseService):
                 "type": str(source_options.get("type", "git")),
                 "repo": source_options.get("repo"),
             }
-            rev = source_options.get("rev")
+            rev = source_options.get("rev", "main")
             if isinstance(rev, str) and rev.strip():
                 entry["rev"] = rev
             rendered_sources.append(entry)

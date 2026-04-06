@@ -297,7 +297,7 @@ class TestInit(PloneXTestCase):
             install = InstallService(
                 dont_ask=True,
                 cli_options={
-                    "plonex_base_constraint": "resource://plonex.init.templates:example_constraints.txt",  # noqa: E501
+                    "plonex_base_constraint": "resource://plonex:tests/sample_confs/example_constraints.txt",  # noqa: E501
                 },
             )
 
