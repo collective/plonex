@@ -14,15 +14,6 @@ import sys
 import unittest
 
 
-if sys.version_info < (3, 11):
-
-    def _enterContext(self, context_manager):
-        context_manager.__enter__()
-        self.addCleanup(context_manager.__exit__, None, None, None)
-
-    unittest.TestCase.enterContext = _enterContext
-
-
 @dataclass(kw_only=True)
 class DummyService(BaseService):
 
