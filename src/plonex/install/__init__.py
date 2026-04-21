@@ -177,64 +177,62 @@ class InstallService(BaseService):
 
         return path.absolute().name
 
-    def developed_packages(self) -> set[str]:
-        """Try to understand which packages are under development"""
-        packages = set()
+    def _collect_requirements_sources(self) -> list:
+        """Collect all requirement sources (files + pip_requirements from YAML)"""
+        requirements_sources = []
+
         for requirements_folder in self._requirements_d_folders():
             for file in requirements_folder.iterdir():
-                if not file.is_file():
-                    continue
-                requirements = RequirementsFile.from_file(
-                    str(file), include_nested=True
-                )
-                editable_requirements = (
-                    requirement
-                    for requirement in requirements.requirements
-                    if requirement.is_editable
-                )
-                for requirement in editable_requirements:
-                    try:
-                        name = self.resolve_package_name_from_path(requirement)
-                    except Exception as e:
-                        name = requirement.link.filename
-                        self.logger.debug(
-                            "Could not resolve package name for requirement %r: %s",
-                            requirement,
-                            e,
-                        )
+                if file.is_file():
+                    requirements_sources.append(
+                        RequirementsFile.from_file(str(file), include_nested=True)
+                    )
 
-                    packages.add(name_as_pep503(name))
-        return packages
+        if self.options.get("pip_requirements"):
+            raw_pip_requirements = self.options.get("pip_requirements") or []
+            if isinstance(raw_pip_requirements, str):
+                raw_pip_requirements = [raw_pip_requirements]
+            # Patch: See:
+            #
+            # - https://github.com/aboutcode-org/pip-requirements-parser/pull/25
+
+            import pip_requirements_parser
+
+            pip_requirements_parser.Path = Path
+
+            requirements_sources.append(
+                RequirementsFile.from_string("\n".join(raw_pip_requirements))
+            )
+
+        return requirements_sources
+
+    def _iter_editable_requirements(self):
+        """Iterate over editable requirements, yielding (name, requirement) tuples"""
+        for requirements in self._collect_requirements_sources():
+            for requirement in requirements.requirements:
+                if not requirement.is_editable:
+                    continue
+                try:
+                    name = self.resolve_package_name_from_path(requirement)
+                except Exception as e:
+                    name = requirement.link.filename
+                    self.logger.debug(
+                        "Could not resolve package name for requirement %r: %s",
+                        requirement,
+                        e,
+                    )
+                yield name, requirement
+
+    def developed_packages(self) -> set[str]:
+        """Try to understand which packages are under development"""
+        return {name_as_pep503(name) for name, _ in self._iter_editable_requirements()}
 
     def developed_packages_and_paths(self) -> set[str]:
         """Try to understand which packages are under development"""
-        packages = set()
-        for requirements_folder in self._requirements_d_folders():
-            for file in requirements_folder.iterdir():
-                if not file.is_file():
-                    continue
-                requirements = RequirementsFile.from_file(
-                    str(file), include_nested=True
-                )
-                editable_requirements = (
-                    requirement
-                    for requirement in requirements.requirements
-                    if requirement.is_editable
-                )
-                for requirement in editable_requirements:
-                    try:
-                        name = self.resolve_package_name_from_path(requirement)
-                    except Exception as e:
-                        name = requirement.link.filename
-                        self.logger.debug(
-                            "Could not resolve package name for requirement %r: %s",
-                            requirement,
-                            e,
-                        )
-                    packages.add(
-                        f"{name_as_pep503(name)} → {Path(requirement.link.path).absolute()}"  # noqa: E501
-                    )
-        return packages
+        return {
+            f"{name_as_pep503(name)} → {Path(requirement.link.path).absolute()}"  # noqa: E501
+            for name, requirement in self._iter_editable_requirements()
+        }
 
     def make_constraints_txt(self):
         """Merge the constraints files in one big constraints.txt file"""
