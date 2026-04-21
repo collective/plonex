@@ -352,9 +352,10 @@ sources:
 - `--browse`: open the generated HTML report in your default browser (implies
   HTML generation).
 
-`dependencies [--persist|--persist-local|--persist-profile]`
+`dependencies [--sync] [--update-sources] [--persist|--persist-local|--persist-profile]`
 
 - Install from merged requirements/constraints.
+- `--sync`: compile requirements/constraints and run `uv pip sync` using the compiled requirements file as positional input.
 - `-p, --persist`: save auto-detected missing constraints into the project's `etc/constraints.d/`.
 - `--persist-local`: save auto-detected missing constraints into a local (git-ignored) `etc/constraints.d/999-autoinstalled.local.txt`.
 - `--persist-profile`: save auto-detected missing constraints into the first configured profile's `etc/constraints.d/`.
@@ -726,6 +727,12 @@ sleep 2
 
 ```sh
 .venv/bin/uv pip install -r var/requirements.txt -c var/constraints.txt
+```
+
+- `plonex dependencies --sync`
+
+```sh
+.venv/bin/uv pip sync var/requirements.txt -c var/constraints.txt
 ```
 
 - `plonex robottest tests/acceptance/*.robot`

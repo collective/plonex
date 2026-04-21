@@ -513,6 +513,31 @@ class InstallService(BaseService):
         ]
 
     @property
+    def sync_command(self):
+        """Call `uv pip sync` to synchronize the virtualenv with the constraints,
+        without installing missing packages.
+        This is useful to clean up the virtualenv after
+        removing constraints or requirements, or to
+        detect missing constraints without installing packages.
+
+        We might want to run:
+
+        ```
+        uv pip compile --output-file=compiled_constraints.txt \
+            var/requirements.txt -c constraints.txt
+        ```
+
+        """
+        return [
+            str(self.virtualenv_dir / "bin" / "uv"),
+            "pip",
+            "sync",
+            str(self.requirements_txt.absolute()),
+            "-c",
+            str(self.constrainst_txt.absolute()),
+        ]
+
+    @property
     def sources_update_before_dependencies(self) -> bool:
         return bool(self.options.get("sources_update_before_dependencies", False))
 
@@ -625,6 +650,7 @@ class InstallService(BaseService):
         persist_local: bool = False,
         persist_profile: bool = False,
         update_sources: bool | None = None,
+        sync: bool = False,
     ):
         selected = [persist, persist_local, persist_profile]
         if sum(1 for v in selected if v) > 1:
@@ -642,6 +668,10 @@ class InstallService(BaseService):
         )
         if should_update_sources:
             self.update_gitman_sources()
+
+        if sync:
+            self.run_command(self.sync_command)
+
         super().run()
         # Run pip freeze and compare the output with the constraints
         # to see if we are missing something

@@ -221,6 +221,7 @@ def _dispatch(args, parser, target: Path) -> None:
                 persist_local=persist_mode == "local",
                 persist_profile=persist_mode == "profile",
                 update_sources=getattr(args, "update_sources", None),
+                sync=getattr(args, "sync", False),
             )
 
     elif args.action == "sources":

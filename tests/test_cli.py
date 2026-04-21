@@ -246,6 +246,11 @@ class TestBuildParser(unittest.TestCase):
         self.assertEqual(args.action, "dependencies")
         self.assertTrue(args.update_sources)
 
+    def test_action_dependencies_sync(self):
+        args = self.parser.parse_args(["dependencies", "--sync"])
+        self.assertEqual(args.action, "dependencies")
+        self.assertTrue(args.sync)
+
     def test_action_sources_default(self):
         args = self.parser.parse_args(["sources"])
         self.assertEqual(args.action, "sources")
@@ -662,6 +667,7 @@ class TestMain(unittest.TestCase):
             persist_local=False,
             persist_profile=False,
             update_sources=None,
+            sync=False,
         )
 
     def test_action_dependencies_with_update_sources(self):
@@ -678,6 +684,24 @@ class TestMain(unittest.TestCase):
             persist_local=False,
             persist_profile=False,
             update_sources=True,
+            sync=False,
+        )
+
+    def test_action_dependencies_with_sync(self):
+        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.InstallService") as MockSvc:
+                MockSvc.return_value.__enter__ = mock.Mock(
+                    return_value=MockSvc.return_value
+                )
+                MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
+                self._run_with_target(["dependencies", "--sync"])
+        mock_deps.assert_called_once_with(self.temp_dir.resolve(), "dependencies")
+        MockSvc.return_value.run.assert_called_once_with(
+            persist=False,
+            persist_local=False,
+            persist_profile=False,
+            update_sources=None,
+            sync=True,
         )
 
     def test_action_sources_update(self):

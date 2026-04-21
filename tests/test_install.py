@@ -549,6 +549,57 @@ class TestInit(PloneXTestCase):
                 ],
             )
 
+    def test_sync_command_property(self):
+        with temp_install() as install:
+            self.assertEqual(
+                install.sync_command,
+                [
+                    str(install.virtualenv_dir / "bin" / "uv"),
+                    "pip",
+                    "sync",
+                    str(install.requirements_txt.absolute()),
+                    "-c",
+                    str(install.constrainst_txt.absolute()),
+                ],
+            )
+
+    def test_run_with_sync(self):
+        with temp_cwd() as cwd:
+            install = InstallService(dont_ask=True)
+            venv_bin = cwd / ".venv" / "bin"
+            venv_bin.mkdir(parents=True)
+            (venv_bin / "activate").touch()
+            (venv_bin / "uv").touch()
+            (venv_bin / "pip").touch()
+            constraints_file = install.var_folder / "constraints.txt"
+            requirements_file = install.var_folder / "requirements.txt"
+            constraints_file.write_text("# header\n")
+            requirements_file.write_text("# header\n")
+            with (
+                mock.patch.object(InstallService, "ensure_virtualenv"),
+                mock.patch.object(InstallService, "make_requirements_txt"),
+                mock.patch.object(InstallService, "make_constraints_txt"),
+                mock.patch.object(install, "run_command") as mock_run_command,
+                mock.patch.object(
+                    install, "execute_command", return_value=""
+                ) as mock_execute,
+                mock.patch(
+                    "plonex.install.RequirementsFile.from_file",
+                    side_effect=[
+                        SimpleNamespace(requirements=[], options=[]),
+                        SimpleNamespace(requirements=[]),
+                    ],
+                ),
+            ):
+                with install:
+                    install.requirements_txt = requirements_file
+                    install.constrainst_txt = constraints_file
+                    install.run(sync=True)
+
+            self.assertEqual(mock_run_command.call_count, 2)
+            mock_run_command.assert_any_call(install.sync_command)
+            mock_execute.assert_called_once()
+
     def test_run_with_persist(self):
         with temp_cwd() as cwd:
             install = InstallService(dont_ask=True)

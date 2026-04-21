@@ -215,6 +215,14 @@ def register_setup_parsers(subs, add_subparser) -> None:
         action="store_true",
         dest="update_sources",
     )
+    dependencies_parser.add_argument(
+        "--sync",
+        help="Synchronize virtualenv packages with compiled requirements",
+        required=False,
+        default=False,
+        action="store_true",
+        dest="sync",
+    )
 
     sources_parser = add_subparser(
         subs,
