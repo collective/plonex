@@ -26,13 +26,16 @@ install: .venv/bin/uv requirements.txt constraints.txt
 	.venv/bin/pip install uv
 
 .PHONY: pre-commit
-pre-commit: all  ## Install pre-commit hooks
-	pre-commit install
+pre-commit:  ## Install and run pre-commit hooks
+	@pre-commit install
+	@pre-commit run --all-files
+
 
 .PHONY: clean
 clean:  ## Remove all generated files
 	rm -rf .coverage .venv tmp var
 
+##
 
 .PHONY: help
 help:  ## Show this help message
