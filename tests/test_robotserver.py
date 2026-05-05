@@ -1,6 +1,6 @@
 from .utils import PloneXTestCase
 from .utils import temp_cwd
-from plonex.robotserver import RobotServer
+from plonex.services.robotserver import RobotServer
 
 import inspect
 

@@ -3,7 +3,7 @@ from dataclasses import field
 from functools import cached_property
 from pathlib import Path
 from plonex.base import BaseService
-from plonex.template import TemplateService
+from plonex.services.template import TemplateService
 
 import sh  # type: ignore[import-untyped]
 import time
@@ -29,7 +29,7 @@ class Supervisor(BaseService):
     name: str = "supervisor"
 
     supervisord_conf_template: str = (
-        "resource://plonex.supervisor.templates:supervisord.conf.j2"
+        "resource://plonex.services.supervisor.templates:supervisord.conf.j2"
     )
 
     etc_folder: Path = field(init=False)

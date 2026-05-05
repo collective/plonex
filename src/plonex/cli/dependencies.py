@@ -1,20 +1,20 @@
 from dataclasses import fields
 from pathlib import Path
 from plonex.base import BaseService
-from plonex.compile import CompileService
-from plonex.describe import DescribeService
-from plonex.directory import DirectoryService
-from plonex.init import InitService
-from plonex.install import InstallService
-from plonex.robotserver import RobotServer
-from plonex.robottest import RobotTest
-from plonex.sources import SourcesService
-from plonex.supervisor import Supervisor
-from plonex.template import TemplateService
-from plonex.upgrade import UpgradeService
-from plonex.zeoclient import ZeoClient
-from plonex.zeoserver import ZeoServer
-from plonex.zopetest import ZopeTest
+from plonex.services.compile import CompileService
+from plonex.services.describe import DescribeService
+from plonex.services.directory import DirectoryService
+from plonex.services.init import InitService
+from plonex.services.install import InstallService
+from plonex.services.robotserver import RobotServer
+from plonex.services.robottest import RobotTest
+from plonex.services.sources import SourcesService
+from plonex.services.supervisor import Supervisor
+from plonex.services.template import TemplateService
+from plonex.services.upgrade import UpgradeService
+from plonex.services.zeoclient import ZeoClient
+from plonex.services.zeoserver import ZeoServer
+from plonex.services.zopetest import ZopeTest
 from typing import Any
 
 
@@ -25,7 +25,7 @@ def _service_name(service_class) -> str | None:
     return None
 
 
-def _service_registry() -> dict[str, type[BaseService]]:
+def _build_service_registry() -> dict[str, type[BaseService]]:
     service_classes = [
         CompileService,
         DescribeService,
@@ -48,6 +48,9 @@ def _service_registry() -> dict[str, type[BaseService]]:
             registry[service_name] = service_class
     registry["template"] = TemplateService
     return registry
+
+
+_SERVICE_REGISTRY: dict[str, type[BaseService]] = _build_service_registry()
 
 
 def _normalize_template_kwargs(kwargs: dict[str, Any], target: Path) -> dict[str, Any]:
@@ -115,10 +118,9 @@ def _service_from_config(
 
     service_kwargs.pop("run_for", None)
 
-    registry = _service_registry()
-    service_class = registry.get(service_name)
+    service_class = _SERVICE_REGISTRY.get(service_name)
     if service_class is None:
-        known_services = ", ".join(sorted(registry))
+        known_services = ", ".join(sorted(_SERVICE_REGISTRY))
         raise ValueError(
             f"Unknown service {service_name!r}. Known services: {known_services}"
         )

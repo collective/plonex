@@ -1,25 +1,27 @@
 from . import parser as _cli_parser
 from .dependencies import _run_service_dependencies
 from argcomplete import autocomplete
+from argparse import ArgumentParser
 from argparse import Namespace
 from importlib.metadata import version
 from itertools import chain
 from pathlib import Path
 from plonex import logger
-from plonex.compile import CompileService
 from plonex.config import normalize_default_actions
-from plonex.describe import DescribeService
-from plonex.init import InitService
-from plonex.install import InstallService
-from plonex.robotserver import RobotServer
-from plonex.robottest import RobotTest
-from plonex.sources import SourcesService
-from plonex.supervisor import Supervisor
-from plonex.upgrade import UpgradeService
-from plonex.zeoclient import ZeoClient
-from plonex.zeoserver import ZeoServer
-from plonex.zopetest import ZopeTest
+from plonex.services.compile import CompileService
+from plonex.services.describe import DescribeService
+from plonex.services.init import InitService
+from plonex.services.install import InstallService
+from plonex.services.robotserver import RobotServer
+from plonex.services.robottest import RobotTest
+from plonex.services.sources import SourcesService
+from plonex.services.supervisor import Supervisor
+from plonex.services.upgrade import UpgradeService
+from plonex.services.zeoclient import ZeoClient
+from plonex.services.zeoserver import ZeoServer
+from plonex.services.zopetest import ZopeTest
 from rich.console import Console
+from typing import Callable
 
 import logging
 import sys
@@ -104,170 +106,207 @@ def _load_default_actions(target: Path) -> list[list[str]] | None:
         return normalize_default_actions(init.options)
 
 
-def _dispatch(args, parser, target: Path) -> None:
-    if args.action == "compile":
-        _run_service_dependencies(target, "compile")
-        with CompileService(target=target) as svc:
-            svc.run()
+def _handle_compile(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "compile")
+    with CompileService(target=target) as svc:
+        svc.run()
 
-    elif args.action == "describe":
-        _run_service_dependencies(target, "describe")
-        with DescribeService(
-            target=target,
-            generate_html=getattr(args, "describe_html", False),
-            browse_html=getattr(args, "describe_browse", False),
-        ) as svc:
-            svc.run()
 
-    elif args.action == "robotserver":
-        _run_service_dependencies(target, "robotserver")
-        with RobotServer(target=target, layer=args.layer) as svc:
-            svc.run()
+def _handle_describe(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "describe")
+    with DescribeService(
+        target=target,
+        generate_html=getattr(args, "describe_html", False),
+        browse_html=getattr(args, "describe_browse", False),
+    ) as svc:
+        svc.run()
 
-    elif args.action == "robottest":
-        _run_service_dependencies(target, "robottest")
-        with RobotTest(
-            target=target,
-            paths=args.paths,
-            browser=args.browser,
-            test=args.test,
-        ) as svc:
-            svc.run()
 
-    elif args.action == "zopetest":
-        _run_service_dependencies(target, "zopetest")
-        with ZopeTest(
-            target=target,
-            package=args.package,
-            test=args.test,
-        ) as svc:
-            svc.run()
+def _handle_robotserver(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "robotserver")
+    with RobotServer(target=target, layer=args.layer) as svc:
+        svc.run()
 
-    elif args.action == "zeoserver":
-        _run_service_dependencies(target, "zeoserver")
-        logger.debug("Starting ZEO Server")
+
+def _handle_robottest(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "robottest")
+    with RobotTest(
+        target=target,
+        paths=args.paths,
+        browser=args.browser,
+        test=args.test,
+    ) as svc:
+        svc.run()
+
+
+def _handle_zopetest(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "zopetest")
+    with ZopeTest(
+        target=target,
+        package=args.package,
+        test=args.test,
+    ) as svc:
+        svc.run()
+
+
+def _handle_zeoserver(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "zeoserver")
+    logger.debug("Starting ZEO Server")
+    with ZeoServer(target=target) as svc:
+        svc.run()
+
+
+def _handle_zeoclient(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "zeoclient")
+    logger.debug("Starting ZEO Client")
+    zeoclient_action = getattr(args, "zeoclient_action", "") or "console"
+    config_files = getattr(args, "zeoclient_config", []) or []
+    cli_options = {}
+    if args.host:
+        cli_options["http_host"] = args.host
+    if args.port:
+        cli_options["http_port"] = args.port
+    with ZeoClient(
+        name=args.name,
+        target=target,
+        config_files=config_files,
+        run_mode=zeoclient_action,  # type: ignore
+        cli_options=cli_options,
+    ) as svc:
+        svc.run()
+
+
+def _handle_run(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "run")
+    with ZeoClient(target=target) as svc:
+        svc.run_script(args.args or [])
+
+
+def _handle_adduser(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "adduser")
+    config_files = getattr(args, "zeoclient_config", []) or []
+    with ZeoClient(target=target, config_files=config_files) as svc:
+        svc.adduser(args.username, args.password)
+
+
+def _handle_supervisor(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "supervisor")
+    supervisor_action = getattr(args, "supervisor_action", None) or "status"
+    with Supervisor(target=target) as svc:
+        if supervisor_action == "start":
+            svc.run()
+        elif supervisor_action == "stop":
+            svc.run_stop()
+        elif supervisor_action == "restart":
+            svc.run_restart()
+        elif supervisor_action == "status":
+            svc.run_status()
+        elif supervisor_action == "graceful":
+            interval = getattr(args, "graceful_interval", None)
+            svc.run_graceful(
+                delay=svc.graceful_interval if interval is None else interval
+            )
+
+
+def _handle_db(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "db")
+    db_action = getattr(args, "db_action", None)
+    if db_action == "backup":
         with ZeoServer(target=target) as svc:
-            svc.run()
+            svc.run_backup()
+    elif db_action == "restore":
+        with ZeoServer(target=target) as svc:
+            svc.run_restore()
+    elif db_action == "pack":
+        with ZeoServer(target=target) as svc:
+            svc.run_pack(days=args.days)
+    else:
+        parser.print_help()
 
-    elif args.action == "zeoclient":
-        _run_service_dependencies(target, "zeoclient")
-        logger.debug("Starting ZEO Client")
-        zeoclient_action = getattr(args, "zeoclient_action", "") or "console"
-        config_files = getattr(args, "zeoclient_config", []) or []
-        cli_options = {}
-        if args.host:
-            cli_options["http_host"] = args.host
-        if args.port:
-            cli_options["http_port"] = args.port
-        with ZeoClient(
-            name=args.name,
-            target=target,
-            config_files=config_files,
-            run_mode=zeoclient_action,  # type: ignore
-            cli_options=cli_options,
-        ) as svc:
-            svc.run()
 
-    elif args.action == "run":
-        _run_service_dependencies(target, "run")
-        with ZeoClient(target=target) as svc:
-            svc.run_script(args.args or [])
+def _handle_dependencies(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "dependencies")
+    persist_mode = getattr(args, "persist_mode", None)
+    with InstallService(target=target) as svc:
+        svc.run(
+            persist=persist_mode == "project",
+            persist_local=persist_mode == "local",
+            persist_profile=persist_mode == "profile",
+            update_sources=getattr(args, "update_sources", None),
+            sync=getattr(args, "sync", False),
+        )
 
-    elif args.action == "adduser":
-        _run_service_dependencies(target, "adduser")
-        config_files = getattr(args, "zeoclient_config", []) or []
-        with ZeoClient(target=target, config_files=config_files) as svc:
-            svc.adduser(args.username, args.password)
 
-    elif args.action == "supervisor":
-        _run_service_dependencies(target, "supervisor")
-        supervisor_action = getattr(args, "supervisor_action", None) or "status"
-        with Supervisor(target=target) as svc:
-            if supervisor_action == "start":
-                svc.run()
-            elif supervisor_action == "stop":
-                svc.run_stop()
-            elif supervisor_action == "restart":
-                svc.run_restart()
-            elif supervisor_action == "status":
-                svc.run_status()
-            elif supervisor_action == "graceful":
-                interval = getattr(args, "graceful_interval", None)
-                svc.run_graceful(
-                    delay=svc.graceful_interval if interval is None else interval
-                )
-
-    elif args.action == "db":
-        _run_service_dependencies(target, "db")
-        db_action = getattr(args, "db_action", None)
-        if db_action == "backup":
-            with ZeoServer(target=target) as svc:
-                svc.run_backup()
-        elif db_action == "restore":
-            with ZeoServer(target=target) as svc:
-                svc.run_restore()
-        elif db_action == "pack":
-            with ZeoServer(target=target) as svc:
-                svc.run_pack(days=args.days)
+def _handle_sources(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "sources")
+    sources_action = getattr(args, "sources_action", None) or "update"
+    glob_pattern = getattr(args, "glob", None)
+    with SourcesService(target=target) as svc:
+        if sources_action == "update":
+            svc.run_update(glob=glob_pattern)
+        elif sources_action == "list":
+            svc.run_list(glob=glob_pattern)
+        elif sources_action == "missing":
+            svc.run_show_missing(glob=glob_pattern)
+        elif sources_action == "clone-missing":
+            svc.run_clone_missing(
+                assume_yes=getattr(args, "sources_yes", False), glob=glob_pattern
+            )
+        elif sources_action == "force-update":
+            svc.run_update(
+                force=True,
+                assume_yes=getattr(args, "sources_yes", False),
+                glob=glob_pattern,
+            )
+        elif sources_action == "tainted":
+            svc.run_show_tainted(glob=glob_pattern)
+        elif sources_action == "suggest-existing":
+            svc.run_suggest_existing(
+                apply=getattr(args, "sources_apply", False),
+                apply_local=getattr(args, "sources_apply_local", False),
+                apply_profile=getattr(args, "sources_apply_profile", False),
+            )
         else:
             parser.print_help()
 
-    elif args.action == "dependencies":
-        _run_service_dependencies(target, "dependencies")
-        persist_mode = getattr(args, "persist_mode", None)
-        with InstallService(target=target) as svc:
-            svc.run(
-                persist=persist_mode == "project",
-                persist_local=persist_mode == "local",
-                persist_profile=persist_mode == "profile",
-                update_sources=getattr(args, "update_sources", None),
-                sync=getattr(args, "sync", False),
-            )
 
-    elif args.action == "sources":
-        _run_service_dependencies(target, "sources")
-        sources_action = getattr(args, "sources_action", None) or "update"
-        glob_pattern = getattr(args, "glob", None)
-        with SourcesService(target=target) as svc:
-            if sources_action == "update":
-                svc.run_update(glob=glob_pattern)
-            elif sources_action == "list":
-                svc.run_list(glob=glob_pattern)
-            elif sources_action == "missing":
-                svc.run_show_missing(glob=glob_pattern)
-            elif sources_action == "clone-missing":
-                svc.run_clone_missing(
-                    assume_yes=getattr(args, "sources_yes", False), glob=glob_pattern
-                )
-            elif sources_action == "force-update":
-                svc.run_update(
-                    force=True,
-                    assume_yes=getattr(args, "sources_yes", False),
-                    glob=glob_pattern,
-                )
-            elif sources_action == "tainted":
-                svc.run_show_tainted(glob=glob_pattern)
-            elif sources_action == "suggest-existing":
-                svc.run_suggest_existing(
-                    apply=getattr(args, "sources_apply", False),
-                    apply_local=getattr(args, "sources_apply_local", False),
-                    apply_profile=getattr(args, "sources_apply_profile", False),
-                )
-            else:
-                parser.print_help()
+def _handle_install(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "install")
+    with InstallService(target=target) as svc:
+        svc.add_packages(args.package)
+    with InstallService(target=target) as svc:
+        svc.run()
 
-    elif args.action == "install":
-        _run_service_dependencies(target, "install")
-        with InstallService(target=target) as svc:
-            svc.add_packages(args.package)
-        with InstallService(target=target) as svc:
-            svc.run()
 
-    elif args.action == "upgrade":
-        _run_service_dependencies(target, "upgrade")
-        with UpgradeService(target=target) as svc:
-            svc.run()
+def _handle_upgrade(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "upgrade")
+    with UpgradeService(target=target) as svc:
+        svc.run()
 
+
+_ACTION_HANDLERS: dict[str, Callable[[Namespace, ArgumentParser, Path], None]] = {
+    "compile": _handle_compile,
+    "describe": _handle_describe,
+    "robotserver": _handle_robotserver,
+    "robottest": _handle_robottest,
+    "zopetest": _handle_zopetest,
+    "zeoserver": _handle_zeoserver,
+    "zeoclient": _handle_zeoclient,
+    "run": _handle_run,
+    "adduser": _handle_adduser,
+    "supervisor": _handle_supervisor,
+    "db": _handle_db,
+    "dependencies": _handle_dependencies,
+    "sources": _handle_sources,
+    "install": _handle_install,
+    "upgrade": _handle_upgrade,
+}
+
+
+def _dispatch(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    handler = _ACTION_HANDLERS.get(args.action)
+    if handler is not None:
+        handler(args, parser, target)
     else:
         parser.print_help()
 
@@ -289,7 +328,11 @@ def main() -> None:
     target = _resolve_target(args)
     _configure_logging(args, target)
     if args.action:
-        _dispatch(args, parser, target)
+        try:
+            _dispatch(args, parser, target)
+        except FileNotFoundError as exc:
+            logger.error(str(exc))
+            sys.exit(1)
         return
 
     try:
@@ -307,7 +350,11 @@ def main() -> None:
             action_tokens,
             namespace=Namespace(**vars(args)),
         )
-        _dispatch(default_args, parser, target)
+        try:
+            _dispatch(default_args, parser, target)
+        except FileNotFoundError as exc:
+            logger.error(str(exc))
+            sys.exit(1)
 
 
 if __name__ == "__main__":

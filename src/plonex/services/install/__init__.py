@@ -6,7 +6,7 @@ from importlib import resources
 from pathlib import Path
 from pip_requirements_parser import RequirementsFile  # type: ignore
 from plonex.base import BaseService
-from plonex.sources import SourcesService
+from plonex.services.sources import SourcesService
 from rich.console import Console
 from tempfile import NamedTemporaryFile
 from urllib.parse import urljoin
@@ -580,7 +580,7 @@ class InstallService(BaseService):
         relative_to: Path,
         seen: set[Path],
     ) -> list[Path]:
-        from plonex.profile import ProfileService
+        from plonex.services.profile import ProfileService
 
         resolved_profile = self._resolve_profile_source(profile, relative_to)
         profile_service = ProfileService(source=resolved_profile, target=self.target)

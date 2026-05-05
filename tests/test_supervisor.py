@@ -3,7 +3,7 @@ from .utils import ReadExpected
 from .utils import temp_cwd
 from contextlib import contextmanager
 from pathlib import Path
-from plonex.supervisor import Supervisor
+from plonex.services.supervisor import Supervisor
 from unittest import mock
 from unittest.mock import PropertyMock
 
@@ -131,7 +131,7 @@ class TestSupervisor(PloneXTestCase):
     def test_supervisord_property(self):
         """Test that supervisord property returns a sh.Command"""
         with temp_supervisor() as supervisor:
-            with mock.patch("plonex.supervisor.sh.Command") as mock_command:
+            with mock.patch("plonex.services.supervisor.sh.Command") as mock_command:
                 cmd = supervisor.supervisord
             mock_command.assert_called_once_with(
                 str(supervisor.virtualenv_dir / "bin" / "supervisord")
@@ -141,7 +141,7 @@ class TestSupervisor(PloneXTestCase):
     def test_supervisorctl_property(self):
         """Test that supervisorctl property returns a sh.Command"""
         with temp_supervisor() as supervisor:
-            with mock.patch("plonex.supervisor.sh.Command") as mock_command:
+            with mock.patch("plonex.services.supervisor.sh.Command") as mock_command:
                 cmd = supervisor.supervisorctl
             mock_command.assert_called_once_with(
                 str(supervisor.virtualenv_dir / "bin" / "supervisorctl")
@@ -164,7 +164,7 @@ class TestSupervisor(PloneXTestCase):
                     super().__init__(exit_code)
                     self.exit_code = exit_code
 
-            with mock.patch("plonex.supervisor.sh.ErrorReturnCode", FakeError):
+            with mock.patch("plonex.services.supervisor.sh.ErrorReturnCode", FakeError):
                 error = FakeError(3)
                 with mock.patch.object(
                     Supervisor,
@@ -222,7 +222,9 @@ class TestSupervisor(PloneXTestCase):
                     self.stdout = stdout
 
             with mock.patch.object(supervisor, "is_running", return_value=True):
-                with mock.patch("plonex.supervisor.sh.ErrorReturnCode", FakeError):
+                with mock.patch(
+                    "plonex.services.supervisor.sh.ErrorReturnCode", FakeError
+                ):
                     error = FakeError(b"some output")
                     with mock.patch.object(
                         Supervisor,
@@ -340,7 +342,9 @@ class TestSupervisor(PloneXTestCase):
                             ]
                         ),
                     ) as mock_ctl:
-                        with mock.patch("plonex.supervisor.time.sleep") as mock_sleep:
+                        with mock.patch(
+                            "plonex.services.supervisor.time.sleep"
+                        ) as mock_sleep:
                             with mock.patch.object(supervisor, "print") as mock_print:
                                 supervisor.run_graceful(delay=2.5)
                 self.assertEqual(

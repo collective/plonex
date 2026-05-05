@@ -117,7 +117,7 @@ class BaseService:
         relative_to: Path,
         seen: set[Path] | None = None,
     ) -> dict:
-        from plonex.profile import ProfileService
+        from plonex.services.profile import ProfileService
 
         resolved_profile = self._resolve_profile_source(profile, relative_to)
         profile_service = ProfileService(source=resolved_profile, target=self.target)
@@ -405,10 +405,10 @@ class BaseService:
         """The path to the virtualenv"""
         dir = self.target / ".venv"
         if not (dir / "bin" / "activate").exists():
-            logger.error(
-                "No virtualenv found in %r. You may want to run `plonex init`", dir
+            raise FileNotFoundError(
+                f"No virtualenv found in {str(dir)!r}. "
+                "You may want to run `plonex init`"
             )
-            sys.exit(1)
         return dir.absolute()
 
     @staticmethod

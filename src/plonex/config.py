@@ -32,6 +32,17 @@ def _normalize_sources(value: Any) -> dict[str, Any]:
     return dict(value)
 
 
+def _normalize_services(value: Any) -> list:
+    if not isinstance(value, list):
+        raise ValueError("The 'services' option should be a list")
+    for item in value:
+        if not isinstance(item, dict):
+            raise ValueError(
+                "Each entry in 'services' should be a mapping with a single service key"
+            )
+    return list(value)
+
+
 def _normalize_bool_option(option_name: str, value: Any) -> bool:
     if isinstance(value, bool):
         return value
@@ -62,6 +73,7 @@ SUPPORTED_OPTION_SPECS: dict[str, OptionSpec] = {
     ),
     "sources": OptionSpec(name="sources", default={}, normalize=_normalize_sources),
     "sources_location": OptionSpec(name="sources_location", default="src"),
+    "services": OptionSpec(name="services", default=[], normalize=_normalize_services),
     "sources_update_before_dependencies": OptionSpec(
         name="sources_update_before_dependencies",
         default=False,

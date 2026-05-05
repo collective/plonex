@@ -3,7 +3,7 @@ from .utils import ReadExpected
 from .utils import temp_cwd
 from contextlib import contextmanager
 from pathlib import Path
-from plonex.zeoclient import ZeoClient
+from plonex.services.zeoclient import ZeoClient
 from unittest import mock
 
 import inspect
@@ -246,7 +246,7 @@ class TestZeoClient(PloneXTestCase):
             pid_dir = client.var_folder / client.name
             pid_dir.mkdir(parents=True, exist_ok=True)
             client.pid_file.write_text("123")
-            with mock.patch("plonex.zeoclient.os.kill", return_value=None):
+            with mock.patch("plonex.services.zeoclient.os.kill", return_value=None):
                 with self.assertRaises(SystemExit):
                     _ = client.command
 
@@ -255,7 +255,7 @@ class TestZeoClient(PloneXTestCase):
             pid_dir = client.var_folder / client.name
             pid_dir.mkdir(parents=True, exist_ok=True)
             client.pid_file.write_text("123")
-            with mock.patch("plonex.zeoclient.os.kill", side_effect=OSError):
+            with mock.patch("plonex.services.zeoclient.os.kill", side_effect=OSError):
                 command = client.command
             self.assertEqual(
                 command, [str(client.tmp_folder / "bin" / "instance"), client.run_mode]
@@ -288,7 +288,7 @@ class TestZeoClient(PloneXTestCase):
             mock_command = mock.Mock(return_value="ok")
             with mock.patch.object(client.logger, "info") as mock_info:
                 with mock.patch(
-                    "plonex.zeoclient.sh.Command", return_value=mock_command
+                    "plonex.services.zeoclient.sh.Command", return_value=mock_command
                 ):
                     client.run_script(["script.py"])
             mock_info.assert_called_once_with("ok")
@@ -303,7 +303,7 @@ class TestZeoClient(PloneXTestCase):
 
             with mock.patch.object(client.logger, "error") as mock_error:
                 with mock.patch(
-                    "plonex.zeoclient.sh.Command",
+                    "plonex.services.zeoclient.sh.Command",
                     return_value=mock.Mock(side_effect=ScriptError()),
                 ):
                     client.run_script(["script.py"])
@@ -313,7 +313,7 @@ class TestZeoClient(PloneXTestCase):
         with temp_client() as client:
             with mock.patch.object(client.logger, "error") as mock_error:
                 with mock.patch(
-                    "plonex.zeoclient.sh.Command",
+                    "plonex.services.zeoclient.sh.Command",
                     return_value=mock.Mock(side_effect=Exception("boom")),
                 ):
                     client.run_script(["script.py"])

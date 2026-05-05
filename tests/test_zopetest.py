@@ -1,6 +1,6 @@
 from .utils import PloneXTestCase
 from .utils import temp_cwd
-from plonex.zopetest import ZopeTest
+from plonex.services.zopetest import ZopeTest
 from unittest import mock
 
 import inspect

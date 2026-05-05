@@ -1,6 +1,6 @@
 from .utils import PloneXTestCase
 from .utils import temp_cwd
-from plonex.upgrade import UpgradeService
+from plonex.services.upgrade import UpgradeService
 from unittest import mock
 
 import inspect

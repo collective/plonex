@@ -4,7 +4,7 @@ from .utils import temp_cwd
 from contextlib import contextmanager
 from importlib.metadata import version
 from pathlib import Path
-from plonex.init import InitService
+from plonex.services.init import InitService
 from unittest import mock
 
 import inspect
@@ -162,8 +162,8 @@ class TestInit(PloneXTestCase):
             (cwd / ".venv" / "bin").mkdir(parents=True)
             (cwd / ".venv" / "bin" / "activate").touch()
             with (
-                mock.patch("plonex.init.InstallService") as MockInstall,
-                mock.patch("plonex.init.Supervisor") as MockSupervisor,
+                mock.patch("plonex.services.init.InstallService") as MockInstall,
+                mock.patch("plonex.services.init.Supervisor") as MockSupervisor,
             ):
                 MockInstall.return_value.__enter__ = mock.Mock(
                     return_value=MockInstall.return_value
@@ -186,8 +186,8 @@ class TestInit(PloneXTestCase):
             (cwd / ".venv" / "bin" / "activate").touch()
             (cwd / ".gitignore").write_text("existing\n")
             with (
-                mock.patch("plonex.init.InstallService") as MockInstall,
-                mock.patch("plonex.init.Supervisor") as MockSupervisor,
+                mock.patch("plonex.services.init.InstallService") as MockInstall,
+                mock.patch("plonex.services.init.Supervisor") as MockSupervisor,
             ):
                 MockInstall.return_value.__enter__ = mock.Mock(
                     return_value=MockInstall.return_value

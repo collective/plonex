@@ -3,7 +3,7 @@ from .utils import temp_cwd
 from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
-from plonex.directory import DirectoryService
+from plonex.services.directory import DirectoryService
 
 import inspect
 import unittest

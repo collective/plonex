@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from dataclasses import field
 from pathlib import Path
 from plonex.base import BaseService
-from plonex.profile import ProfileService
+from plonex.services.profile import ProfileService
 from textwrap import dedent
 from unittest import mock
 
@@ -423,13 +423,11 @@ class TestBaseService(unittest.TestCase):
     # --- virtualenv_dir ---
 
     def test_virtualenv_dir_not_found(self):
-        """virtualenv_dir logs an error and exits when .venv is absent"""
+        """virtualenv_dir raises FileNotFoundError when .venv is absent"""
         service = BaseService()
-        with mock.patch("plonex.base.logger") as mock_logger:
-            with self.assertRaises(SystemExit) as cm:
-                _ = service.virtualenv_dir
-        self.assertEqual(cm.exception.code, 1)
-        mock_logger.error.assert_called_once()
+        with self.assertRaises(FileNotFoundError) as cm:
+            _ = service.virtualenv_dir
+        self.assertIn(".venv", str(cm.exception))
 
     # --- run_command ---
 

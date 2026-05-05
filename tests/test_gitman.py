@@ -1,6 +1,6 @@
 from .utils import PloneXTestCase
 from .utils import temp_cwd
-from plonex.sources import SourcesService
+from plonex.services.sources import SourcesService
 from unittest import mock
 
 import sh
@@ -304,7 +304,7 @@ class TestSourcesService(PloneXTestCase):
                     mock.patch.object(
                         svc, "execute_command", return_value=" M setup.py\n"
                     ),
-                    mock.patch("plonex.sources.Console") as MockConsole,
+                    mock.patch("plonex.services.sources.Console") as MockConsole,
                 ):
                     svc.run_show_tainted()
             MockConsole.return_value.print.assert_any_call("Tainted checkouts:")
@@ -406,7 +406,7 @@ class TestSourcesService(PloneXTestCase):
                             else "https://github.com/example/extra.package.git"
                         ),
                     ),
-                    mock.patch("plonex.sources.Console") as MockConsole,
+                    mock.patch("plonex.services.sources.Console") as MockConsole,
                 ):
                     svc.run_list()
             rendered = "\n".join(

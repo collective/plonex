@@ -1,7 +1,7 @@
 from .utils import PloneXTestCase
 from .utils import temp_cwd
 from pathlib import Path
-from plonex.describe import DescribeService
+from plonex.services.describe import DescribeService
 from unittest import mock
 
 import inspect
@@ -38,7 +38,7 @@ class TestDescribeService(PloneXTestCase):
         """Test the developed_packages property with mocked InstallService"""
         with temp_cwd() as cwd:
             svc = DescribeService()
-            with mock.patch("plonex.describe.InstallService") as MockInstall:
+            with mock.patch("plonex.services.describe.InstallService") as MockInstall:
                 MockInstall.return_value.__enter__ = mock.Mock(
                     return_value=MockInstall.return_value
                 )
@@ -191,7 +191,7 @@ class TestDescribeService(PloneXTestCase):
         """Test the supervisor_status property with mocked Supervisor"""
         with temp_cwd() as cwd:
             svc = DescribeService()
-            with mock.patch("plonex.describe.Supervisor") as MockSupervisor:
+            with mock.patch("plonex.services.describe.Supervisor") as MockSupervisor:
                 MockSupervisor.return_value.__enter__ = mock.Mock(
                     return_value=MockSupervisor.return_value
                 )
@@ -232,7 +232,7 @@ class TestDescribeService(PloneXTestCase):
                 "  - template:\n"
                 "      run_for: describe\n"
             )
-            (cwd / "etc" / "plonex.describe.yml").write_text("log_level: DEBUG\n")
+            (cwd / "etc" / "plonex-describe.yml").write_text("log_level: DEBUG\n")
             (cwd / "etc" / "requirements.d").mkdir()
             (cwd / "etc" / "requirements.d" / "010-extra.txt").write_text("foo\n")
             (cwd / "etc" / "constraints.d").mkdir()
@@ -251,19 +251,19 @@ class TestDescribeService(PloneXTestCase):
 
             with (
                 mock.patch(
-                    "plonex.describe.InstallService.ensure_virtualenv",
+                    "plonex.services.describe.InstallService.ensure_virtualenv",
                     return_value=None,
                 ),
                 mock.patch(
-                    "plonex.describe.BaseService.execute_command",
+                    "plonex.services.describe.BaseService.execute_command",
                     side_effect=lambda command, cwd=None, stream_output=False: (
                         "Python 3.13.7\n"
                         if len(command) == 2 and str(command[1]) == "--version"
                         else ""
                     ),
                 ),
-                mock.patch("plonex.describe.Supervisor") as MockSupervisor,
-                mock.patch("plonex.describe.Console") as MockConsole,
+                mock.patch("plonex.services.describe.Supervisor") as MockSupervisor,
+                mock.patch("plonex.services.describe.Console") as MockConsole,
             ):
                 MockSupervisor.return_value.__enter__ = mock.Mock(
                     return_value=MockSupervisor.return_value
@@ -324,8 +324,8 @@ class TestDescribeService(PloneXTestCase):
                 self.assertIn("- `profiles/base`", rendered)
                 self.assertIn(
                     (
-                        f"[etc/plonex.describe.yml](file://"
-                        f"{cwd / 'etc' / 'plonex.describe.yml'})"
+                        f"[etc/plonex-describe.yml](file://"
+                        f"{cwd / 'etc' / 'plonex-describe.yml'})"
                     ),
                     rendered,
                 )
@@ -391,20 +391,20 @@ class TestDescribeService(PloneXTestCase):
 
             with (
                 mock.patch(
-                    "plonex.describe.InstallService.ensure_virtualenv",
+                    "plonex.services.describe.InstallService.ensure_virtualenv",
                     return_value=None,
                 ),
                 mock.patch(
-                    "plonex.describe.BaseService.execute_command",
+                    "plonex.services.describe.BaseService.execute_command",
                     side_effect=lambda command, cwd=None, stream_output=False: (
                         "Python 3.13.7\n"
                         if len(command) == 2 and str(command[1]) == "--version"
                         else ""
                     ),
                 ),
-                mock.patch("plonex.describe.Supervisor") as MockSupervisor,
-                mock.patch("plonex.describe.Console") as MockConsole,
-                mock.patch("plonex.describe.webbrowser.open") as mock_open,
+                mock.patch("plonex.services.describe.Supervisor") as MockSupervisor,
+                mock.patch("plonex.services.describe.Console") as MockConsole,
+                mock.patch("plonex.services.describe.webbrowser.open") as mock_open,
             ):
                 MockSupervisor.return_value.__enter__ = mock.Mock(
                     return_value=MockSupervisor.return_value

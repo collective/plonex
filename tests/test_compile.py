@@ -1,6 +1,6 @@
 from .utils import PloneXTestCase
 from .utils import temp_cwd
-from plonex.compile import CompileService
+from plonex.services.compile import CompileService
 
 import inspect
 

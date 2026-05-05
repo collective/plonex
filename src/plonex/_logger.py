@@ -38,3 +38,11 @@ def warning_once(
     _warning_once_keys.add(key)
     logger_instance.warning(message, *args)
     return True
+
+
+def reset_warning_once() -> None:
+    """Clear all previously seen warning-once keys.
+
+    Intended for use in test teardown to prevent state leaking between tests.
+    """
+    _warning_once_keys.clear()

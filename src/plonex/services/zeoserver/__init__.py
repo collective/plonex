@@ -3,7 +3,7 @@ from dataclasses import field
 from functools import cached_property
 from pathlib import Path
 from plonex.base import BaseService
-from plonex.template import TemplateService
+from plonex.services.template import TemplateService
 
 
 @dataclass(kw_only=True)
@@ -68,7 +68,7 @@ class ZeoServer(BaseService):
         if not self.pre_services:
             self.pre_services = [
                 TemplateService(
-                    source_path="resource://plonex.zeoserver.templates:zeo.conf.j2",
+                    source_path="resource://plonex.services.zeoserver.templates:zeo.conf.j2",  # noqa: E501
                     target_path=self.tmp_folder / "etc" / "zeo.conf",
                     options={
                         "address": self.options["zeo_address"],

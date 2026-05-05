@@ -3,11 +3,11 @@ from dataclasses import field
 from datetime import datetime
 from pathlib import Path
 from plonex.base import BaseService
-from plonex.compile import CompileService
-from plonex.install import InstallService
-from plonex.sources import SourcesService
-from plonex.supervisor import Supervisor
-from plonex.template import TemplateService
+from plonex.services.compile import CompileService
+from plonex.services.install import InstallService
+from plonex.services.sources import SourcesService
+from plonex.services.supervisor import Supervisor
+from plonex.services.template import TemplateService
 from rich.console import Console
 from rich.markdown import Markdown
 
@@ -21,7 +21,7 @@ class DescribeService(BaseService):
     name: str = "describe"
 
     describe_template: str = (
-        "resource://plonex.describe.templates:plonex_description.md.j2"
+        "resource://plonex.services.describe.templates:plonex_description.md.j2"
     )
     generate_html: bool = False
     browse_html: bool = False

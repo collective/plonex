@@ -57,20 +57,18 @@ class TemplateService(BaseService):
         self.target_path.write_text(self.render_template())
         self.target_path.chmod(self.mode)
 
-        relative_source_path = (
-            self.source_path.relative_to(self.source)
-            if self.source_path in self.source_path.parents
-            else self.source_path
-        )
-        relative_target_path = (
-            self.target_path.relative_to(self.target)
-            if self.target in self.target_path.parents
-            else self.target_path
-        )
+        try:
+            display_source = self.source_path.relative_to(self.target)
+        except ValueError:
+            display_source = self.source_path
+        try:
+            display_target = self.target_path.relative_to(self.target)
+        except ValueError:
+            display_target = self.target_path
         self.logger.debug(
             "Rendered template %s -> %s",
-            relative_source_path,
-            relative_target_path,
+            display_source,
+            display_target,
         )
 
     def render_template(self):

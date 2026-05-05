@@ -2,7 +2,7 @@ from contextlib import chdir
 from dataclasses import dataclass
 from pathlib import Path
 from plonex.base import BaseService
-from plonex.template import TemplateService
+from plonex.services.template import TemplateService
 from random import choice
 from string import ascii_letters
 from string import digits
@@ -88,7 +88,7 @@ class ZeoClient(BaseService):
             # - bin/instance
             self.pre_services = [
                 TemplateService(
-                    source_path="resource://plonex.zeoclient.templates:zope.conf.j2",
+                    source_path="resource://plonex.services.zeoclient.templates:zope.conf.j2",  # noqa: E501
                     target_path=self.tmp_folder / "etc" / "zope.conf",
                     options={
                         "context": self,
@@ -108,14 +108,14 @@ class ZeoClient(BaseService):
                     },
                 ),
                 TemplateService(
-                    source_path="resource://plonex.zeoclient.templates:site.zcml.j2",
+                    source_path="resource://plonex.services.zeoclient.templates:site.zcml.j2",  # noqa: E501
                     target_path=self.tmp_folder / "etc" / "site.zcml",
                     options={
                         "zcml_folder": str(self.tmp_folder / "etc"),
                     },
                 ),
                 TemplateService(
-                    source_path="resource://plonex.zeoclient.templates:wsgi.ini.j2",
+                    source_path="resource://plonex.services.zeoclient.templates:wsgi.ini.j2",  # noqa: E501
                     target_path=self.tmp_folder / "etc" / "wsgi.ini",
                     options={
                         "context": self,
@@ -128,7 +128,7 @@ class ZeoClient(BaseService):
                     },
                 ),
                 TemplateService(
-                    source_path="resource://plonex.zeoclient.templates:interpreter.j2",
+                    source_path="resource://plonex.services.zeoclient.templates:interpreter.j2",  # noqa: E501
                     target_path=self.tmp_folder / "bin" / "interpreter",
                     options={
                         "context": self,
@@ -136,7 +136,7 @@ class ZeoClient(BaseService):
                     },
                 ),
                 TemplateService(
-                    source_path="resource://plonex.zeoclient.templates:instance.j2",
+                    source_path="resource://plonex.services.zeoclient.templates:instance.j2",  # noqa: E501
                     target_path=self.tmp_folder / "bin" / "instance",
                     options={
                         "python": self.virtualenv_dir / "bin" / "python",

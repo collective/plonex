@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from plonex.base import BaseService
-from plonex.sources import SourcesService
+from plonex.services.sources import SourcesService
 from yaml import dump
 
 

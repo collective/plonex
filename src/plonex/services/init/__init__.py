@@ -3,9 +3,9 @@ from functools import cached_property
 from importlib.metadata import version
 from pathlib import Path
 from plonex.base import BaseService
-from plonex.install import InstallService
-from plonex.supervisor import Supervisor
-from plonex.template import TemplateService
+from plonex.services.install import InstallService
+from plonex.services.supervisor import Supervisor
+from plonex.services.template import TemplateService
 from textwrap import dedent
 
 
@@ -38,7 +38,7 @@ class InitService(BaseService):
                 self.pre_services.append(
                     TemplateService(
                         name="plonex",
-                        source_path="resource://plonex.init.templates:plonex.yml.j2",
+                        source_path="resource://plonex.services.init.templates:plonex.yml.j2",  # noqa: E501
                         target_path=etc_folder / "plonex.yml",
                         options=self.options,
                     )
@@ -56,8 +56,10 @@ class InitService(BaseService):
                 self.pre_services.append(
                     TemplateService(
                         name="requirements",
-                        source_path="resource://plonex.init.templates:default_requirements.txt.j2",  # noqa: E501
-                        target_path=etc_folder / "requirements.d" / "000-plonex.txt",
+                        source_path="resource://plonex.services.init.templates:default_requirements.txt.j2",  # noqa: E501
+                        target_path=etc_folder
+                        / "requirements.d"
+                        / "000-plonex.txt",  # noqa: E501
                     )
                 )
 
@@ -67,7 +69,7 @@ class InitService(BaseService):
         relative_to: Path,
         seen: set[Path],
     ) -> list[Path]:
-        from plonex.profile import ProfileService
+        from plonex.services.profile import ProfileService
 
         resolved_profile = self._resolve_profile_source(profile, relative_to)
         profile_service = ProfileService(source=resolved_profile, target=self.target)

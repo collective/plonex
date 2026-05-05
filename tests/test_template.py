@@ -1,6 +1,6 @@
 from .utils import temp_cwd
 from jinja2.exceptions import UndefinedError
-from plonex.template import TemplateService
+from plonex.services.template import TemplateService
 
 import unittest
 

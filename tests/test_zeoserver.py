@@ -3,7 +3,7 @@ from .utils import ReadExpected
 from .utils import temp_cwd
 from contextlib import contextmanager
 from pathlib import Path
-from plonex.zeoserver import ZeoServer
+from plonex.services.zeoserver import ZeoServer
 from unittest import mock
 
 import inspect
