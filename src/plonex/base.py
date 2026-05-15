@@ -43,6 +43,7 @@ class BaseService:
     _entered: bool = field(default=False, init=False)
 
     stream_output: ClassVar[bool] = False
+    command_output_enabled: ClassVar[bool] = True
 
     @cached_property
     def options_defaults(self) -> dict:
@@ -502,7 +503,34 @@ class BaseService:
         if stream_output:
             # Keep a real TTY for foreground commands (proper width, colors, prompts).
             kwargs.update({"_fg": True})
-        return str(sh.Command(executable)(*args, **kwargs))
+            return str(sh.Command(executable)(*args, **kwargs))
+
+        if not cls.command_output_enabled:
+            return str(sh.Command(executable)(*args, **kwargs))
+
+        stdout_chunks: list[str] = []
+        stderr_chunks: list[str] = []
+
+        def _to_text(chunk: Any) -> str:
+            if isinstance(chunk, bytes):
+                return chunk.decode(errors="replace")
+            return str(chunk)
+
+        def _out(chunk: Any) -> None:
+            text = _to_text(chunk)
+            stdout_chunks.append(text)
+            sys.stdout.write(text)
+            sys.stdout.flush()
+
+        def _err(chunk: Any) -> None:
+            text = _to_text(chunk)
+            stderr_chunks.append(text)
+            sys.stderr.write(text)
+            sys.stderr.flush()
+
+        kwargs.update({"_out": _out, "_err": _err})
+        sh.Command(executable)(*args, **kwargs)
+        return "".join(stdout_chunks)
 
     @entered_only
     def run(self):

@@ -9,6 +9,7 @@ from textwrap import dedent
 from unittest import mock
 
 import inspect
+import io
 import os
 import sys
 import unittest
@@ -40,6 +41,13 @@ class TestBaseService(unittest.TestCase):
         super().setUp()
         self.service = BaseService()
         self.temp_dir = self.enterContext(temp_cwd())
+        self._command_output_enabled = BaseService.command_output_enabled
+        self.addCleanup(
+            setattr,
+            BaseService,
+            "command_output_enabled",
+            self._command_output_enabled,
+        )
 
     def test_init_signature(self):
         """Test the class init method
@@ -448,6 +456,28 @@ class TestBaseService(unittest.TestCase):
                         service.run_command(["false"])
         self.assertEqual(cm.exception.code, 2)
         self.assertIn((error,), service.logger.errors)
+
+    def test_execute_command_streams_output_when_enabled(self):
+        BaseService.command_output_enabled = True
+        with (
+            mock.patch("sys.stdout", new=io.StringIO()) as mock_stdout,
+            mock.patch("sys.stderr", new=io.StringIO()) as mock_stderr,
+        ):
+            output = BaseService.execute_command(["echo", "hello"])
+        self.assertIn("hello", output)
+        self.assertIn("hello", mock_stdout.getvalue())
+        self.assertEqual("", mock_stderr.getvalue())
+
+    def test_execute_command_does_not_stream_output_when_disabled(self):
+        BaseService.command_output_enabled = False
+        with (
+            mock.patch("sys.stdout", new=io.StringIO()) as mock_stdout,
+            mock.patch("sys.stderr", new=io.StringIO()) as mock_stderr,
+        ):
+            output = BaseService.execute_command(["echo", "hello"])
+        self.assertIn("hello", output)
+        self.assertEqual("", mock_stdout.getvalue())
+        self.assertEqual("", mock_stderr.getvalue())
 
     # --- __enter__ / __exit__ ---
 

@@ -2,6 +2,7 @@ from .utils import temp_cwd
 from argparse import ArgumentParser
 from importlib.metadata import version
 from pathlib import Path
+from plonex.base import BaseService
 from plonex.cli import _configure_logging
 from plonex.cli import _resolve_target
 from plonex.cli import build_parser
@@ -387,6 +388,13 @@ class TestConfigureLogging(unittest.TestCase):
 
         self._original_level = plonex_logger.level
         self.addCleanup(plonex_logger.setLevel, self._original_level)
+        self._command_output_enabled = BaseService.command_output_enabled
+        self.addCleanup(
+            setattr,
+            BaseService,
+            "command_output_enabled",
+            self._command_output_enabled,
+        )
 
     def test_verbose_sets_debug(self):
         from plonex import logger as plonex_logger
@@ -399,6 +407,12 @@ class TestConfigureLogging(unittest.TestCase):
 
         _configure_logging(_args(quiet=True), self.temp_dir)
         self.assertEqual(plonex_logger.level, logging.WARNING)
+        self.assertFalse(BaseService.command_output_enabled)
+
+    def test_default_enables_command_output(self):
+        BaseService.command_output_enabled = False
+        _configure_logging(_args(), self.temp_dir)
+        self.assertTrue(BaseService.command_output_enabled)
 
     def test_config_file_log_level(self):
         from plonex import logger as plonex_logger

@@ -7,6 +7,7 @@ from importlib.metadata import version
 from itertools import chain
 from pathlib import Path
 from plonex import logger
+from plonex.base import BaseService
 from plonex.config import normalize_default_actions
 from plonex.services.compile import CompileService
 from plonex.services.describe import DescribeService
@@ -75,6 +76,7 @@ def _resolve_target(args) -> Path:
 
 def _configure_logging(args, target: Path) -> None:
     """Set the log level based on CLI flags and optional config-file setting."""
+    BaseService.command_output_enabled = not args.quiet
     if args.verbose:
         logger.setLevel(logging.DEBUG)
         return
