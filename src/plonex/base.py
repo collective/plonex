@@ -545,3 +545,164 @@ class BaseService:
             with post_service:
                 post_service.run()
         self._entered = False
+
+
+@dataclass(kw_only=True)
+class ZopeBasedService(BaseService):
+    """Base class for services that need Zope runtime configuration.
+
+    Provides shared folder fields, common options defaults (ZEO address,
+    blobstorage, zcml_additional, etc.), folder initialisation in
+    __post_init__, a _build_zope_pre_services() helper that generates the
+    zope.conf and site.zcml TemplateService objects (plus zcml_additional
+    handling), and the zope_conf_additional property.
+
+    Subclasses should call super().__post_init__() and then build their
+    own pre_services using _build_zope_pre_services(), appending any
+    service-specific templates afterwards.
+    """
+
+    tmp_folder: Path | None = None
+    var_folder: Path | None = None
+    zope_conf_template: str = (
+        "resource://plonex.services.zope_configuration.templates:zope.conf.j2"  # noqa: E501
+    )
+    site_zcml_template: str = (
+        "resource://plonex.services.zope_configuration.templates:site.zcml.j2"  # noqa: E501
+    )
+
+    def __post_init__(self):
+        if self.tmp_folder is None:
+            self.tmp_folder = self.target / "tmp" / self.name
+        if self.var_folder is None:
+            self.var_folder = self.target / "var"
+        self.target = self._ensure_dir(self.target)
+        self.tmp_folder = self._ensure_dir(self.tmp_folder)
+        self.var_folder = self._ensure_dir(self.var_folder)
+        self._ensure_dir(self.var_folder / self.name)
+
+    @cached_property
+    def options_defaults(self) -> dict:
+        options_defaults = super().options_defaults
+        assert (
+            self.var_folder is not None
+        ), "var_folder should be set before accessing options_defaults"
+        options_defaults.update(
+            {
+                "var_folder": str(self.var_folder),
+                "zeo_address": str(self.var_folder / "zeosocket.sock"),
+                "blobstorage": str(self.var_folder / "blobstorage"),
+                "zcml_additional": [],
+                "zope_conf_additional": [],
+                "environment_vars": {},
+            }
+        )
+        return options_defaults
+
+    def _generate_password(self) -> str:
+        from secrets import choice
+        from string import ascii_letters
+        from string import digits
+        from string import punctuation
+
+        return "".join(choice(ascii_letters + digits + punctuation) for _ in range(16))
+
+    def _build_zope_pre_services(
+        self,
+        *,
+        debug_mode: str = "off",
+        security_policy_implementation: str = "C",
+        verbose_security: str = "off",
+    ) -> list:
+        """Return a list of TemplateService objects for zope.conf, site.zcml,
+        and any zcml_additional entries."""
+        # Import here to avoid circular imports (TemplateService → BaseService).
+        from plonex.services.template import TemplateService
+
+        assert (
+            self.tmp_folder is not None
+        ), "tmp_folder must be set before calling _build_zope_pre_services"
+        assert (
+            self.var_folder is not None
+        ), "var_folder must be set before calling _build_zope_pre_services"
+
+        pre_services = [
+            TemplateService(
+                source_path=self.zope_conf_template,
+                target_path=self.tmp_folder / "etc" / "zope.conf",
+                options={
+                    "context": self,
+                    "instance_home": self.tmp_folder,
+                    "client_home": self.var_folder / self.name,
+                    "debug_mode": self.options.get("debug_mode") or debug_mode,
+                    "security_policy_implementation": self.options.get(
+                        "security_policy_implementation"
+                    )
+                    or security_policy_implementation,
+                    "environment_vars": self.options.get("environment_vars", {}),
+                    "verbose_security": self.options.get("verbose_security")
+                    or verbose_security,
+                    "blobstorage": self.options["blobstorage"],
+                    "zeo_address": self.options["zeo_address"],
+                },
+            ),
+            TemplateService(
+                source_path=self.site_zcml_template,
+                target_path=self.tmp_folder / "etc" / "site.zcml",
+                options={
+                    "zcml_folder": str(self.tmp_folder / "etc"),
+                },
+            ),
+        ]
+
+        zcml_additional = self.options["zcml_additional"]
+        if not isinstance(zcml_additional, list):
+            raise ValueError("zcml_additional should be a list of templates")
+
+        packages_includes = self.tmp_folder / "etc" / "package-includes"
+        if packages_includes.exists():
+            for file in packages_includes.iterdir():
+                if file.is_file():
+                    file.unlink()
+
+        chameleon_cache = self.options.get("environment_vars", {}).get(
+            "CHAMELEON_CACHE"
+        )
+        if chameleon_cache:
+            Path(chameleon_cache).mkdir(parents=True, exist_ok=True)
+
+        for template in map(Path, zcml_additional):
+            target_path = packages_includes / template.name
+            if template.suffix == ".j2":
+                target_path = target_path.with_suffix("")
+            if target_path.suffix != ".zcml":
+                target_path = target_path.with_suffix(".zcml")
+            if not target_path.name.endswith(("-configure.zcml", "-overrides.zcml")):
+                target_path = target_path.with_name(
+                    f"{target_path.stem}-configure.zcml"
+                )
+            pre_services.append(
+                TemplateService(
+                    source_path=template,
+                    target_path=target_path,
+                    options={"context": self},
+                )
+            )
+
+        return pre_services
+
+    @property
+    def zope_conf_additional(self) -> list:
+        """TemplateService objects for the zope_conf_additional option."""
+        from plonex.services.template import TemplateService
+
+        zope_conf_additional = self.options["zope_conf_additional"]
+        if not isinstance(zope_conf_additional, list):
+            raise ValueError("zope_conf_additional should be a list of templates")
+        return [
+            TemplateService(
+                source_path=template,
+                options={"context": self},
+            )
+            for template in zope_conf_additional
+        ]

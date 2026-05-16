@@ -31,4 +31,4 @@ python-check-interval 10000
 {% for template in context.zope_conf_additional %}
 # {{ template.source_path }}
 {{ template.render_template() }}
-{% endfor %}
+{% endfor -%}

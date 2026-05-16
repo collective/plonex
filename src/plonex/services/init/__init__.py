@@ -21,7 +21,12 @@ class InitService(BaseService):
         options_defaults.update(
             {
                 "plonex_version": version("plonex"),
-                "plone_version": "6.1-latest",
+                "plone_version": "6.2-latest",
+                "http_port": 8080,
+                "var_folder": str(self.target / "var"),
+                "environment_vars": {
+                    "PTS_LANGUAGES": "en it",
+                },
             }
         )
         return options_defaults
@@ -41,25 +46,6 @@ class InitService(BaseService):
                         source_path="resource://plonex.services.init.templates:plonex.yml.j2",  # noqa: E501
                         target_path=etc_folder / "plonex.yml",
                         options=self.options,
-                    )
-                )
-            has_local_default_requirements = (
-                etc_folder / "requirements.d" / "000-plonex.txt"
-            ).exists()
-            has_profile_default_requirements = (
-                self._profile_default_requirements_path() is not None
-            )
-            if (
-                not has_local_default_requirements
-                and not has_profile_default_requirements
-            ):
-                self.pre_services.append(
-                    TemplateService(
-                        name="requirements",
-                        source_path="resource://plonex.services.init.templates:default_requirements.txt.j2",  # noqa: E501
-                        target_path=etc_folder
-                        / "requirements.d"
-                        / "000-plonex.txt",  # noqa: E501
                     )
                 )
 
@@ -108,13 +94,6 @@ class InitService(BaseService):
         for profile in raw_profiles:
             roots.extend(self._collect_profile_roots(profile, self.target, seen))
         return roots
-
-    def _profile_default_requirements_path(self) -> Path | None:
-        for root in self.profile_roots:
-            candidate = root / "etc" / "requirements.d" / "000-plonex.txt"
-            if candidate.exists():
-                return candidate
-        return None
 
     def run(self):
         """Run the init command"""

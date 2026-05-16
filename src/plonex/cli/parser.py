@@ -132,8 +132,9 @@ def build_parser() -> ArgumentParser:
                 "Runtime Commands:": [
                     "adduser",
                     "run",
+                    "runwsgi",
                     "supervisor",
-                    "zeoclient",
+                    "zconsole",
                     "zeoserver",
                 ],
                 "Database commands:": [

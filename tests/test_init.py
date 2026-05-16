@@ -41,16 +41,15 @@ class TestInit(PloneXTestCase):
             self.assertIn("plonex_version", defaults)
             self.assertIn("plone_version", defaults)
             self.assertEqual(defaults["plonex_version"], version("plonex"))
-            self.assertEqual(defaults["plone_version"], "6.1-latest")
+            self.assertEqual(defaults["plone_version"], "6.2-latest")
 
     def test_post_init_creates_pre_services(self):
         """Test that __post_init__ creates pre_services for new project"""
         with temp_cwd():
             svc = InitService()
-            self.assertEqual(len(svc.pre_services), 2)
+            self.assertEqual(len(svc.pre_services), 1)
             names = [svc.name for svc in svc.pre_services]
-            self.assertIn("plonex", names)
-            self.assertIn("requirements", names)
+            self.assertListEqual(names, ["plonex"])
 
     def test_post_init_skips_existing_files(self):
         """Test that __post_init__ skips creating pre_services for existing files"""
@@ -91,14 +90,15 @@ class TestInit(PloneXTestCase):
         """Test that init template proposes service-driven supervisor entries."""
         with temp_init() as svc:
             content = (svc.target / "etc" / "plonex.yml").read_text()
-            self.assertIn("plone_version: 6.1-latest", content)
+            self.assertIn("plone_version: 6.2-latest", content)
             self.assertNotIn("plonex_base_constraint:", content)
             self.assertIn("services:", content)
             self.assertIn(
-                "resource://plonex.supervisor.templates:program.conf.j2", content
+                "resource://plonex.services.supervisor.templates:program.conf.j2",
+                content,
             )
             self.assertIn("tmp/supervisor/etc/supervisor/zeoserver.conf", content)
-            self.assertIn("tmp/supervisor/etc/supervisor/zeoclient.conf", content)
+            self.assertIn("tmp/supervisor/etc/supervisor/runwsgi.conf", content)
 
     def test_legacy_constraints_file_sets_default_plone_version(self):
         with temp_cwd() as cwd:

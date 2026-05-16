@@ -165,25 +165,25 @@ class TestBuildParser(unittest.TestCase):
         args = self.parser.parse_args(["zeoserver"])
         self.assertEqual(args.action, "zeoserver")
 
-    def test_action_zeoclient_defaults(self):
-        args = self.parser.parse_args(["zeoclient"])
-        self.assertEqual(args.action, "zeoclient")
-        self.assertEqual(args.name, "zeoclient")
+    def test_action_runwsgi_defaults(self):
+        args = self.parser.parse_args(["runwsgi"])
+        self.assertEqual(args.action, "runwsgi")
+        self.assertEqual(args.name, "runwsgi")
         self.assertEqual(args.port, 0)
         self.assertEqual(args.host, "")
 
-    def test_action_zeoclient_options(self):
+    def test_action_runwsgi_options(self):
         args = self.parser.parse_args(
-            ["zeoclient", "-n", "client1", "-p", "8082", "--host", "127.0.0.1"]
+            ["runwsgi", "-n", "app1", "-p", "8082", "--host", "127.0.0.1"]
         )
-        self.assertEqual(args.name, "client1")
+        self.assertEqual(args.name, "app1")
         self.assertEqual(args.port, 8082)
         self.assertEqual(args.host, "127.0.0.1")
 
-    def test_action_zeoclient_subcommands(self):
-        for sub in ("console", "fg", "debug"):
-            args = self.parser.parse_args(["zeoclient", sub])
-            self.assertEqual(args.zeoclient_action, sub)
+    def test_action_zconsole_subcommands(self):
+        for sub in ("debug", "run"):
+            args = self.parser.parse_args(["zconsole", sub])
+            self.assertEqual(args.zconsole_action, sub)
 
     def test_action_run(self):
         args = self.parser.parse_args(["run", "script.py"])
@@ -467,22 +467,31 @@ class TestMain(unittest.TestCase):
         etc = self.temp_dir / "etc"
         etc.mkdir(exist_ok=True)
         (etc / "plonex.yml").write_text(
-            "default_actions:\n" "  - supervisor start\n" "  - zeoclient fg\n"
+            "\n".join(
+                [
+                    "default_actions:",
+                    "  - supervisor start",
+                    "  - runwsgi",
+                    "",
+                ]
+            )
         )
         with mock.patch("plonex.cli._configure_logging"):
             with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
                 with mock.patch("plonex.cli.Supervisor") as MockSupervisor:
-                    with mock.patch("plonex.cli.ZeoClient") as MockClient:
+                    with mock.patch("plonex.cli.RunWSGI") as MockRunWSGI:
                         MockSupervisor.return_value.__enter__ = mock.Mock(
                             return_value=MockSupervisor.return_value
                         )
                         MockSupervisor.return_value.__exit__ = mock.Mock(
                             return_value=False
                         )
-                        MockClient.return_value.__enter__ = mock.Mock(
-                            return_value=MockClient.return_value
+                        MockRunWSGI.return_value.__enter__ = mock.Mock(
+                            return_value=MockRunWSGI.return_value
                         )
-                        MockClient.return_value.__exit__ = mock.Mock(return_value=False)
+                        MockRunWSGI.return_value.__exit__ = mock.Mock(
+                            return_value=False
+                        )
                         with mock.patch.object(
                             sys, "argv", ["plonex", "-t", str(self.temp_dir)]
                         ):
@@ -491,12 +500,11 @@ class TestMain(unittest.TestCase):
             mock_deps.call_args_list,
             [
                 mock.call(self.temp_dir.resolve(), "supervisor"),
-                mock.call(self.temp_dir.resolve(), "zeoclient"),
+                mock.call(self.temp_dir.resolve(), "runwsgi"),
             ],
         )
         MockSupervisor.return_value.run.assert_called_once()
-        _, zeoclient_kwargs = MockClient.call_args
-        self.assertEqual(zeoclient_kwargs["run_mode"], "fg")
+        MockRunWSGI.return_value.run.assert_called_once()
 
     def test_action_init(self):
         target_str = str(self.temp_dir)
@@ -593,35 +601,35 @@ class TestMain(unittest.TestCase):
             self._run_with_target(["db"])
         mock_help.assert_called_once()
 
-    def test_action_zeoclient_host_port(self):
-        with mock.patch("plonex.cli.ZeoClient") as MockSvc:
+    def test_action_runwsgi_host_port(self):
+        with mock.patch("plonex.cli.RunWSGI") as MockSvc:
             MockSvc.return_value.__enter__ = mock.Mock(
                 return_value=MockSvc.return_value
             )
             MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-            self._run_with_target(["zeoclient", "--host", "127.0.0.1", "-p", "8082"])
+            self._run_with_target(["runwsgi", "--host", "127.0.0.1", "-p", "8082"])
         _, kwargs = MockSvc.call_args
         self.assertEqual(kwargs["cli_options"]["http_host"], "127.0.0.1")
         self.assertEqual(kwargs["cli_options"]["http_port"], 8082)
 
-    def test_action_zeoclient_default_action_is_console(self):
-        with mock.patch("plonex.cli.ZeoClient") as MockSvc:
+    def test_action_zconsole_default_action_is_debug(self):
+        with mock.patch("plonex.cli.ZConsole") as MockSvc:
             MockSvc.return_value.__enter__ = mock.Mock(
                 return_value=MockSvc.return_value
             )
             MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-            self._run_with_target(["zeoclient"])
+            self._run_with_target(["zconsole"])
         _, kwargs = MockSvc.call_args
-        self.assertEqual(kwargs["run_mode"], "console")
+        self.assertEqual(kwargs["action"], "debug")
 
     def test_action_adduser(self):
-        with mock.patch("plonex.cli.ZeoClient") as MockSvc:
+        with mock.patch("plonex.cli.AddUser") as MockSvc:
             MockSvc.return_value.__enter__ = mock.Mock(
                 return_value=MockSvc.return_value
             )
             MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
             self._run_with_target(["adduser", "admin", "secret"])
-        MockSvc.return_value.adduser.assert_called_once_with("admin", "secret")
+        MockSvc.return_value.run.assert_called_once()
 
     def test_action_supervisor_start(self):
         with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
@@ -960,7 +968,7 @@ class TestServiceFromConfig(unittest.TestCase):
                     "target": "etc/a.conf",
                 }
             }
-            service = _service_from_config(spec, cwd, dependency_for="zeoclient")
+            service = _service_from_config(spec, cwd, dependency_for="runwsgi")
             self.assertIsNone(service)
 
     def test_dependency_filter_accepts_matching_service(self):
@@ -970,7 +978,7 @@ class TestServiceFromConfig(unittest.TestCase):
             template_path.write_text("ok")
             spec = {
                 "template": {
-                    "run_for": ["supervisor", "zeoclient"],
+                    "run_for": ["supervisor", "runwsgi"],
                     "source": "etc/templates/a.j2",
                     "target": "etc/a.conf",
                 }

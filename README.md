@@ -64,7 +64,7 @@ default action is configured in `etc/plonex.yml`.
 ## How to think about plonex
 
 `plonex` separates intent from implementation.
-You declare intent with simple commands such as `plonex zeoclient fg` or
+You declare intent with simple commands such as `plonex runwsgi` or
 `plonex db pack`, and `plonex` translates that into the correct low-level command,
 with the correct paths, environment variables, and generated configuration files.
 
@@ -236,15 +236,14 @@ default_action: describe
 ```
 
 ```yaml
-default_action: zeoclient fg
+default_action: runwsgi
 ```
 
 Equivalent list form:
 
 ```yaml
 default_action:
-  - zeoclient
-  - fg
+  - runwsgi
 ```
 
 If you want to run multiple commands in sequence, use `default_actions`:
@@ -252,7 +251,7 @@ If you want to run multiple commands in sequence, use `default_actions`:
 ```yaml
 default_actions:
   - supervisor start
-  - zeoclient fg
+  - runwsgi
 ```
 
 This is useful when you want plain `plonex` to bootstrap a common local
@@ -272,7 +271,7 @@ Notes:
 plonex init .
 plonex dependencies
 plonex zeoserver
-plonex zeoclient fg
+plonex runwsgi
 ```
 
 What happens:
@@ -280,7 +279,7 @@ What happens:
 - `init` creates project skeleton and base config.
 - `dependencies` ensures `.venv` exists and installs pinned dependencies.
 - `zeoserver` starts ZEO using generated config in `tmp/zeoserver`.
-- `zeoclient fg` renders instance config in `tmp/zeoclient` and starts in foreground.
+- `runwsgi` renders runtime config in `tmp/runwsgi` and starts in foreground.
 
 ### Running maintenance tasks
 
@@ -408,24 +407,28 @@ also print a suggested `sources` section to add into `etc/plonex.yml`.
 
 - Start ZEO server.
 
-`zeoclient [options] [action]`
+`runwsgi [options] [args ...]`
 
 - Options:
-  - `-n, --name`: client name (default: `zeoclient`)
+  - `-n, --name`: service name (default: `runwsgi`)
+  - `-c, --config`: extra config file (repeatable)
+  - `-p, --port`: HTTP port
+  - `--host`: HTTP host
+
+`zconsole [options] [debug|run] [args ...]`
+
+- Options:
+  - `-n, --name`: service name (default: `zconsole`)
   - `-c, --config`: extra config file (repeatable)
   - `-p, --port`: HTTP port
   - `--host`: HTTP host
 - Actions:
-  - `console` (default)
-  - `fg`
-  - `start`
-  - `stop`
-  - `status`
-  - `debug`
+  - `debug` (default)
+  - `run`
 
 `run [args ...]`
 
-- Run an instance script through the ZEO client wrapper.
+- Run a script through `zconsole run` with generated runtime config.
 
 `adduser [-c FILE] <username> [password]`
 
@@ -497,7 +500,7 @@ Useful settings include:
 
 - `log_level`: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`
 - `environment_vars`: environment variables exported before service execution
-- `zeo_address`: socket/host used by ZEO client and `db pack`
+- `zeo_address`: socket/host used by runtime services and `db pack`
 - `blobstorage`: blob storage path
 - `http_port`, `http_address`
 
@@ -515,7 +518,7 @@ For example:
 
 - `etc/plonex.yml`: shared defaults.
 - `etc/plonex.local.yml`: local machine overrides (socket paths, local ports).
-- `etc/plonex-zeoclient.yml`: zeoclient-only adjustments.
+- `etc/plonex-runwsgi.yml`: runwsgi-only adjustments.
 
 Because these files are merged with precedence, you can keep common settings in
 one place and make only small targeted overrides where needed.
@@ -535,11 +538,11 @@ Example:
 services:
   - template:
       run_for: supervisor
-      source_path: resource://plonex.supervisor.templates:program.conf.j2
-      target_path: tmp/supervisor/etc/supervisor/zeoclient.conf
+      source_path: resource://plonex.services.supervisor.templates:program.conf.j2
+      target_path: tmp/supervisor/etc/supervisor/runwsgi.conf
       options:
-        name: zeoclient
-        command: tmp/zeoclient/bin/instance fg
+        name: runwsgi
+        command: plonex runwsgi
         autostart: false
 ```
 
@@ -554,7 +557,7 @@ In this example:
 ```yaml
 services:
   - template:
-      run_for: [supervisor, zeoclient]
+      run_for: [supervisor, runwsgi]
       source: etc/templates/runtime.conf.j2
       target: tmp/runtime.conf
 ```
@@ -574,7 +577,7 @@ Recommended pattern:
 
 More examples:
 
-- Add extra ZCML includes for the ZEO client:
+- Add extra ZCML includes for runtime services:
 
 ```yaml
 zcml_additional:
@@ -583,11 +586,11 @@ zcml_additional:
   - etc/zcml/030-my-package-overrides.zcml
 ```
 
-These files are rendered or copied into `tmp/zeoclient/etc/package-includes/`
-before `plonex zeoclient ...` runs. File names matter: `plonex` expects the
+These files are rendered or copied into `tmp/runwsgi/etc/package-includes/`
+before `plonex runwsgi ...` runs. File names matter: `plonex` expects the
 usual `-meta.zcml`, `-configure.zcml`, or `-overrides.zcml` suffixes.
 
-- Add extra `zope.conf` snippets for the ZEO client:
+- Add extra `zope.conf` snippets for runtime services:
 
 ```yaml
 zope_conf_additional:
@@ -603,7 +606,7 @@ For example, `etc/zopeconf/cache.j2` could contain:
 </product-config>
 ```
 
-Each listed file is appended to the generated `tmp/zeoclient/etc/zope.conf`.
+Each listed file is appended to the generated runtime `zope.conf` file.
 Jinja templates can use the current service context.
 
 - Generate a Supervisor program for an auxiliary service such as a websocket
@@ -613,7 +616,7 @@ Jinja templates can use the current service context.
 services:
   - template:
       run_for: supervisor
-      source_path: resource://plonex.supervisor.templates:program.conf.j2
+      source_path: resource://plonex.services.supervisor.templates:program.conf.j2
       target_path: tmp/supervisor/etc/supervisor/worker.conf
       options:
         program: worker
@@ -624,9 +627,9 @@ services:
 ```
 
 That way `plonex supervisor start` manages not only `zeoserver` and
-`zeoclient`, but also your additional long-running process.
+`runwsgi`, but also your additional long-running process.
 
-- Combine service dependencies and zeoclient extras in the same project:
+- Combine service dependencies and runtime extras in the same project:
 
 ```yaml
 zcml_additional:
@@ -669,22 +672,22 @@ Common command mappings:
 .venv/bin/runzeo -C tmp/zeoserver/etc/zeo.conf
 ```
 
-- `plonex zeoclient fg` (and other zeoclient actions)
+- `plonex runwsgi`
 
 ```sh
-tmp/zeoclient/bin/instance fg
+.venv/bin/runwsgi tmp/runwsgi/etc/wsgi.ini
 ```
 
 - `plonex run path/to/script.py`
 
 ```sh
-tmp/zeoclient/bin/instance run path/to/script.py
+.venv/bin/zconsole run tmp/zconsole/etc/zope.conf path/to/script.py
 ```
 
 - `plonex adduser admin secret`
 
 ```sh
-.venv/bin/addzopeuser -c tmp/zeoclient/etc/zope.conf admin secret
+.venv/bin/addzopeuser -c tmp/zconsole/etc/zope.conf admin secret
 ```
 
 - `plonex db pack --days 7`
@@ -753,7 +756,7 @@ sleep 2
 .venv/bin/zope-testrunner --all --quiet -pvc --path <package_path> -t test_get
 ```
 
-Note: plonex also renders temporary config files under `tmp/` before running several services (for example `tmp/zeoclient/etc/zope.conf`).
+Note: plonex also renders temporary config files under `tmp/` before running several services (for example `tmp/runwsgi/etc/zope.conf` and `tmp/zconsole/etc/zope.conf`).
 
 ## Troubleshooting
 
@@ -798,3 +801,10 @@ This recreates or updates environment-installed tooling used by runtime commands
 - `test` is currently a placeholder command.
 
 These commands are listed for interface completeness but do not provide full behavior yet.
+
+## AI Assistance
+
+Parts of this project were developed with the assistance of AI-based tools.
+
+All generated content was reviewed, tested, and modified by human maintainers
+before inclusion in the repository.

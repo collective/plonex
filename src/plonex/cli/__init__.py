@@ -9,16 +9,18 @@ from pathlib import Path
 from plonex import logger
 from plonex.base import BaseService
 from plonex.config import normalize_default_actions
+from plonex.services.adduser import AddUser
 from plonex.services.compile import CompileService
 from plonex.services.describe import DescribeService
 from plonex.services.init import InitService
 from plonex.services.install import InstallService
 from plonex.services.robotserver import RobotServer
 from plonex.services.robottest import RobotTest
+from plonex.services.runwsgi import RunWSGI
 from plonex.services.sources import SourcesService
 from plonex.services.supervisor import Supervisor
 from plonex.services.upgrade import UpgradeService
-from plonex.services.zeoclient import ZeoClient
+from plonex.services.zconsole import ZConsole
 from plonex.services.zeoserver import ZeoServer
 from plonex.services.zopetest import ZopeTest
 from rich.console import Console
@@ -158,37 +160,60 @@ def _handle_zeoserver(args: Namespace, parser: ArgumentParser, target: Path) -> 
         svc.run()
 
 
-def _handle_zeoclient(args: Namespace, parser: ArgumentParser, target: Path) -> None:
-    _run_service_dependencies(target, "zeoclient")
-    logger.debug("Starting ZEO Client")
-    zeoclient_action = getattr(args, "zeoclient_action", "") or "console"
-    config_files = getattr(args, "zeoclient_config", []) or []
+def _runtime_cli_options(args: Namespace) -> dict[str, int | str]:
     cli_options = {}
     if args.host:
         cli_options["http_host"] = args.host
     if args.port:
         cli_options["http_port"] = args.port
-    with ZeoClient(
+    return cli_options
+
+
+def _handle_runwsgi(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "runwsgi")
+    logger.debug("Starting runwsgi")
+    config_files = getattr(args, "runtime_config", []) or []
+    with RunWSGI(
         name=args.name,
         target=target,
         config_files=config_files,
-        run_mode=zeoclient_action,  # type: ignore
-        cli_options=cli_options,
+        cli_options=_runtime_cli_options(args),
+        args=getattr(args, "args", []) or [],
+    ) as svc:
+        svc.run()
+
+
+def _handle_zconsole(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "zconsole")
+    zconsole_action = getattr(args, "zconsole_action", "debug") or "debug"
+    config_files = getattr(args, "runtime_config", []) or []
+    with ZConsole(
+        name=args.name,
+        target=target,
+        config_files=config_files,
+        cli_options=_runtime_cli_options(args),
+        action=zconsole_action,  # type: ignore[arg-type]
+        args=getattr(args, "args", []) or [],
     ) as svc:
         svc.run()
 
 
 def _handle_run(args: Namespace, parser: ArgumentParser, target: Path) -> None:
     _run_service_dependencies(target, "run")
-    with ZeoClient(target=target) as svc:
-        svc.run_script(args.args or [])
+    with ZConsole(target=target, action="run", args=args.args or []) as svc:
+        svc.run()
 
 
 def _handle_adduser(args: Namespace, parser: ArgumentParser, target: Path) -> None:
     _run_service_dependencies(target, "adduser")
-    config_files = getattr(args, "zeoclient_config", []) or []
-    with ZeoClient(target=target, config_files=config_files) as svc:
-        svc.adduser(args.username, args.password)
+    config_files = getattr(args, "runtime_config", []) or []
+    with AddUser(
+        target=target,
+        config_files=config_files,
+        username=args.username,
+        password=args.password,
+    ) as svc:
+        svc.run()
 
 
 def _handle_supervisor(args: Namespace, parser: ArgumentParser, target: Path) -> None:
@@ -293,7 +318,8 @@ _ACTION_HANDLERS: dict[str, Callable[[Namespace, ArgumentParser, Path], None]] =
     "robottest": _handle_robottest,
     "zopetest": _handle_zopetest,
     "zeoserver": _handle_zeoserver,
-    "zeoclient": _handle_zeoclient,
+    "runwsgi": _handle_runwsgi,
+    "zconsole": _handle_zconsole,
     "run": _handle_run,
     "adduser": _handle_adduser,
     "supervisor": _handle_supervisor,

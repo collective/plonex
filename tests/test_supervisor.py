@@ -307,9 +307,9 @@ class TestSupervisor(PloneXTestCase):
         with temp_supervisor() as supervisor:
             services = supervisor._service_names_from_status(
                 "zeoserver RUNNING pid 1, uptime 0:00:10\n"
-                "zeoclient RUNNING pid 2, uptime 0:00:11\n"
+                "runwsgi RUNNING pid 2, uptime 0:00:11\n"
             )
-            self.assertEqual(services, ["zeoserver", "zeoclient"])
+            self.assertEqual(services, ["zeoserver", "runwsgi"])
 
     def test_run_graceful_when_not_running(self):
         """Test run_graceful() when not running calls run()"""
@@ -328,7 +328,7 @@ class TestSupervisor(PloneXTestCase):
                     "get_status",
                     return_value=(
                         "zeoserver RUNNING pid 1, uptime 0:00:10\n"
-                        "zeoclient RUNNING pid 2, uptime 0:00:11\n"
+                        "runwsgi RUNNING pid 2, uptime 0:00:11\n"
                     ),
                 ):
                     with mock.patch.object(
@@ -338,7 +338,7 @@ class TestSupervisor(PloneXTestCase):
                         return_value=mock.Mock(
                             side_effect=[
                                 "zeoserver started",
-                                "zeoclient started",
+                                "runwsgi started",
                             ]
                         ),
                     ) as mock_ctl:
@@ -360,7 +360,7 @@ class TestSupervisor(PloneXTestCase):
                             "-c",
                             str(supervisor.supervisord_conf),
                             "restart",
-                            "zeoclient",
+                            "runwsgi",
                         ),
                     ],
                 )

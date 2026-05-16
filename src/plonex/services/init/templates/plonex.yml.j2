@@ -5,7 +5,7 @@ log_level: info
 # supervisor_graceful_interval: 1.0
 # default_actions:
 #   - supervisor start
-#   - zeoclient fg
+#   - runwsgi
 # sources_update_before_dependencies: true
 # sources:
 #   plone.reload:
@@ -16,12 +16,36 @@ log_level: info
 #   You can also specify a different branch or a specific commit hash.
 #   plone.restapi:
 #     repo: git@github.com:plone/plone.restapi.git
+pip_requirements:
+    - Plone
+    - rich
+    - supervisor
+    - ZEO
 environment_vars:
+    # This is needed to suppress warnings about pkg_resources
     PYTHONWARNINGS: ignore:::pkg_resources
+    # Some environment variables that are commonly used in Plone development,
+    # you can customize them as needed
+    PTS_LANGUAGES: "en it"
+    TZ: Europe/Rome
+
+    zope_i18n_allowed_languages: '{{ environment_vars["PTS_LANGUAGES"] }}'
+    zope_i18n_compile_mo_files: true
+
+    CHAMELEON_CACHE: "{{ var_folder }}/cache/chameleon"
+    CHAMELEON_RELOAD: true
+    CHAMELEON_DEBUG: true
+
+    DIAZO_ALWAYS_CACHE_RULES: "true"
+
+    # These environment variables are used by collective.ftw.upgrade
+    UPGRADE_ZOPE_URL: "http://localhost:{{ http_port }}"
+    UPGRADE_TEMPFILE_AUTH_DIR: "{{ target }}/var/ftw.upgrade-authentication"
+
 services:
     - template:
         run_for: supervisor
-        source_path: resource://plonex.supervisor.templates:program.conf.j2
+        source_path: resource://plonex.services.supervisor.templates:program.conf.j2
         target_path: "{{ '{{ target }}' }}/tmp/supervisor/etc/supervisor/zeoserver.conf"
         options:
             program: zeoserver
@@ -31,11 +55,11 @@ services:
             priority: 1
     - template:
         run_for: supervisor
-        source_path: resource://plonex.supervisor.templates:program.conf.j2
-        target_path: "{{ '{{ target }}' }}/tmp/supervisor/etc/supervisor/zeoclient.conf"
+        source_path: resource://plonex.services.supervisor.templates:program.conf.j2
+        target_path: "{{ '{{ target }}' }}/tmp/supervisor/etc/supervisor/runwsgi.conf"
         options:
-            program: zeoclient
-            command: plonex zeoclient
-            process_name: zeoclient
+            program: runwsgi
+            command: plonex runwsgi
+            process_name: runwsgi
             directory: "{{ '{{ target }}' }}"
             priority: 2

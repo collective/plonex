@@ -556,6 +556,12 @@ class TestSourcesService(PloneXTestCase):
                     mock.patch.object(
                         svc, "existing_checkouts", return_value=[unmanaged]
                     ),
+                    mock.patch.object(
+                        svc,
+                        "_git_remote_url",
+                        return_value="https://github.com/example/extra.package.git",
+                    ),
+                    mock.patch.object(svc, "_git_revision", return_value="main"),
                     mock.patch.object(svc.logger, "error") as mock_error,
                 ):
                     svc.run_suggest_existing(apply_profile=True)

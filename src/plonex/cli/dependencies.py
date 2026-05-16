@@ -1,6 +1,7 @@
 from dataclasses import fields
 from pathlib import Path
 from plonex.base import BaseService
+from plonex.services.adduser import AddUser
 from plonex.services.compile import CompileService
 from plonex.services.describe import DescribeService
 from plonex.services.directory import DirectoryService
@@ -8,11 +9,12 @@ from plonex.services.init import InitService
 from plonex.services.install import InstallService
 from plonex.services.robotserver import RobotServer
 from plonex.services.robottest import RobotTest
+from plonex.services.runwsgi import RunWSGI
 from plonex.services.sources import SourcesService
 from plonex.services.supervisor import Supervisor
 from plonex.services.template import TemplateService
 from plonex.services.upgrade import UpgradeService
-from plonex.services.zeoclient import ZeoClient
+from plonex.services.zconsole import ZConsole
 from plonex.services.zeoserver import ZeoServer
 from plonex.services.zopetest import ZopeTest
 from typing import Any
@@ -27,6 +29,7 @@ def _service_name(service_class) -> str | None:
 
 def _build_service_registry() -> dict[str, type[BaseService]]:
     service_classes = [
+        AddUser,
         CompileService,
         DescribeService,
         DirectoryService,
@@ -35,9 +38,10 @@ def _build_service_registry() -> dict[str, type[BaseService]]:
         InstallService,
         RobotServer,
         RobotTest,
+        RunWSGI,
         Supervisor,
         UpgradeService,
-        ZeoClient,
+        ZConsole,
         ZeoServer,
         ZopeTest,
     ]
