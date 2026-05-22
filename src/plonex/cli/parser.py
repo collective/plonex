@@ -131,6 +131,7 @@ def build_parser() -> ArgumentParser:
                 ],
                 "Runtime Commands:": [
                     "adduser",
+                    "fg",
                     "run",
                     "runwsgi",
                     "supervisor",

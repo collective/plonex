@@ -180,6 +180,21 @@ class TestBuildParser(unittest.TestCase):
         self.assertEqual(args.port, 8082)
         self.assertEqual(args.host, "127.0.0.1")
 
+    def test_action_fg_defaults(self):
+        args = self.parser.parse_args(["fg"])
+        self.assertEqual(args.action, "fg")
+        self.assertEqual(args.name, "fg")
+        self.assertEqual(args.port, 0)
+        self.assertEqual(args.host, "")
+
+    def test_action_fg_options(self):
+        args = self.parser.parse_args(
+            ["fg", "-n", "app1", "-p", "8082", "--host", "127.0.0.1"]
+        )
+        self.assertEqual(args.name, "app1")
+        self.assertEqual(args.port, 8082)
+        self.assertEqual(args.host, "127.0.0.1")
+
     def test_action_zconsole_subcommands(self):
         for sub in ("debug", "run"):
             args = self.parser.parse_args(["zconsole", sub])
@@ -608,6 +623,42 @@ class TestMain(unittest.TestCase):
             )
             MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
             self._run_with_target(["runwsgi", "--host", "127.0.0.1", "-p", "8082"])
+        _, kwargs = MockSvc.call_args
+        self.assertEqual(kwargs["cli_options"]["http_host"], "127.0.0.1")
+        self.assertEqual(kwargs["cli_options"]["http_port"], 8082)
+
+    def test_action_fg_sets_debug_options(self):
+        with mock.patch("plonex.cli.RunWSGI") as MockSvc:
+            MockSvc.return_value.__enter__ = mock.Mock(
+                return_value=MockSvc.return_value
+            )
+            MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
+            self._run_with_target(["fg"])
+        _, kwargs = MockSvc.call_args
+        self.assertEqual(kwargs["cli_options"]["debug_mode"], "on")
+        self.assertEqual(kwargs["cli_options"]["verbose_security"], "on")
+        self.assertEqual(
+            kwargs["cli_options"]["security_policy_implementation"], "python"
+        )
+        MockSvc.return_value.run.assert_called_once()
+
+    def test_action_fg_default_name(self):
+        with mock.patch("plonex.cli.RunWSGI") as MockSvc:
+            MockSvc.return_value.__enter__ = mock.Mock(
+                return_value=MockSvc.return_value
+            )
+            MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
+            self._run_with_target(["fg"])
+        _, kwargs = MockSvc.call_args
+        self.assertEqual(kwargs["name"], "fg")
+
+    def test_action_fg_host_port(self):
+        with mock.patch("plonex.cli.RunWSGI") as MockSvc:
+            MockSvc.return_value.__enter__ = mock.Mock(
+                return_value=MockSvc.return_value
+            )
+            MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
+            self._run_with_target(["fg", "--host", "127.0.0.1", "-p", "8082"])
         _, kwargs = MockSvc.call_args
         self.assertEqual(kwargs["cli_options"]["http_host"], "127.0.0.1")
         self.assertEqual(kwargs["cli_options"]["http_port"], 8082)

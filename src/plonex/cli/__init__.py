@@ -183,6 +183,28 @@ def _handle_runwsgi(args: Namespace, parser: ArgumentParser, target: Path) -> No
         svc.run()
 
 
+def _handle_fg(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "fg")
+    logger.debug("Starting foreground instance (debug mode)")
+    config_files = getattr(args, "runtime_config", []) or []
+    cli_options = _runtime_cli_options(args)
+    cli_options.update(
+        {
+            "debug_mode": "on",
+            "verbose_security": "on",
+            "security_policy_implementation": "python",
+        }
+    )
+    with RunWSGI(
+        name=args.name,
+        target=target,
+        config_files=config_files,
+        cli_options=cli_options,
+        args=getattr(args, "args", []) or [],
+    ) as svc:
+        svc.run()
+
+
 def _handle_zconsole(args: Namespace, parser: ArgumentParser, target: Path) -> None:
     _run_service_dependencies(target, "zconsole")
     zconsole_action = getattr(args, "zconsole_action", "debug") or "debug"
@@ -319,6 +341,7 @@ _ACTION_HANDLERS: dict[str, Callable[[Namespace, ArgumentParser, Path], None]] =
     "zopetest": _handle_zopetest,
     "zeoserver": _handle_zeoserver,
     "runwsgi": _handle_runwsgi,
+    "fg": _handle_fg,
     "zconsole": _handle_zconsole,
     "run": _handle_run,
     "adduser": _handle_adduser,

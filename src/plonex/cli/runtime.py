@@ -86,6 +86,18 @@ def register_runtime_parsers(subs, add_subparser) -> None:
         help="Arguments passed to zconsole action",
     )
 
+    fg_parser = add_subparser(
+        subs,
+        "fg",
+        help="Start runwsgi in foreground debug mode",
+    )
+    add_runtime_options(fg_parser, default_name="fg")
+    fg_parser.add_argument(
+        "args",
+        nargs="*",
+        help="Arguments to pass to runwsgi",
+    )
+
     run_parser = add_subparser(subs, "run", help="Run an instance script")
     run_parser.add_argument(
         "args",
