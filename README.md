@@ -136,7 +136,7 @@ For example, `profiles/default/etc/plonex.yml` can hold shared defaults used by
 every environment:
 
 ```yaml
-plone_version: 6.1.4
+plone_version: 6.2.0
 http_address: 0.0.0.0
 zeo_address: var/zeo.sock
 environment_vars:
@@ -191,7 +191,7 @@ By default it starts from the Plone release constraints selected by
 Default behavior:
 
 ```yaml
-plone_version: 6.1.4
+plone_version: 6.2.0
 ```
 
 This means the base constraint is effectively:

@@ -182,9 +182,9 @@ class TestDescribeService(PloneXTestCase):
             self.assertEqual(svc.display_source("etc/custom.txt"), "etc/custom.txt")
             self.assertEqual(
                 svc.display_source(
-                    "https://dist.plone.org/release/6.1.2/constraints.txt"
+                    "https://dist.plone.org/release/6.2.0/constraints.txt"
                 ),
-                "https://dist.plone.org/release/6.1.2/constraints.txt",
+                "https://dist.plone.org/release/6.2.0/constraints.txt",
             )
 
     def test_supervisor_status(self):
@@ -220,7 +220,7 @@ class TestDescribeService(PloneXTestCase):
             (cwd / "etc").mkdir()
             (cwd / "etc" / "plonex.yml").write_text(
                 "mykey: myvalue\n"
-                "plone_version: 6.1.2\n"
+                "plone_version: 6.2.0\n"
                 "supervisor_graceful_interval: 2.5\n"
                 "sources:\n"
                 "    my.package:\n"
@@ -305,7 +305,7 @@ class TestDescribeService(PloneXTestCase):
                     f"[etc/plonex.yml](file://{cwd / 'etc' / 'plonex.yml'})",
                     rendered,
                 )
-                self.assertIn("**Plone Version**: `6.1.2`", rendered)
+                self.assertIn("**Plone Version**: `6.2.0`", rendered)
                 self.assertIn("**Python Version**: `Python 3.13.7`", rendered)
                 self.assertIn(
                     f"[.venv/bin/python](file://{cwd / '.venv' / 'bin' / 'python'})",
@@ -383,7 +383,7 @@ class TestDescribeService(PloneXTestCase):
             (cwd / ".venv" / "bin").mkdir(parents=True)
             (cwd / ".venv" / "bin" / "activate").touch()
             (cwd / "etc").mkdir()
-            (cwd / "etc" / "plonex.yml").write_text("plone_version: 6.1.2\n")
+            (cwd / "etc" / "plonex.yml").write_text("plone_version: 6.2.0\n")
             (cwd / "tmp" / "supervisor" / "etc").mkdir(parents=True)
             (cwd / "tmp" / "supervisor" / "etc" / "supervisord.conf").write_text(
                 "[supervisord]\n"

@@ -105,11 +105,11 @@ class TestInit(PloneXTestCase):
             etc = cwd / "etc"
             (etc / "constraints.d").mkdir(parents=True)
             (etc / "plonex.yml").write_text("{}\n")
-            (etc / "constraints.d" / "000-plonex.txt").write_text("Plone==6.1.4\n")
+            (etc / "constraints.d" / "000-plonex.txt").write_text("Plone==6.2.0\n")
             svc = InitService()
 
             with mock.patch.object(svc.logger, "warning") as mock_warning:
-                self.assertEqual(svc.options["plone_version"], "6.1.4")
+                self.assertEqual(svc.options["plone_version"], "6.2.0")
 
             self.assertTrue(
                 any(
@@ -123,7 +123,7 @@ class TestInit(PloneXTestCase):
             etc = cwd / "etc"
             (etc / "constraints.d").mkdir(parents=True)
             (etc / "plonex.yml").write_text("plone_version: 6.1.6\n")
-            (etc / "constraints.d" / "000-plonex.txt").write_text("Plone==6.1.4\n")
+            (etc / "constraints.d" / "000-plonex.txt").write_text("Plone==6.2.0\n")
             svc = InitService()
 
             with mock.patch.object(svc.logger, "warning") as mock_warning:
@@ -141,7 +141,7 @@ class TestInit(PloneXTestCase):
             etc = cwd / "etc"
             (etc / "constraints.d").mkdir(parents=True)
             (etc / "plonex.yml").write_text("plonex_base_constraint: etc/custom.txt\n")
-            (etc / "constraints.d" / "000-plonex.txt").write_text("Plone==6.1.4\n")
+            (etc / "constraints.d" / "000-plonex.txt").write_text("Plone==6.2.0\n")
             svc = InitService()
 
             with mock.patch.object(svc.logger, "warning") as mock_warning:

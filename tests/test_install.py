@@ -307,7 +307,7 @@ class TestInit(PloneXTestCase):
 
             (install.etc_folder / "plonex.yml").write_text("{}\n")
             (install.constraints_d_folder / "000-plonex.txt").write_text(
-                "Plone==6.1.4\nfoo==1.0.0\n"
+                "Plone==6.2.0\nfoo==1.0.0\n"
             )
 
             with mock.patch.object(install.logger, "warning") as mock_warning:
