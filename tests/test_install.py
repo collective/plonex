@@ -605,6 +605,22 @@ class TestInit(PloneXTestCase):
                 ],
             )
 
+    def test_compile_command_property(self):
+        with temp_install() as install:
+            self.assertEqual(
+                install.compile_command,
+                [
+                    str(install.virtualenv_dir / "bin" / "uv"),
+                    "pip",
+                    "compile",
+                    str(install.requirements_txt.absolute()),
+                    "-c",
+                    str(install.constrainst_txt.absolute()),
+                    "--output-file",
+                    str(install.compiled_requirements_txt.absolute()),
+                ],
+            )
+
     def test_sync_command_property(self):
         with temp_install() as install:
             self.assertEqual(
@@ -613,9 +629,7 @@ class TestInit(PloneXTestCase):
                     str(install.virtualenv_dir / "bin" / "uv"),
                     "pip",
                     "sync",
-                    str(install.requirements_txt.absolute()),
-                    "-c",
-                    str(install.constrainst_txt.absolute()),
+                    str(install.compiled_requirements_txt.absolute()),
                 ],
             )
 
@@ -652,7 +666,8 @@ class TestInit(PloneXTestCase):
                     install.constrainst_txt = constraints_file
                     install.run(sync=True)
 
-            self.assertEqual(mock_run_command.call_count, 1)
+            self.assertEqual(mock_run_command.call_count, 2)
+            mock_run_command.assert_any_call(install.compile_command)
             mock_run_command.assert_any_call(install.sync_command)
             mock_execute.assert_called_once()
 

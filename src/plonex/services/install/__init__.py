@@ -527,28 +527,42 @@ class InstallService(BaseService):
         ]
 
     @property
+    def compiled_requirements_txt(self) -> Path:
+        """Path to the compiled (fully resolved) requirements file used for sync."""
+        return self.var_folder / "compiled-requirements.txt"
+
+    @property
+    def compile_command(self):
+        """Run `uv pip compile` to produce a fully pinned requirements file.
+
+        This resolves all transitive dependencies so that `uv pip sync` knows
+        the exact set of packages the virtualenv should contain.
+        """
+        return [
+            str(self.virtualenv_dir / "bin" / "uv"),
+            "pip",
+            "compile",
+            str(self.requirements_txt.absolute()),
+            "-c",
+            str(self.constrainst_txt.absolute()),
+            "--output-file",
+            str(self.compiled_requirements_txt.absolute()),
+        ]
+
+    @property
     def sync_command(self):
-        """Call `uv pip sync` to synchronize the virtualenv with the constraints,
-        without installing missing packages.
-        This is useful to clean up the virtualenv after
-        removing constraints or requirements, or to
-        detect missing constraints without installing packages.
+        """Call `uv pip sync` to synchronize the virtualenv with the compiled
+        requirements, ensuring the virtualenv contains exactly the packages in
+        var/requirements.txt and their transitive dependencies — nothing more.
 
-        We might want to run:
-
-        ```
-        uv pip compile --output-file=compiled_constraints.txt \
-            var/requirements.txt -c constraints.txt
-        ```
-
+        Must be preceded by `compile_command` so that
+        `compiled_requirements_txt` is up to date.
         """
         return [
             str(self.virtualenv_dir / "bin" / "uv"),
             "pip",
             "sync",
-            str(self.requirements_txt.absolute()),
-            "-c",
-            str(self.constrainst_txt.absolute()),
+            str(self.compiled_requirements_txt.absolute()),
         ]
 
     @property
@@ -684,6 +698,7 @@ class InstallService(BaseService):
             self.update_gitman_sources()
 
         if sync:
+            self.run_command(self.compile_command)
             self.run_command(self.sync_command)
         else:
             super().run()
