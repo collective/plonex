@@ -144,6 +144,20 @@ class TestZeoServer(PloneXTestCase):
                 ]
             )
 
+    def test_constructor_honors_var_folder_option(self):
+        with temp_cwd() as temp_dir:
+            (temp_dir / ".venv" / "bin").mkdir(parents=True)
+            (temp_dir / ".venv" / "bin" / "activate").touch()
+            (temp_dir / "etc").mkdir(parents=True)
+            (temp_dir / "etc" / "plonex.yml").write_text("var_folder: custom-var\n")
+
+            with ZeoServer(target=temp_dir) as zeo:
+                self.assertEqual(zeo.var_folder, temp_dir / "custom-var")
+                self.assertEqual(
+                    zeo.options["zeo_address"],
+                    str(temp_dir / "custom-var" / "zeosocket.sock"),
+                )
+
     def test_run_backup(self):
         """Test the backup command"""
         with temp_zeo() as zeo:

@@ -187,6 +187,17 @@ class TestDescribeService(PloneXTestCase):
                 "https://dist.plone.org/release/6.2.0/constraints.txt",
             )
 
+    def test_context_honors_var_folder_option(self):
+        with temp_cwd() as cwd:
+            (cwd / "etc").mkdir()
+            (cwd / "etc" / "plonex.yml").write_text("var_folder: custom-var\n")
+            with DescribeService() as svc:
+                self.assertEqual(svc.var_folder, cwd / "custom-var")
+                self.assertEqual(
+                    svc.description_path,
+                    cwd / "custom-var" / "plonex_description" / "index.md",
+                )
+
     def test_supervisor_status(self):
         """Test the supervisor_status property with mocked Supervisor"""
         with temp_cwd() as cwd:

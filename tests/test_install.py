@@ -121,6 +121,16 @@ class TestInit(PloneXTestCase):
                 "https://dist.plone.org/release/6.2-latest/constraints.txt",
             )
 
+    def test_context_honors_var_folder_option(self):
+        with temp_cwd() as temp_dir:
+            install = InstallService(dont_ask=True)
+            (install.etc_folder / "plonex.yml").write_text("var_folder: custom-var\n")
+
+            with stub_virtualenv(install):
+                with mock_remote_constraints():
+                    with install:
+                        self.assertEqual(install.var_folder, temp_dir / "custom-var")
+
     def test_requirements(self):
         """Check that we can properly merge the requirements files"""
         with temp_cwd():

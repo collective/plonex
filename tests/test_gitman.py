@@ -24,6 +24,21 @@ class TestSourcesService(PloneXTestCase):
             self.assertIn("- name: my.package", rendered)
             self.assertIn("type: git", rendered)
 
+    def test_compile_config_honors_var_folder_option(self):
+        with temp_cwd() as cwd:
+            (cwd / "etc").mkdir()
+            (cwd / "etc" / "plonex.yml").write_text(
+                "var_folder: custom-var\n"
+                "sources:\n"
+                "    my.package:\n"
+                "      repo: https://github.com/example/my.package.git\n"
+            )
+            with SourcesService() as svc:
+                target = svc.compile_config()
+            self.assertEqual(target, cwd / "custom-var" / "gitman.yml")
+            rendered = (cwd / "custom-var" / "gitman.yml").read_text()
+            self.assertIn("- name: my.package", rendered)
+
     def test_run_update_force_without_confirmation(self):
         with temp_cwd() as cwd:
             (cwd / "etc").mkdir()

@@ -70,3 +70,22 @@ class TestCompileService(PloneXTestCase):
                 svc.run()
             result = (cwd / "var" / "gitman.yml").read_text()
             self.assertIn(f"location: {cwd / 'external'}", result)
+
+    def test_constructor_honors_var_folder_option(self):
+        with temp_cwd() as cwd:
+            (cwd / "etc").mkdir()
+            (cwd / "etc" / "plonex.yml").write_text("var_folder: custom-var\n")
+            svc = CompileService()
+            self.assertEqual(svc.var_folder, cwd / "custom-var")
+            self.assertEqual(svc.target_file, cwd / "custom-var" / "plonex.yml")
+
+    def test_run_honors_var_folder_option(self):
+        with temp_cwd() as cwd:
+            (cwd / "etc").mkdir()
+            (cwd / "etc" / "plonex.yml").write_text(
+                "var_folder: custom-var\n" "mykey: myvalue\n"
+            )
+            with CompileService() as svc:
+                svc.run()
+            result = (cwd / "custom-var" / "plonex.yml").read_text()
+            self.assertIn("mykey: myvalue", result)

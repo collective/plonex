@@ -32,6 +32,18 @@ class DescribeService(BaseService):
         self.var_folder = self._ensure_dir(self.target / "var")
         self.describe_folder = self._ensure_dir(self.var_folder / "plonex_description")
 
+    def _sync_var_folder_from_options(self) -> None:
+        path = Path(self.options.get("var_folder", self.var_folder))
+        if not path.is_absolute():
+            path = self.target / path
+        self.var_folder = self._ensure_dir(path)
+        self.describe_folder = self._ensure_dir(self.var_folder / "plonex_description")
+
+    def __enter__(self):
+        super().__enter__()
+        self._sync_var_folder_from_options()
+        return self
+
     @property
     def description_path(self) -> Path:
         return self.describe_folder / "index.md"

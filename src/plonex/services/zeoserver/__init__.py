@@ -33,16 +33,14 @@ class ZeoServer(BaseService):
 
     @cached_property
     def options_defaults(self) -> dict:
-        if self.var_folder is None:
-            raise ValueError("var_folder is not set")
-
         options_defaults = super().options_defaults
         options_defaults.update(
             {
                 "http_port": 8080,
                 "http_address": "0.0.0.0",
-                "zeo_address": str(self.var_folder / "zeosocket.sock"),
-                "blobstorage": str(self.var_folder / "blobstorage"),
+                "var_folder": str(self.target / "var"),
+                "zeo_address": "{{ var_folder }}/zeosocket.sock",
+                "blobstorage": "{{ var_folder }}/blobstorage",
             }
         )
         return options_defaults
@@ -54,7 +52,18 @@ class ZeoServer(BaseService):
             self.tmp_folder = self.target / "tmp" / self.name
         if self.var_folder is None:
             # This is not dedicated because it is usually shared with the ZEO server
-            self.var_folder = self.target / "var"
+            self.var_folder = Path(self.options.get("var_folder", self.target / "var"))
+        if not self.var_folder.is_absolute():
+            self.var_folder = self.target / self.var_folder
+
+        raw_var_folder = str(self.options.get("var_folder", ""))
+        raw_zeo_address = str(self.options.get("zeo_address", ""))
+        raw_blobstorage = str(self.options.get("blobstorage", ""))
+        self.options["var_folder"] = str(self.var_folder)
+        if raw_zeo_address == f"{raw_var_folder}/zeosocket.sock":
+            self.options["zeo_address"] = str(self.var_folder / "zeosocket.sock")
+        if raw_blobstorage == f"{raw_var_folder}/blobstorage":
+            self.options["blobstorage"] = str(self.var_folder / "blobstorage")
 
         self.target = self._ensure_dir(self.target)
         self.tmp_folder = self._ensure_dir(self.tmp_folder)

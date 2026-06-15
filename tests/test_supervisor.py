@@ -128,6 +128,19 @@ class TestSupervisor(PloneXTestCase):
             with Supervisor(target=cwd) as supervisor:
                 self.assertEqual(supervisor.graceful_interval, 3.5)
 
+    def test_constructor_honors_var_folder_option(self):
+        with temp_cwd() as cwd:
+            (cwd / ".venv" / "bin").mkdir(parents=True)
+            (cwd / ".venv" / "bin" / "activate").touch()
+            (cwd / ".venv" / "bin" / "supervisorctl").touch(mode=0o755)
+            (cwd / ".venv" / "bin" / "supervisorctl").write_text("#!/usr/bin/env false")
+            (cwd / "etc").mkdir()
+            (cwd / "etc" / "plonex.yml").write_text("var_folder: custom-var\n")
+
+            with Supervisor(target=cwd) as supervisor:
+                self.assertEqual(supervisor.var_folder, cwd / "custom-var")
+                self.assertEqual(supervisor.log_folder, cwd / "custom-var" / "log")
+
     def test_supervisord_property(self):
         """Test that supervisord property returns a sh.Command"""
         with temp_supervisor() as supervisor:

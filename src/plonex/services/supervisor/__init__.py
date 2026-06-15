@@ -49,7 +49,7 @@ class Supervisor(BaseService):
         # Be sure that the required folders exist
         self.tmp_folder = self.target / "tmp" / self.name
         self.etc_folder = self.tmp_folder / "etc"
-        self.var_folder = self.target / "var"
+        self.var_folder = Path(self.options.get("var_folder", self.target / "var"))
         self.log_folder = self.var_folder / "log"
 
         self.programs_folder = self.etc_folder / self.name

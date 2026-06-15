@@ -57,6 +57,12 @@ class InstallService(BaseService):
         )
         self.constraints_d_folder = self._ensure_dir(self.etc_folder / "constraints.d")
 
+    def _resolved_var_folder(self) -> Path:
+        path = Path(self.options.get("var_folder", self.var_folder))
+        if not path.is_absolute():
+            path = self.target / path
+        return path
+
     @property
     def default_python(self):
         """Check with python executable is available"""
@@ -576,6 +582,7 @@ class InstallService(BaseService):
 
     def __enter__(self):
         super().__enter__()
+        self.var_folder = self._ensure_dir(self._resolved_var_folder())
         self.ensure_virtualenv()
         self.make_requirements_txt()
         self.make_constraints_txt()
