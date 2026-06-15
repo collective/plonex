@@ -35,9 +35,6 @@ class Supervisor(BaseService):
     etc_folder: Path = field(init=False)
     log_folder: Path = field(init=False)
     tmp_folder: Path = field(init=False)
-    var_folder: Path = field(init=False)
-
-    # You can override the templates used to generate the configuration files
 
     @cached_property
     def options_defaults(self) -> dict:
@@ -47,19 +44,18 @@ class Supervisor(BaseService):
 
     def __post_init__(self):
         # Be sure that the required folders exist
+        self.target = self._ensure_dir(self.target)
         self.tmp_folder = self.target / "tmp" / self.name
         self.etc_folder = self.tmp_folder / "etc"
-        self.var_folder = Path(self.options.get("var_folder", self.target / "var"))
         self.log_folder = self.var_folder / "log"
 
         self.programs_folder = self.etc_folder / self.name
 
-        self.target = self._ensure_dir(self.target)
         self.etc_folder = self._ensure_dir(self.etc_folder)
         self.programs_folder = self._ensure_dir(self.programs_folder)
         self.log_folder = self._ensure_dir(self.log_folder)
         self.tmp_folder = self._ensure_dir(self.tmp_folder)
-        self.var_folder = self._ensure_dir(self.var_folder)
+        self._ensure_dir(self.var_folder)
 
         if not self.pre_services:
             self.pre_services = [

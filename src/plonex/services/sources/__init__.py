@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from dataclasses import field
 from fnmatch import fnmatch
 from pathlib import Path
 from plonex.base import BaseService
@@ -20,25 +19,12 @@ class SourcesService(BaseService):
     name: str = "sources"
     assume_yes: bool = False
 
-    var_folder: Path = field(init=False)
-    gitman_file: Path = field(init=False)
+    @property
+    def gitman_file(self) -> Path:
+        return self.var_folder / "gitman.yml"
 
     def __post_init__(self):
         self.target = self._ensure_dir(self.target.absolute())
-        self.var_folder = self._ensure_dir(self.target / "var")
-        self.gitman_file = self.var_folder / "gitman.yml"
-
-    def _sync_var_folder_from_options(self) -> None:
-        path = Path(self.options.get("var_folder", self.var_folder))
-        if not path.is_absolute():
-            path = self.target / path
-        self.var_folder = self._ensure_dir(path)
-        self.gitman_file = self.var_folder / "gitman.yml"
-
-    def __enter__(self):
-        super().__enter__()
-        self._sync_var_folder_from_options()
-        return self
 
     @property
     def sources_options(self) -> dict[str, Any]:

@@ -46,7 +46,7 @@ def temp_cwd():
     with TemporaryDirectory() as temp_dir:
         temp_dir_path = Path(temp_dir)
         with chdir(temp_dir_path):
-            yield temp_dir_path
+            yield temp_dir_path.absolute()
 
 
 @dataclass

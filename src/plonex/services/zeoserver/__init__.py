@@ -2,12 +2,12 @@ from dataclasses import dataclass
 from dataclasses import field
 from functools import cached_property
 from pathlib import Path
-from plonex.base import BaseService
+from plonex.base import ZopeBasedService
 from plonex.services.template import TemplateService
 
 
 @dataclass(kw_only=True)
-class ZeoServer(BaseService):
+class ZeoServer(ZopeBasedService):
     """This is a context manager that allows to run a ZEO server
 
     The ZEO server configuration is created in a temporary folder
@@ -29,7 +29,6 @@ class ZeoServer(BaseService):
 
     # This service has some folders
     tmp_folder: Path | None = None
-    var_folder: Path | None = None
 
     @cached_property
     def options_defaults(self) -> dict:
@@ -38,9 +37,6 @@ class ZeoServer(BaseService):
             {
                 "http_port": 8080,
                 "http_address": "0.0.0.0",
-                "var_folder": str(self.target / "var"),
-                "zeo_address": "{{ var_folder }}/zeosocket.sock",
-                "blobstorage": "{{ var_folder }}/blobstorage",
             }
         )
         return options_defaults
@@ -50,24 +46,9 @@ class ZeoServer(BaseService):
         if self.tmp_folder is None:
             # We want a dedicated subfolder for this service
             self.tmp_folder = self.target / "tmp" / self.name
-        if self.var_folder is None:
-            # This is not dedicated because it is usually shared with the ZEO server
-            self.var_folder = Path(self.options.get("var_folder", self.target / "var"))
-        if not self.var_folder.is_absolute():
-            self.var_folder = self.target / self.var_folder
-
-        raw_var_folder = str(self.options.get("var_folder", ""))
-        raw_zeo_address = str(self.options.get("zeo_address", ""))
-        raw_blobstorage = str(self.options.get("blobstorage", ""))
-        self.options["var_folder"] = str(self.var_folder)
-        if raw_zeo_address == f"{raw_var_folder}/zeosocket.sock":
-            self.options["zeo_address"] = str(self.var_folder / "zeosocket.sock")
-        if raw_blobstorage == f"{raw_var_folder}/blobstorage":
-            self.options["blobstorage"] = str(self.var_folder / "blobstorage")
 
         self.target = self._ensure_dir(self.target)
         self.tmp_folder = self._ensure_dir(self.tmp_folder)
-        self.var_folder = self._ensure_dir(self.var_folder)
 
         # We also want to create the blobstorage and filestorage folders
         self._ensure_dir(self.var_folder / "blobstorage")

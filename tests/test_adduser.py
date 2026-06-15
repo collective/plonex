@@ -36,7 +36,6 @@ class TestAddUser(PloneXTestCase):
                 "cli_options",
                 "config_files",
                 "tmp_folder",
-                "var_folder",
                 "zope_conf_template",
                 "site_zcml_template",
                 "username",

@@ -49,6 +49,7 @@ class BaseService:
     def options_defaults(self) -> dict:
         return {
             "target": self.target.absolute().as_posix(),
+            "var_folder": str(self.target / "var"),
         }
 
     def _load_yaml_mapping(self, path: Path) -> dict:
@@ -380,6 +381,17 @@ class BaseService:
             raise ValueError(f"{path} is not a directory")
         return path.absolute()
 
+    @property
+    def var_folder(self) -> Path:
+        """Resolve var_folder from options, falling back to a provided value.
+
+        Relative values are interpreted as paths under ``target``.
+        """
+        var_folder = Path(self.options.get("var_folder", self.target / "var"))
+        if not var_folder.is_absolute():
+            var_folder = self.target / var_folder
+        return self._ensure_dir(var_folder)
+
     def mkdtemp(self, dir=None) -> Path:
         """Wrapper for mkdtemp that creates a temporary folder with a prefix
         that matches the service name.
@@ -563,7 +575,6 @@ class ZopeBasedService(BaseService):
     """
 
     tmp_folder: Path | None = None
-    var_folder: Path | None = None
     zope_conf_template: str = (
         "resource://plonex.services.zope_configuration.templates:zope.conf.j2"  # noqa: E501
     )
@@ -574,30 +585,31 @@ class ZopeBasedService(BaseService):
     def __post_init__(self):
         if self.tmp_folder is None:
             self.tmp_folder = self.target / "tmp" / self.name
-        if self.var_folder is None:
-            self.var_folder = self.target / "var"
         self.target = self._ensure_dir(self.target)
         self.tmp_folder = self._ensure_dir(self.tmp_folder)
-        self.var_folder = self._ensure_dir(self.var_folder)
-        self._ensure_dir(self.var_folder / self.name)
 
     @cached_property
     def options_defaults(self) -> dict:
         options_defaults = super().options_defaults
-        assert (
-            self.var_folder is not None
-        ), "var_folder should be set before accessing options_defaults"
         options_defaults.update(
             {
-                "var_folder": str(self.var_folder),
-                "zeo_address": str(self.var_folder / "zeosocket.sock"),
-                "blobstorage": str(self.var_folder / "blobstorage"),
                 "zcml_additional": [],
                 "zope_conf_additional": [],
                 "environment_vars": {},
             }
         )
         return options_defaults
+
+    @cached_property
+    def options(self) -> dict:
+        """Return the options for this service, with some additional processing."""
+        options = super().options
+        var_folder = Path(options["var_folder"])
+        if "zeo_address" not in options:
+            options["zeo_address"] = str(var_folder / "zeosocket.sock")
+        if "blobstorage" not in options:
+            options["blobstorage"] = str(var_folder / "blobstorage")
+        return options
 
     def _generate_password(self) -> str:
         from secrets import choice

@@ -23,7 +23,6 @@ class InitService(BaseService):
                 "plonex_version": version("plonex"),
                 "plone_version": "6.2-latest",
                 "http_port": 8080,
-                "var_folder": str(self.target / "var"),
                 "environment_vars": {
                     "PTS_LANGUAGES": "en it",
                 },

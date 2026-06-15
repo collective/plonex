@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from dataclasses import field
 from datetime import datetime
 from pathlib import Path
 from plonex.base import BaseService
@@ -25,24 +24,10 @@ class DescribeService(BaseService):
     )
     generate_html: bool = False
     browse_html: bool = False
-    var_folder: Path = field(init=False)
-    describe_folder: Path = field(init=False)
 
-    def __post_init__(self):
-        self.var_folder = self._ensure_dir(self.target / "var")
-        self.describe_folder = self._ensure_dir(self.var_folder / "plonex_description")
-
-    def _sync_var_folder_from_options(self) -> None:
-        path = Path(self.options.get("var_folder", self.var_folder))
-        if not path.is_absolute():
-            path = self.target / path
-        self.var_folder = self._ensure_dir(path)
-        self.describe_folder = self._ensure_dir(self.var_folder / "plonex_description")
-
-    def __enter__(self):
-        super().__enter__()
-        self._sync_var_folder_from_options()
-        return self
+    @property
+    def describe_folder(self) -> Path:
+        return self._ensure_dir(self.var_folder / "plonex_description")
 
     @property
     def description_path(self) -> Path:

@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from pathlib import Path
 from plonex.base import BaseService
 from plonex.services.sources import SourcesService
 from yaml import dump
@@ -13,9 +12,6 @@ class CompileService(BaseService):
 
     def __post_init__(self) -> None:
         """Ensure that we have everything we need to run the compile service"""
-        self.var_folder = self._ensure_dir(
-            Path(self.options.get("var_folder", self.target / "var"))
-        )
         self.target_file = self.var_folder / "plonex.yml"
 
     def run(self) -> None:

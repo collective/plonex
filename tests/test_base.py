@@ -143,8 +143,14 @@ class TestBaseService(unittest.TestCase):
         etc_path.mkdir()
         plonex_path = etc_path / "plonex.test.yml"
 
-        default_options = DummyService().options
-        self.assertDictEqual(default_options, {"target": str(self.temp_dir)})
+        default_options = DummyService().options_defaults
+        self.assertDictEqual(
+            default_options,
+            {
+                "target": str(self.temp_dir),
+                "var_folder": str(self.temp_dir / "var"),
+            },
+        )
 
         plonex_path.write_text(
             dedent(

@@ -31,7 +31,6 @@ class InstallService(BaseService):
 
     etc_folder: Path = field(init=False)
     tmp_folder: Path = field(init=False)
-    var_folder: Path = field(init=False)
 
     requirements_d_folder: Path = field(init=False)
     constraints_d_folder: Path = field(init=False)
@@ -51,17 +50,10 @@ class InstallService(BaseService):
         self.target = self._ensure_dir(self.target.absolute())
         self.etc_folder = self._ensure_dir(self.target / "etc")
         self.tmp_folder = self._ensure_dir(self.target / "tmp")
-        self.var_folder = self._ensure_dir(self.target / "var")
         self.requirements_d_folder = self._ensure_dir(
             self.etc_folder / "requirements.d"
         )
         self.constraints_d_folder = self._ensure_dir(self.etc_folder / "constraints.d")
-
-    def _resolved_var_folder(self) -> Path:
-        path = Path(self.options.get("var_folder", self.var_folder))
-        if not path.is_absolute():
-            path = self.target / path
-        return path
 
     @property
     def default_python(self):
@@ -582,7 +574,6 @@ class InstallService(BaseService):
 
     def __enter__(self):
         super().__enter__()
-        self.var_folder = self._ensure_dir(self._resolved_var_folder())
         self.ensure_virtualenv()
         self.make_requirements_txt()
         self.make_constraints_txt()

@@ -38,7 +38,8 @@ class TestZeoServer(PloneXTestCase):
                 "cli_options",
                 "config_files",
                 "tmp_folder",
-                "var_folder",
+                "zope_conf_template",
+                "site_zcml_template",
             ],
         )
 
@@ -65,7 +66,7 @@ class TestZeoServer(PloneXTestCase):
             zeo = ZeoServer(
                 target=temp_dir / "another_place",
                 tmp_folder=temp_dir / "another_tmp",
-                var_folder=temp_dir / "another_var",
+                cli_options={"var_folder": str(temp_dir / "another_var")},
             )
             self.assertEqual(zeo.target, temp_dir / "another_place")
             self.assertEqual(zeo.tmp_folder, temp_dir / "another_tmp")
@@ -152,11 +153,10 @@ class TestZeoServer(PloneXTestCase):
             (temp_dir / "etc" / "plonex.yml").write_text("var_folder: custom-var\n")
 
             with ZeoServer(target=temp_dir) as zeo:
-                self.assertEqual(zeo.var_folder, temp_dir / "custom-var")
                 self.assertEqual(
-                    zeo.options["zeo_address"],
-                    str(temp_dir / "custom-var" / "zeosocket.sock"),
+                    zeo.options["zeo_address"], "custom-var/zeosocket.sock"
                 )
+                self.assertEqual(zeo.var_folder, temp_dir / "custom-var")
 
     def test_run_backup(self):
         """Test the backup command"""

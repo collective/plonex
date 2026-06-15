@@ -39,7 +39,6 @@ class TestZConsole(PloneXTestCase):
                 "cli_options",
                 "config_files",
                 "tmp_folder",
-                "var_folder",
                 "zope_conf_template",
                 "site_zcml_template",
                 "action",
@@ -68,7 +67,7 @@ class TestZConsole(PloneXTestCase):
             svc = ZConsole(
                 target=temp_dir / "another_place",
                 tmp_folder=temp_dir / "another_tmp",
-                var_folder=temp_dir / "another_var",
+                cli_options={"var_folder": str(temp_dir / "another_var")},
             )
             self.assertEqual(svc.target, temp_dir / "another_place")
             self.assertEqual(svc.tmp_folder, temp_dir / "another_tmp")
