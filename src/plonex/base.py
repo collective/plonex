@@ -601,6 +601,11 @@ class ZopeBasedService(BaseService):
         return options_defaults
 
     @cached_property
+    def client_home(self) -> Path:
+        """The path to the client home folder"""
+        return self._ensure_dir(self.var_folder / self.name)
+
+    @cached_property
     def options(self) -> dict:
         """Return the options for this service, with some additional processing."""
         options = super().options
@@ -645,7 +650,7 @@ class ZopeBasedService(BaseService):
                 options={
                     "context": self,
                     "instance_home": self.tmp_folder,
-                    "client_home": self.var_folder / self.name,
+                    "client_home": self.client_home,
                     "debug_mode": self.options.get("debug_mode") or debug_mode,
                     "security_policy_implementation": self.options.get(
                         "security_policy_implementation"
