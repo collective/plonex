@@ -688,6 +688,7 @@ class ZopeBasedService(BaseService):
         if chameleon_cache:
             Path(chameleon_cache).mkdir(parents=True, exist_ok=True)
 
+        options = {"context": self} | self.options
         for template in map(Path, zcml_additional):
             target_path = packages_includes / template.name
             if template.suffix == ".j2":
@@ -702,7 +703,7 @@ class ZopeBasedService(BaseService):
                 TemplateService(
                     source_path=template,
                     target_path=target_path,
-                    options={"context": self},
+                    options=options,
                 )
             )
 

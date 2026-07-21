@@ -8,6 +8,7 @@ from jinja2 import Environment
 from jinja2 import StrictUndefined
 from pathlib import Path
 from plonex.base import BaseService
+from rich import pretty
 
 
 @dataclass(kw_only=True)
@@ -82,4 +83,9 @@ class TemplateService(BaseService):
             flat_options = vars(self.options)
 
         render_context = {"options": self.options, **flat_options}
+        self.logger.debug(
+            "Rendering template %s with context: %s",
+            self.source_path,
+            pretty.pretty_repr(render_context),
+        )
         return template.render(**render_context, keep_trailing_newline=True)
