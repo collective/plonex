@@ -45,6 +45,8 @@ class BaseService:
     stream_output: ClassVar[bool] = False
     command_output_enabled: ClassVar[bool] = True
 
+    _yaml_resources: list[str] = field(default_factory=list, init=False, repr=False)
+
     @cached_property
     def options_defaults(self) -> dict:
         return {
@@ -61,6 +63,13 @@ class BaseService:
         if not isinstance(file_options, dict):
             self.logger.error("The config file %r should contain a dict", path)
             return {}
+
+        try:
+            self._yaml_resources.append(str(path.resolve().relative_to(self.target)))
+        except ValueError:
+            # When the path is not relative to the target,
+            # just store the absolute path
+            self._yaml_resources.append(str(path.resolve()))
         return file_options
 
     @property

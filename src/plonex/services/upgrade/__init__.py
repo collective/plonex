@@ -11,6 +11,8 @@ class UpgradeService(BaseService):
     def run(self):
         upgrade = self.virtualenv_dir / "bin" / "upgrade"
         with TemporaryDirectory() as auth_dir:
+            if "environment_vars" not in self.options:
+                self.options["environment_vars"] = {}
             self.options["environment_vars"]["UPGRADE_TEMPFILE_AUTH_DIR"] = auth_dir
             self.run_command([upgrade, "plone_upgrade", "-A"])
             self.run_command([upgrade, "install", "-Ap"])

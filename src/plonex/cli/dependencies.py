@@ -5,6 +5,7 @@ from plonex.services.adduser import AddUser
 from plonex.services.compile import CompileService
 from plonex.services.describe import DescribeService
 from plonex.services.directory import DirectoryService
+from plonex.services.edit import EditService
 from plonex.services.init import InitService
 from plonex.services.install import InstallService
 from plonex.services.robotserver import RobotServer
@@ -33,6 +34,7 @@ def _build_service_registry() -> dict[str, type[BaseService]]:
         CompileService,
         DescribeService,
         DirectoryService,
+        EditService,
         SourcesService,
         InitService,
         InstallService,

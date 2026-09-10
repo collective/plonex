@@ -230,3 +230,24 @@ def register_setup_parsers(subs, add_subparser) -> None:
         help="Manage project sources (uses Gitman under the hood)",
     )
     _register_sources_subcommands(sources_parser)
+
+    edit_parser = add_subparser(
+        subs,
+        "edit",
+        help="Open plonex configuration files in your favorite editor",
+    )
+    edit_parser.add_argument(
+        "--all",
+        help="Open all discovered configuration files (bypass interactive menu)",
+        required=False,
+        default=False,
+        action="store_true",
+        dest="open_all",
+    )
+    edit_parser.add_argument(
+        "--editor",
+        help="Editor to use (overrides plonex.yml options.editor and $EDITOR env var)",
+        required=False,
+        default=None,
+        dest="editor",
+    )

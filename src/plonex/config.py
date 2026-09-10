@@ -62,6 +62,7 @@ def _normalize_pip_requirements(value: Any) -> list[str]:
 SUPPORTED_OPTION_SPECS: dict[str, OptionSpec] = {
     "default_action": OptionSpec(name="default_action"),
     "default_actions": OptionSpec(name="default_actions"),
+    "editor": OptionSpec(name="editor"),
     "log_level": OptionSpec(name="log_level"),
     "plone_version": OptionSpec(name="plone_version"),
     "plonex_base_constraint": OptionSpec(name="plonex_base_constraint"),

@@ -12,6 +12,7 @@ from plonex.config import normalize_default_actions
 from plonex.services.adduser import AddUser
 from plonex.services.compile import CompileService
 from plonex.services.describe import DescribeService
+from plonex.services.edit import EditService
 from plonex.services.init import InitService
 from plonex.services.install import InstallService
 from plonex.services.robotserver import RobotServer
@@ -374,6 +375,23 @@ def main() -> None:
         init_target = Path(args.target) if args.target else _prompt_init_target()
         with InitService(target=init_target) as svc:
             svc.run()
+        return
+
+    if args.action == "edit":
+        # Edit can run without a fully initialized project
+        target = Path(args.target)
+        if not target.exists():
+            logger.error("The target folder %r does not exist", args.target)
+            sys.exit(1)
+        edit_service = EditService(
+            target=target,
+            open_all=getattr(args, "open_all", False),
+            cli_options=(
+                {"editor": args.editor} if getattr(args, "editor", None) else {}
+            ),
+        )
+        with edit_service:
+            edit_service.run()
         return
 
     target = _resolve_target(args)
