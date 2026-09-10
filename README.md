@@ -412,6 +412,8 @@ The selected editor:
 1. can be configured with the `EDITOR` environment variable
 1. use the `open` command as a fallback if none of the above is specified.
 
+You can of course edit the configuration files manually, but `plonex edit` helps you discover and open them quickly.
+
 ### Runtime
 
 `zeoserver`
