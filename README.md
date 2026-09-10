@@ -401,6 +401,17 @@ also print a suggested `sources` section to add into `etc/plonex.yml`.
 
 - Run Plone upgrade steps.
 
+### Configuration editing
+
+There is a dedicated `plonex edit` command to help you edit the configuration files for your `plonex` project.
+You can use `--all` to open all discovered config files in your editor, otherwise you can select which files to edit interactively.
+The selected editor:
+
+1. with the `--editor` option in the command line
+1. with the `editor` option if specified in the `etc/plonex.yml` configuration file
+1. can be configured with the `EDITOR` environment variable
+1. use the `open` command as a fallback if none of the above is specified.
+
 ### Runtime
 
 `zeoserver`

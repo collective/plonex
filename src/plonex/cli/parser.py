@@ -128,6 +128,7 @@ def build_parser() -> ArgumentParser:
                     "init",
                     "install",
                     "upgrade",
+                    "edit",
                 ],
                 "Runtime Commands:": [
                     "adduser",

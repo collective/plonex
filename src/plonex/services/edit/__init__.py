@@ -95,7 +95,7 @@ class EditService(BaseService):
             return editor_from_env
 
         # 4. Fallback
-        return "nano"
+        return "open"
 
     def select_files_interactive(self, files: list[Path]) -> list[Path]:
         """Display an interactive menu for file selection.
