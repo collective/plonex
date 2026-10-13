@@ -56,15 +56,13 @@ def _add_subparser(subparsers, *args, **kwargs):
 
 def build_parser() -> ArgumentParser:
     parser = ArgumentParser(
-        description=dedent(
-            """\
+        description=dedent("""\
             Plone Deployment CLI.
 
             Activate autocomplete with:
 
             eval "$(register-python-argcomplete plonex)"
-            """
-        ),
+            """),
         prog="plonex",
         usage="%(prog)s [options]",
         formatter_class=RawTextRichHelpFormatter,

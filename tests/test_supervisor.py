@@ -9,7 +9,6 @@ from unittest.mock import PropertyMock
 
 import inspect
 
-
 read_expected = ReadExpected(Path(__file__).parent / "expected" / "supervisor")
 
 

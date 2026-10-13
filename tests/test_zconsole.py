@@ -7,7 +7,6 @@ from plonex.services.zconsole import ZConsole
 
 import inspect
 
-
 read_expected = ReadExpected(Path(__file__).parent / "expected" / "zconsole")
 
 

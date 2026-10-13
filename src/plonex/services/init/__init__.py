@@ -103,15 +103,11 @@ class InitService(BaseService):
         self.logger.info("Project initialized in %s", self.target)
         gitignore = self.target / ".gitignore"
         if not gitignore.exists():
-            gitignore.write_text(
-                dedent(
-                    """\
+            gitignore.write_text(dedent("""\
                     /.venv
                     /tmp
                     /var
-                    """
-                )
-            )
+                    """))
             self.logger.debug("Initializing a .gitignore file")
         git_repo = self.target / ".git"
         if not git_repo.exists():

@@ -10,19 +10,19 @@ repos:
       - id: check-toml
       - id: check-added-large-files
 
-  - repo: https://github.com/pre-commit/mirrors-isort
-    rev: v5.10.1
+  - repo: https://github.com/pycqa/isort
+    rev: 9.0.2
     hooks:
       - id: isort
 
   - repo: https://github.com/psf/black
-    rev: 25.11.0
+    rev: 26.10.1
     hooks:
       - id: black
         language_version: python3
 
   - repo: https://github.com/PyCQA/flake8
-    rev: 7.3.0
+    rev: 7.4.1
     hooks:
       - id: flake8
         additional_dependencies:
@@ -30,26 +30,15 @@ repos:
           - Flake8-pyproject
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.18.2
+    rev: v2.4.0
     hooks:
       - id: mypy
         additional_dependencies:
           - types-PyYAML
           - types-requests
-  - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v10.0.0-alpha.0
-    hooks:
-      - id: eslint
-        files: \.js$
-
-  - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v4.0.0-alpha.8
-    hooks:
-      - id: prettier
-        files: \.(json|md|html|css|scss|ts|tsx|yaml|yml)$
 
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.4.1
+    rev: v2.4.3
     hooks:
       - id: codespell
         files: ^.*\.(py|c|h|md|rst|yml)$
@@ -57,7 +46,7 @@ repos:
 
   # Markdown formatter (like black for Markdown)
   - repo: https://github.com/executablebooks/mdformat
-    rev: 0.7.22
+    rev: 1.0.0
     hooks:
       - id: mdformat
         files: \.md$
@@ -69,13 +58,13 @@ repos:
 
   # Markdown lint
   - repo: https://github.com/igorshubovych/markdownlint-cli
-    rev: v0.45.0
+    rev: v0.49.1
     hooks:
       - id: markdownlint
         files: \.md$
 
   # Lint Makefiles
   - repo: https://github.com/mrtazz/checkmake
-    rev: 0.2.2
+    rev: v0.3.0
     hooks:
       - id: checkmake

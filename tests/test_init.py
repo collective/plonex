@@ -9,7 +9,6 @@ from unittest import mock
 
 import inspect
 
-
 read_expected = ReadExpected(Path(__file__).parent / "expected" / "install")
 
 

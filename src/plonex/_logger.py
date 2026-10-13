@@ -2,7 +2,6 @@ from rich.logging import RichHandler
 
 import logging
 
-
 FORMAT: str = "%(message)s"
 logging.basicConfig(
     level=logging.INFO,

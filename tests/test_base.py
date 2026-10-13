@@ -152,13 +152,9 @@ class TestBaseService(unittest.TestCase):
             },
         )
 
-        plonex_path.write_text(
-            dedent(
-                """---
+        plonex_path.write_text(dedent("""---
             test_option: 42
-            """
-            )
-        )
+            """))
 
         self.assertDictEqual(
             DummyService().options, {"test_option": 42, **default_options}
@@ -177,14 +173,10 @@ class TestBaseService(unittest.TestCase):
         default_options = DummyService().options
 
         plonex_path = etc_path / "plonex.test.yml"
-        plonex_path.write_text(
-            dedent(
-                """---
+        plonex_path.write_text(dedent("""---
             - test_option:
                 - 42
-            """
-            )
-        )
+            """))
         service = DummyService()
         self.assertDictEqual(service.options, default_options)
         self.assertListEqual(
@@ -214,15 +206,11 @@ class TestBaseService(unittest.TestCase):
         profile = self.temp_dir / "profiles" / "base"
         (profile / "etc").mkdir(parents=True)
         (profile / "etc" / "plonex.yml").write_text("http_port: 8080\ninstance: base\n")
-        (etc_path / "plonex.yml").write_text(
-            dedent(
-                f"""---
+        (etc_path / "plonex.yml").write_text(dedent(f"""---
                 profiles:
                   - {profile}
                 http_port: 8081
-                """
-            )
-        )
+                """))
         service = DummyService()
         self.assertEqual(service.plonex_options["http_port"], 8081)
         self.assertEqual(service.plonex_options["instance"], "base")

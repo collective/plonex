@@ -18,7 +18,6 @@ from plonex.services.zconsole import ZConsole
 from plonex.services.zeoserver import ZeoServer
 from plonex.services.zopetest import ZopeTest
 
-
 __all__ = [
     "CompileService",
     "DescribeService",
