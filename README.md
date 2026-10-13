@@ -89,7 +89,7 @@ By default, `plonex` shows the command help.
 If you want a different behavior, set either `default_action` or
 `default_actions` in `etc/plonex.yml`.
 
-For example, to ensure supervisor is started and then run WSGI client is run in the foreground, you can write:
+For example, to ensure supervisor is started and then run WSGI client is run in the foreground, you can set:
 
 ```yaml
 default_actions:
