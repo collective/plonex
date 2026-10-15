@@ -1113,3 +1113,25 @@ class TestInit(PloneXTestCase):
                     install.run(update_sources=None)
 
             mock_update.assert_called_once()
+
+    def test_run_show_outdated(self):
+        """Test that run_show_outdated runs uv pip list --outdated."""
+        with temp_cwd() as cwd:
+            install = InstallService(dont_ask=True)
+            venv_bin = cwd / ".venv" / "bin"
+            venv_bin.mkdir(parents=True, exist_ok=True)
+            (venv_bin / "activate").touch()
+            (venv_bin / "uv").touch()
+
+            with mock.patch.object(install, "ensure_virtualenv"):
+                with mock.patch.object(install, "execute_command") as mock_run:
+                    with install:
+                        install.run_show_outdated()
+
+            expected = [
+                str(cwd / ".venv" / "bin" / "uv"),
+                "pip",
+                "list",
+                "--outdated",
+            ]
+            mock_run.assert_called_once_with(expected)

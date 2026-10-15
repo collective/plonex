@@ -278,13 +278,16 @@ def _handle_dependencies(args: Namespace, parser: ArgumentParser, target: Path) 
     _run_service_dependencies(target, "dependencies")
     persist_mode = getattr(args, "persist_mode", None)
     with InstallService(target=target) as svc:
-        svc.run(
-            persist=persist_mode == "project",
-            persist_local=persist_mode == "local",
-            persist_profile=persist_mode == "profile",
-            update_sources=getattr(args, "update_sources", None),
-            sync=getattr(args, "sync", False),
-        )
+        if getattr(args, "show_outdated", False):
+            svc.run_show_outdated()
+        else:
+            svc.run(
+                persist=persist_mode == "project",
+                persist_local=persist_mode == "local",
+                persist_profile=persist_mode == "profile",
+                update_sources=getattr(args, "update_sources", None),
+                sync=getattr(args, "sync", False),
+            )
 
 
 def _handle_sources(args: Namespace, parser: ArgumentParser, target: Path) -> None:

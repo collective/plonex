@@ -791,3 +791,15 @@ class InstallService(BaseService):
                 console.print(
                     "Running  `plonex dependencies [--persist|--persist-local|--persist-profile]` will do that for you."  # noqa: E501
                 )
+
+    @BaseService.entered_only
+    def run_show_outdated(self) -> None:
+        """Make the service run uv pip list --outdated."""
+        self.logger.info("Showing outdated packages in virtualenv")
+        command = [
+            str(self.virtualenv_dir / "bin" / "uv"),
+            "pip",
+            "list",
+            "--outdated",
+        ]
+        self.execute_command(command)

@@ -223,6 +223,14 @@ def register_setup_parsers(subs, add_subparser) -> None:
         action="store_true",
         dest="sync",
     )
+    dependencies_parser.add_argument(
+        "--outdated",
+        help="Show outdated packages in the virtualenv",
+        required=False,
+        default=False,
+        action="store_true",
+        dest="show_outdated",
+    )
 
     sources_parser = add_subparser(
         subs,
