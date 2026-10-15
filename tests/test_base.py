@@ -469,7 +469,7 @@ class TestBaseService(unittest.TestCase):
             mock.patch("sys.stderr", new=io.StringIO()) as mock_stderr,
         ):
             output = BaseService.execute_command(["echo", "hello"])
-        self.assertIn("hello", output)
+        self.assertEqual("", output)
         self.assertEqual("", mock_stdout.getvalue())
         self.assertEqual("", mock_stderr.getvalue())
 

@@ -16,7 +16,9 @@ from typing import ClassVar
 from typing import Sequence
 
 import logging
+import os
 import sh  # type: ignore[import-untyped]
+import signal
 import sys
 import time
 import yaml
@@ -515,43 +517,74 @@ class BaseService:
         cwd: Path | None = None,
         stream_output: bool | None = None,
     ) -> str:
-        """Execute a command with sh and return stdout as text."""
+        """Execute a command and return stdout as text."""
         if stream_output is None:
             stream_output = cls.stream_output
+
         command_list = list(map(str, command))
         executable, *args = command_list
+
         kwargs: dict[str, Any] = {"_cwd": str(cwd)} if cwd else {}
+
         if stream_output:
-            # Keep a real TTY for foreground commands (proper width, colors, prompts).
-            kwargs.update({"_fg": True})
+            kwargs["_fg"] = True
             return str(sh.Command(executable)(*args, **kwargs))
 
         if not cls.command_output_enabled:
-            return str(sh.Command(executable)(*args, **kwargs))
+            kwargs["_new_session"] = True
+            kwargs["_bg"] = True
+        else:
+            stdout_chunks: list[str] = []
 
-        stdout_chunks: list[str] = []
-        stderr_chunks: list[str] = []
+            def _to_text(chunk: Any) -> str:
+                if isinstance(chunk, bytes):
+                    return chunk.decode(errors="replace")
+                return str(chunk)
 
-        def _to_text(chunk: Any) -> str:
-            if isinstance(chunk, bytes):
-                return chunk.decode(errors="replace")
-            return str(chunk)
+            def _out(chunk: Any) -> None:
+                text = _to_text(chunk)
+                stdout_chunks.append(text)
+                sys.stdout.write(text)
+                sys.stdout.flush()
 
-        def _out(chunk: Any) -> None:
-            text = _to_text(chunk)
-            stdout_chunks.append(text)
-            sys.stdout.write(text)
-            sys.stdout.flush()
+            def _err(chunk: Any) -> None:
+                text = _to_text(chunk)
+                sys.stderr.write(text)
+                sys.stderr.flush()
 
-        def _err(chunk: Any) -> None:
-            text = _to_text(chunk)
-            stderr_chunks.append(text)
-            sys.stderr.write(text)
-            sys.stderr.flush()
+            kwargs.update(
+                {
+                    "_out": _out,
+                    "_err": _err,
+                    "_new_session": True,
+                    "_bg": True,
+                }
+            )
 
-        kwargs.update({"_out": _out, "_err": _err})
-        sh.Command(executable)(*args, **kwargs)
-        return "".join(stdout_chunks)
+        process = sh.Command(executable)(*args, **kwargs)
+
+        try:
+            process.wait()
+        except KeyboardInterrupt:
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
+
+            try:
+                process.wait(timeout=3)
+            except (TimeoutError, sh.TimeoutException):
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                process.wait()
+            except sh.SignalException_SIGTERM:
+                pass
+
+            raise
+
+        return "".join(stdout_chunks) if cls.command_output_enabled else ""
 
     @entered_only
     def run(self):
