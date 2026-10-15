@@ -536,6 +536,17 @@ class InstallService(BaseService):
         This resolves all transitive dependencies so that `uv pip sync` knows
         the exact set of packages the virtualenv should contain.
         """
+        if self.compiled_requirements_txt.exists():
+            # Backup the existing file by moving it to another location
+            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            backup_name = self.compiled_requirements_txt.with_suffix(
+                f".bak.{timestamp}"
+            )
+            self.logger.debug(
+                "Renaming: %r -> %r", self.compiled_requirements_txt, backup_name
+            )
+            self.compiled_requirements_txt.rename(backup_name)  # type: ignore[union-attr] # noqa: E501
+
         return [
             str(self.virtualenv_dir / "bin" / "uv"),
             "pip",
