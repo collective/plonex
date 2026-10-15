@@ -161,14 +161,14 @@ class TestEditService(PloneXTestCase):
                     os.environ.pop("EDITOR", None)
 
     def test_resolve_editor_fallback_to_nano(self):
-        """Test that editor falls back to nano."""
+        """Test that editor falls back to open."""
         with temp_cwd():
             # Ensure no EDITOR env var
             original_editor = os.environ.pop("EDITOR", None)
             try:
                 svc = EditService()
                 editor = svc.resolve_editor()
-                self.assertEqual(editor, "nano")
+                self.assertEqual(editor, "open")
             finally:
                 if original_editor:
                     os.environ["EDITOR"] = original_editor
