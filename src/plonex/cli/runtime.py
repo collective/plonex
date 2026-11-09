@@ -42,11 +42,23 @@ def register_runtime_parsers(subs, add_subparser) -> None:
     add_subparser(
         supervisor_subs,
         "status",
-        help="Status of supervisor (default)",
+        help="Status of supervisor",
     )
-    add_subparser(supervisor_subs, "start", help="Start supervisor")
+    start_parser = add_subparser(
+        supervisor_subs, "start", help="Prepare and start supervisor"
+    )
+    start_parser.add_argument(
+        "--plan", action="store_true", help="Explain preparation without executing it"
+    )
     add_subparser(supervisor_subs, "stop", help="Stop supervisor")
-    add_subparser(supervisor_subs, "restart", help="Restart supervisor")
+    restart = add_subparser(supervisor_subs, "restart", help="Restart managed programs")
+    restart.add_argument(
+        "programs", nargs="*", help="Programs to restart (default: all)"
+    )
+    add_subparser(
+        supervisor_subs, "reread", help="Reread Supervisor program declarations"
+    )
+    add_subparser(supervisor_subs, "update", help="Apply changed Supervisor programs")
     graceful_parser = add_subparser(
         supervisor_subs,
         "graceful",
@@ -73,18 +85,6 @@ def register_runtime_parsers(subs, add_subparser) -> None:
 
     zconsole_parser = add_subparser(subs, "zconsole", help="Run zconsole commands")
     add_runtime_options(zconsole_parser, default_name="zconsole")
-    zconsole_parser.add_argument(
-        "zconsole_action",
-        choices=("debug", "run"),
-        nargs="?",
-        default="debug",
-        help="zconsole action (default: debug)",
-    )
-    zconsole_parser.add_argument(
-        "args",
-        nargs="*",
-        help="Arguments passed to zconsole action",
-    )
 
     fg_parser = add_subparser(
         subs,
@@ -92,6 +92,17 @@ def register_runtime_parsers(subs, add_subparser) -> None:
         help="Start runwsgi in foreground debug mode",
     )
     add_runtime_options(fg_parser, default_name="fg")
+    fg_parser.add_argument(
+        "--debugpy",
+        type=int,
+        metavar="PORT",
+        help="Listen for a debugpy client on 127.0.0.1:PORT",
+    )
+    fg_parser.add_argument(
+        "--wait-for-debugger",
+        action="store_true",
+        help="Wait for the debugpy client before starting the instance",
+    )
     fg_parser.add_argument(
         "args",
         nargs="*",

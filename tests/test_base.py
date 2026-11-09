@@ -11,6 +11,7 @@ from unittest import mock
 import inspect
 import io
 import os
+import sh
 import sys
 import unittest
 
@@ -472,6 +473,62 @@ class TestBaseService(unittest.TestCase):
         self.assertEqual("", output)
         self.assertEqual("", mock_stdout.getvalue())
         self.assertEqual("", mock_stderr.getvalue())
+
+    def test_capture_output_is_silent_and_returns_stdout_even_when_quiet(self):
+        script = "import sys; print('captured'); print('diagnostic', file=sys.stderr)"
+        for output_enabled in (True, False):
+            with (
+                self.subTest(output_enabled=output_enabled),
+                mock.patch.object(
+                    BaseService, "command_output_enabled", output_enabled
+                ),
+                mock.patch("sys.stdout", new=io.StringIO()) as stdout,
+                mock.patch("sys.stderr", new=io.StringIO()) as stderr,
+            ):
+                result = BaseService.execute_command(
+                    [sys.executable, "-c", script],
+                    stream_output=True,
+                    capture_output=True,
+                )
+            self.assertEqual(result, "captured\n")
+            self.assertEqual(stdout.getvalue(), "")
+            self.assertEqual(stderr.getvalue(), "")
+
+    def test_capture_output_preserves_failure_details_without_echo(self):
+        script = "import sys; print('git diagnostic', file=sys.stderr); sys.exit(3)"
+        with (
+            mock.patch("sys.stdout", new=io.StringIO()) as stdout,
+            mock.patch("sys.stderr", new=io.StringIO()) as stderr,
+            mock.patch("threading.excepthook") as background_error,
+        ):
+            with self.assertRaises(sh.ErrorReturnCode) as error:
+                BaseService.execute_command(
+                    [sys.executable, "-c", script],
+                    capture_output=True,
+                )
+        self.assertEqual(error.exception.exit_code, 3)
+        self.assertIn(b"git diagnostic", error.exception.stderr)
+        self.assertEqual(stdout.getvalue(), "")
+        self.assertEqual(stderr.getvalue(), "")
+        background_error.assert_not_called()
+
+    def test_failed_command_raises_once_without_background_tracebacks(self):
+        for output_enabled in (True, False):
+            with (
+                self.subTest(output_enabled=output_enabled),
+                mock.patch.object(
+                    BaseService, "command_output_enabled", output_enabled
+                ),
+                mock.patch("sys.stdout", new=io.StringIO()),
+                mock.patch("sys.stderr", new=io.StringIO()),
+                mock.patch("threading.excepthook") as background_error,
+            ):
+                with self.assertRaises(sh.ErrorReturnCode) as exc:
+                    BaseService.execute_command(
+                        [sys.executable, "-c", "raise SystemExit(3)"]
+                    )
+                self.assertEqual(exc.exception.exit_code, 3)
+                background_error.assert_not_called()
 
     # --- __enter__ / __exit__ ---
 

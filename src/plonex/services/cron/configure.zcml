@@ -1,0 +1,15 @@
+<configure xmlns="http://namespaces.zope.org/zope"
+           xmlns:browser="http://namespaces.zope.org/browser"
+           xmlns:genericsetup="http://namespaces.zope.org/genericsetup">
+  <browser:page name="plonex-queue"
+                for="plone.base.interfaces.IPloneSiteRoot"
+                class=".browser.QueuePanel"
+                permission="cmf.ManagePortal" />
+  <genericsetup:registerProfile
+      name="queue-control-panel"
+      title="Plonex queue control panel"
+      description="Register the Plonex queue management page."
+      for="plone.base.interfaces.IPloneSiteRoot"
+      directory="profiles/default"
+      provides="Products.GenericSetup.interfaces.EXTENSION" />
+</configure>

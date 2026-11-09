@@ -23,6 +23,10 @@ class TestDescribeService(PloneXTestCase):
                 "describe_template",
                 "generate_html",
                 "browse_html",
+                "section",
+                "output_format",
+                "key",
+                "inspect_command",
             ],
         )
 
@@ -198,21 +202,26 @@ class TestDescribeService(PloneXTestCase):
                     cwd / "custom-var" / "plonex_description" / "index.md",
                 )
 
-    def test_supervisor_status(self):
-        """Test the supervisor_status property with mocked Supervisor"""
+    def test_supervisor_status_is_a_silent_read_only_query(self):
         with temp_cwd() as cwd:
-            svc = DescribeService()
-            with mock.patch("plonex.services.describe.Supervisor") as MockSupervisor:
-                MockSupervisor.return_value.__enter__ = mock.Mock(
-                    return_value=MockSupervisor.return_value
-                )
-                MockSupervisor.return_value.__exit__ = mock.Mock(return_value=False)
-                MockSupervisor.return_value.get_status.return_value = (
-                    "Supervisord is not running"
-                )
-                result = svc.supervisor_status
-            MockSupervisor.assert_called_once_with(target=cwd)
-            self.assertEqual(result, "Supervisord is not running")
+            service = DescribeService()
+            self.assertEqual(service.supervisor_status, "Supervisor is not configured")
+            configuration = cwd / "tmp" / "supervisor" / "etc" / "supervisord.conf"
+            configuration.parent.mkdir(parents=True)
+            configuration.write_text("[supervisorctl]\n")
+            self.assertEqual(
+                service.supervisor_status, "supervisorctl is not installed"
+            )
+            control = cwd / ".venv" / "bin" / "supervisorctl"
+            control.parent.mkdir(parents=True)
+            control.touch()
+            with mock.patch.object(
+                service, "execute_command", return_value="worker RUNNING pid 12\n"
+            ) as execute:
+                self.assertEqual(service.supervisor_status, "worker RUNNING pid 12")
+            execute.assert_called_once_with(
+                [control, "-c", configuration, "status"], capture_output=True
+            )
 
     def test_supervisor_graceful_interval(self):
         with temp_cwd() as cwd:
@@ -223,218 +232,51 @@ class TestDescribeService(PloneXTestCase):
             svc = DescribeService()
             self.assertEqual(svc.supervisor_graceful_interval, 2.5)
 
-    def test_run(self):
-        """Test that run() compiles, renders and prints the description"""
+    def test_run_preserves_input_files_and_exports_fragment_origins(self):
+        import json
+
         with temp_cwd() as cwd:
-            (cwd / ".venv" / "bin").mkdir(parents=True)
-            (cwd / ".venv" / "bin" / "activate").touch()
-            (cwd / "etc").mkdir()
-            (cwd / "etc" / "plonex.yml").write_text(
-                "mykey: myvalue\n"
-                "plone_version: 6.2.0\n"
-                "supervisor_graceful_interval: 2.5\n"
-                "sources:\n"
-                "    my.package:\n"
-                "      repo: https://github.com/example/my.package.git\n"
-                "profiles:\n"
-                "  - profiles/base\n"
-                "plonex_base_constraint: etc/custom-constraints.txt\n"
-                "services:\n"
-                "  - template:\n"
-                "      run_for: describe\n"
+            etc = cwd / "etc"
+            (etc / "requirements.d").mkdir(parents=True)
+            (etc / "constraints.d").mkdir()
+            configuration = etc / "plonex.yml"
+            configuration.write_text("http_port: 9000\n")
+            requirement = etc / "requirements.d" / "010-extra.txt"
+            requirement.write_text("Demo.Pkg>=1\n")
+            (etc / "constraints.d" / "010-pins.txt").write_text("Demo.Pkg==1.0\n")
+            with DescribeService(output_format="html") as service:
+                service.run()
+            payload = json.loads((service.describe_folder / "index.json").read_text())
+            dependencies = next(
+                section
+                for section in payload["sections"]
+                if section["key"] == "dependencies"
             )
-            (cwd / "etc" / "plonex-describe.yml").write_text("log_level: DEBUG\n")
-            (cwd / "etc" / "requirements.d").mkdir()
-            (cwd / "etc" / "requirements.d" / "010-extra.txt").write_text("foo\n")
-            (cwd / "etc" / "constraints.d").mkdir()
-            (cwd / "etc" / "constraints.d" / "010-extra.txt").write_text("bar==1.0\n")
-            (cwd / "etc" / "custom-constraints.txt").write_text("foo==1.0\n")
-            (cwd / "profiles" / "base" / "etc").mkdir(parents=True)
-            (cwd / "profiles" / "base" / "etc" / "plonex.yml").write_text(
-                "profile_option: true\n"
-            )
-            (cwd / "tmp" / "supervisor" / "etc").mkdir(parents=True)
-            (cwd / "tmp" / "supervisor" / "etc" / "supervisord.conf").write_text(
-                "[supervisord]\n"
-            )
-            developed_package_path = cwd / "src" / "my.package"
-            developed_package_path.mkdir(parents=True)
-
-            with (
-                mock.patch(
-                    "plonex.services.describe.InstallService.ensure_virtualenv",
-                    return_value=None,
+            self.assertIn(
+                (
+                    "demo-pkg",
+                    "demo-pkg>=1",
+                    "requirements",
+                    "etc/requirements.d/010-extra.txt",
                 ),
-                mock.patch(
-                    "plonex.services.describe.BaseService.execute_command",
-                    side_effect=lambda command, cwd=None, stream_output=False: (
-                        "Python 3.13.7\n"
-                        if len(command) == 2 and str(command[1]) == "--version"
-                        else ""
-                    ),
-                ),
-                mock.patch("plonex.services.describe.Supervisor") as MockSupervisor,
-                mock.patch("plonex.services.describe.Console") as MockConsole,
-            ):
-                MockSupervisor.return_value.__enter__ = mock.Mock(
-                    return_value=MockSupervisor.return_value
-                )
-                MockSupervisor.return_value.__exit__ = mock.Mock(return_value=False)
-                MockSupervisor.return_value.get_status.return_value = "not running"
-
-                with DescribeService() as svc:
-                    with mock.patch.object(
-                        DescribeService,
-                        "developed_packages",
-                        new_callable=mock.PropertyMock,
-                        return_value=[f"my.package → {developed_package_path}"],
-                    ):
-                        svc.run()
-
-                self.assertTrue((cwd / "var" / "plonex.yml").exists())
-                self.assertTrue((cwd / "var" / "gitman.yml").exists())
-                self.assertTrue((cwd / "var" / "requirements.txt").exists())
-                self.assertTrue((cwd / "var" / "constraints.txt").exists())
-                rendered = (cwd / "var" / "plonex_description" / "index.md").read_text()
-                self.assertIn(
-                    f"[var/plonex.yml](file://{cwd / 'var' / 'plonex.yml'})",
-                    rendered,
-                )
-                self.assertIn(
-                    f"[var/gitman.yml](file://{cwd / 'var' / 'gitman.yml'})",
-                    rendered,
-                )
-                self.assertIn(
-                    f"[var/requirements.txt](file://{cwd / 'var' / 'requirements.txt'})",  # noqa: E501
-                    rendered,
-                )
-                self.assertIn(
-                    f"[var/constraints.txt](file://{cwd / 'var' / 'constraints.txt'})",
-                    rendered,
-                )
-                self.assertIn(
-                    f"[etc/plonex.yml](file://{cwd / 'etc' / 'plonex.yml'})",
-                    rendered,
-                )
-                self.assertIn("**Plone Version**: `6.2.0`", rendered)
-                self.assertIn("**Python Version**: `Python 3.13.7`", rendered)
-                self.assertIn(
-                    f"[.venv/bin/python](file://{cwd / '.venv' / 'bin' / 'python'})",
-                    rendered,
-                )
-                self.assertIn(
-                    "**Base Constraint**: `etc/custom-constraints.txt`",
-                    rendered,
-                )
-                self.assertIn("**Supervisor Configuration**: `present`", rendered)
-                self.assertIn(
-                    "**Supervisor Graceful Interval**: `2.5s`",
-                    rendered,
-                )
-                self.assertIn("**Sources Checkouts**: `1`", rendered)
-                self.assertIn("- `profiles/base`", rendered)
-                self.assertIn(
-                    (
-                        f"[etc/plonex-describe.yml](file://"
-                        f"{cwd / 'etc' / 'plonex-describe.yml'})"
-                    ),
-                    rendered,
-                )
-                self.assertIn(
-                    (
-                        f"- **Requirements directory**: "
-                        f"[etc/requirements.d](file://{cwd / 'etc' / 'requirements.d'})"
-                    ),
-                    rendered,
-                )
-                self.assertIn(
-                    (
-                        f"**010-extra.txt**: [etc/requirements.d/010-extra.txt]"
-                        f"(file://{cwd / 'etc' / 'requirements.d' / '010-extra.txt'})"
-                    ),
-                    rendered,
-                )
-                self.assertIn(
-                    (
-                        f"- **Constraints directory**: "
-                        f"[etc/constraints.d](file://{cwd / 'etc' / 'constraints.d'})"
-                    ),
-                    rendered,
-                )
-                self.assertIn(
-                    (
-                        f"**010-extra.txt**: [etc/constraints.d/010-extra.txt]"
-                        f"(file://{cwd / 'etc' / 'constraints.d' / '010-extra.txt'})"
-                    ),
-                    rendered,
-                )
-                self.assertIn("- `template`", rendered)
-                self.assertIn(
-                    f"`my.package` → [src/my.package](file://{developed_package_path})",
-                    rendered,
-                )
-                self.assertIn("### Source Files", rendered)
-                self.assertIn("### Compiled Files", rendered)
-                self.assertIn("### Runtime Files", rendered)
-                self.assertIn("### Reports", rendered)
-                self.assertIn("## Sources Status", rendered)
-                self.assertIn(
-                    "| Source | Folder | Repo URL | Health | Details |",
-                    rendered,
-                )
-                self.assertIn(
-                    "| `my.package` | `src/my.package` | `https://github.com/example/my.package.git` | ⚠ | not-git |",  # noqa: E501
-                    rendered,
-                )
-                self.assertIn("Legend: ✓ clean, ⚠ warning, ✗ error", rendered)
-                MockConsole.return_value.print.assert_called_once()
+                [tuple(row) for row in dependencies["rows"]],
+            )
+            self.assertIn(
+                requirement.as_uri(), service.description_html_path.read_text()
+            )
+            self.assertEqual(configuration.read_text(), "http_port: 9000\n")
+            self.assertFalse((cwd / "var" / "constraints.txt").exists())
+            self.assertFalse((cwd / ".venv").exists())
 
     def test_run_generates_html_and_browse(self):
         with temp_cwd() as cwd:
-            (cwd / ".venv" / "bin").mkdir(parents=True)
-            (cwd / ".venv" / "bin" / "activate").touch()
             (cwd / "etc").mkdir()
-            (cwd / "etc" / "plonex.yml").write_text("plone_version: 6.2.0\n")
-            (cwd / "tmp" / "supervisor" / "etc").mkdir(parents=True)
-            (cwd / "tmp" / "supervisor" / "etc" / "supervisord.conf").write_text(
-                "[supervisord]\n"
-            )
-
-            with (
-                mock.patch(
-                    "plonex.services.describe.InstallService.ensure_virtualenv",
-                    return_value=None,
-                ),
-                mock.patch(
-                    "plonex.services.describe.BaseService.execute_command",
-                    side_effect=lambda command, cwd=None, stream_output=False: (
-                        "Python 3.13.7\n"
-                        if len(command) == 2 and str(command[1]) == "--version"
-                        else ""
-                    ),
-                ),
-                mock.patch("plonex.services.describe.Supervisor") as MockSupervisor,
-                mock.patch("plonex.services.describe.Console") as MockConsole,
-                mock.patch("plonex.services.describe.webbrowser.open") as mock_open,
-            ):
-                MockSupervisor.return_value.__enter__ = mock.Mock(
-                    return_value=MockSupervisor.return_value
-                )
-                MockSupervisor.return_value.__exit__ = mock.Mock(return_value=False)
-                MockSupervisor.return_value.get_status.return_value = "not running"
-
-                with DescribeService(generate_html=True, browse_html=True) as svc:
-                    svc.run()
-
-                self.assertTrue(
-                    (cwd / "var" / "plonex_description" / "index.md").exists()
-                )
-                MockConsole.assert_called_once_with(record=True)
-                MockConsole.return_value.save_html.assert_called_once_with(
-                    cwd / "var" / "plonex_description" / "index.html"
-                )
-                mock_open.assert_called_once_with(
-                    (cwd / "var" / "plonex_description" / "index.html")
-                    .resolve()
-                    .as_uri()
-                )
+            (cwd / "etc" / "plonex.yml").write_text("{}\n")
+            with mock.patch("plonex.services.describe.webbrowser.open") as browser:
+                with DescribeService(
+                    generate_html=True, browse_html=True, output_format="html"
+                ) as service:
+                    service.run()
+            self.assertTrue(service.description_html_path.is_file())
+            self.assertIn("<nav", service.description_html_path.read_text())
+            browser.assert_called_once_with(service.description_html_path.as_uri())

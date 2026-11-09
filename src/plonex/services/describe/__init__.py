@@ -1,15 +1,15 @@
 from dataclasses import dataclass
+from dataclasses import field
 from datetime import datetime
 from pathlib import Path
 from plonex.base import BaseService
-from plonex.services.compile import CompileService
 from plonex.services.install import InstallService
 from plonex.services.sources import SourcesService
-from plonex.services.supervisor import Supervisor
 from plonex.services.template import TemplateService
 from rich.console import Console
 from rich.markdown import Markdown
 
+import sh  # type: ignore[import-untyped]
 import webbrowser
 
 
@@ -24,6 +24,10 @@ class DescribeService(BaseService):
     )
     generate_html: bool = False
     browse_html: bool = False
+    section: str = "all"
+    output_format: str = "terminal"
+    key: str = ""
+    inspect_command: list[str] = field(default_factory=list)
 
     @property
     def describe_folder(self) -> Path:
@@ -31,11 +35,19 @@ class DescribeService(BaseService):
 
     @property
     def description_path(self) -> Path:
-        return self.describe_folder / "index.md"
+        return self.describe_folder / f"{self.report_stem}.md"
 
     @property
     def description_html_path(self) -> Path:
-        return self.describe_folder / "index.html"
+        return self.describe_folder / f"{self.report_stem}.html"
+
+    @property
+    def report_stem(self):
+        from .report import SECTIONS
+
+        if self.section != "all" and self.section not in SECTIONS:
+            raise ValueError(f"Unknown description section: {self.section}")
+        return "index" if self.section == "all" else self.section
 
     def display_path(self, path: str | Path) -> str:
         path = Path(path)
@@ -66,7 +78,9 @@ class DescribeService(BaseService):
 
     @property
     def python_version(self) -> str:
-        return self.execute_command([self.python_executable, "--version"]).strip()
+        return self.execute_command(
+            [self.python_executable, "--version"], capture_output=True
+        ).strip()
 
     @property
     def base_constraint(self) -> str:
@@ -293,37 +307,105 @@ class DescribeService(BaseService):
     @property
     def developed_packages(self) -> list[str]:
         """Return a list of developed packages"""
-        with InstallService(target=self.target) as install_service:
-            return sorted(install_service.developed_packages_and_paths())
+        return sorted(InstallService(target=self.target).developed_packages_and_paths())
 
     @property
     def supervisor_status(self) -> str:
-        """Return the status of the supervisor as a string"""
-        with Supervisor(target=self.target) as supervisor:
-            return supervisor.get_status()
-
-    def _compile_project_files(self) -> None:
-        with InstallService(target=self.target):
-            pass
-        with CompileService(target=self.target) as compile_service:
-            compile_service.run()
+        """Inspect the existing daemon without rendering or entering services."""
+        configuration = self.target / "tmp" / "supervisor" / "etc" / "supervisord.conf"
+        control = self.target / ".venv" / "bin" / "supervisorctl"
+        if not configuration.is_file():
+            return "Supervisor is not configured"
+        if not control.exists():
+            return "supervisorctl is not installed"
+        try:
+            return self.execute_command(
+                [control, "-c", configuration, "status"], capture_output=True
+            ).strip()
+        except sh.ErrorReturnCode as error:
+            if error.exit_code == 3 and error.stdout:
+                return error.stdout.decode(errors="replace").strip()
+            diagnostic = (
+                (error.stderr or error.stdout or b"").decode(errors="replace").strip()
+            )
+            return f"Supervisor status unavailable (exit {error.exit_code})" + (
+                f": {diagnostic}" if diagnostic else ""
+            )
 
     def _render_description(self) -> None:
-        with TemplateService(
+        TemplateService(
             source_path=self.describe_template,
             target_path=self.description_path,
             options={"context": self},
-        ) as template_service:
-            template_service.run()
+        ).run()
 
     def run(self):
-        self._compile_project_files()
-        self._render_description()
-        html_requested = self.generate_html or self.browse_html
-        console = Console(record=html_requested)
-        markdown = Markdown(self.description_path.read_text())
-        console.print(markdown)
-        if html_requested:
-            console.save_html(self.description_html_path)
+        from .report import ProjectReport
+        from importlib import resources
+        from jinja2 import Environment
+        from plonex.inspection import safe_value
+
+        import json
+
+        report = safe_value(ProjectReport(self).build())
+        self.description_path.write_text(report["markdown"])
+        if (
+            self.describe_template
+            != type(self).__dataclass_fields__["describe_template"].default
+        ):
+            self._render_description()
+            report["markdown"] = self.description_path.read_text()
+        json_path = self.describe_folder / f"{self.report_stem}.json"
+        json_path.write_text(
+            json.dumps(
+                {key: value for key, value in report.items() if key != "markdown"},
+                indent=2,
+                ensure_ascii=False,
+            )
+        )
+        template = (
+            resources.files("plonex.services.describe.templates")
+            .joinpath("report.html.j2")
+            .read_text()
+        )
+        html = (
+            Environment(autoescape=True)
+            .from_string(template)
+            .render(
+                report=report,
+                markdown_file=self.description_path.name,
+                json_file=json_path.name,
+            )
+        )
+        self.description_html_path.write_text(html)
+        for path in (self.description_path, json_path, self.description_html_path):
+            path.chmod(0o600)
+        console = Console()
+        if self.output_format == "json":
+            console.print(
+                json_path.read_text(), markup=False, highlight=False, soft_wrap=True
+            )
+        elif self.output_format == "html":
+            console.print(
+                self.description_html_path.absolute().as_uri(),
+                markup=False,
+                soft_wrap=True,
+            )
+        elif self.output_format == "markdown":
+            console.print(
+                report["markdown"], markup=False, highlight=False, soft_wrap=True
+            )
+        else:
+            console.print(Markdown(report["markdown"]))
         if self.browse_html:
             webbrowser.open(self.description_html_path.resolve().as_uri())
+
+    def __enter__(self):
+        # Inspection must not export environment variables or run helper services.
+        self.options
+        self._entered = True
+        if self._invocation_parameters is not None:
+            from plonex.inspection import record_service_snapshot
+
+            record_service_snapshot(self)
+        return self

@@ -5,9 +5,11 @@ from dataclasses import field
 from dataclasses import is_dataclass
 from importlib import resources
 from jinja2 import Environment
+from jinja2 import FileSystemLoader
 from jinja2 import StrictUndefined
 from pathlib import Path
 from plonex.base import BaseService
+from plonex.files import write_if_changed
 from rich import pretty
 
 
@@ -43,6 +45,9 @@ class TemplateService(BaseService):
         if not self.source_path.exists():
             raise FileNotFoundError(f"Template {self.source_path} does not exist")
 
+        if self.environment.loader is None:
+            self.environment.loader = FileSystemLoader(str(self.source_path.parent))
+
         if not self.name:
             self.name = self.source_path.stem
 
@@ -52,11 +57,7 @@ class TemplateService(BaseService):
 
     def run(self):
         """Render the template"""
-        if not self.target_path.parent.exists():
-            self.target_path.parent.mkdir(parents=True)
-
-        self.target_path.write_text(self.render_template())
-        self.target_path.chmod(self.mode)
+        write_if_changed(self.target_path, self.render_template(), self.mode)
 
         try:
             display_source = self.source_path.relative_to(self.target)
@@ -74,6 +75,8 @@ class TemplateService(BaseService):
 
     def render_template(self):
         """Just render the template and return the result"""
+        if self.environment.cache is not None:
+            self.environment.cache.clear()
         template = self.environment.from_string(self.source_path.read_text())
         if isinstance(self.options, Mapping):
             flat_options = dict(self.options)

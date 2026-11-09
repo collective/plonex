@@ -13,6 +13,9 @@
   <!-- Load the configuration -->
   <include files="{{ zcml_folder }}/package-includes/*-configure.zcml" />
   <five:loadProducts />
+{% if cron_control_panel %}
+  <include package="plonex.services.cron" />
+{% endif %}
 
   <!-- Load the configuration overrides-->
   <includeOverrides files="{{ zcml_folder }}/package-includes/*-overrides.zcml" />

@@ -474,3 +474,30 @@ class TestSupervisor(PloneXTestCase):
             reread.assert_called_once()
             update.assert_called_once()
             self.assertEqual(mock_print.call_count, 2)
+
+
+def test_restart_can_target_selected_programs():
+    with temp_supervisor() as supervisor:
+        command = mock.Mock(return_value="done")
+        with mock.patch.object(supervisor, "is_running", return_value=True):
+            with mock.patch.object(
+                Supervisor,
+                "supervisorctl",
+                new_callable=PropertyMock,
+                return_value=command,
+            ):
+                supervisor.run_restart(["client1", "client2"])
+        command.assert_called_once_with(
+            "-c", str(supervisor.supervisord_conf), "restart", "client1", "client2"
+        )
+
+
+def test_targeted_restart_does_not_start_supervisor_if_it_is_stopped():
+    import pytest
+
+    with temp_supervisor() as supervisor:
+        with mock.patch.object(supervisor, "is_running", return_value=False):
+            with mock.patch.object(supervisor, "run") as start:
+                with pytest.raises(ValueError, match="not running"):
+                    supervisor.run_restart(["client1"])
+            start.assert_not_called()

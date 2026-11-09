@@ -1,14 +1,34 @@
-def _register_sources_subcommands(parser) -> None:
+from argparse import REMAINDER
+from argparse import SUPPRESS
+from plonex.cli.describe import register_describe_sections
+
+
+def _register_sources_subcommands(parser, add_subparser) -> None:
     sources_subs = parser.add_subparsers(dest="sources_action")
-    update_parser = sources_subs.add_parser("update", help="Update configured sources")
+    update_parser = add_subparser(
+        sources_subs, "update", help="Update configured sources"
+    )
+    update_parser.add_argument(
+        "--force",
+        action="store_true",
+        dest="sources_force",
+        help="Allow updating checkouts with local changes (asks for confirmation)",
+    )
+    update_parser.add_argument(
+        "-y",
+        "--yes",
+        action="store_true",
+        dest="sources_yes",
+        help="Skip confirmation for --force",
+    )
     update_parser.add_argument(
         "glob",
         help="Glob pattern to filter sources (e.g., 'foo' matches '*foo*')",
         default=None,
         nargs="?",
     )
-    list_parser = sources_subs.add_parser(
-        "list", help="List configured sources and status"
+    list_parser = add_subparser(
+        sources_subs, "list", help="List configured sources and status"
     )
     list_parser.add_argument(
         "glob",
@@ -16,8 +36,8 @@ def _register_sources_subcommands(parser) -> None:
         default=None,
         nargs="?",
     )
-    missing_parser = sources_subs.add_parser(
-        "missing", help="Show configured sources that are missing"
+    missing_parser = add_subparser(
+        sources_subs, "missing", help="Show configured sources that are missing"
     )
     missing_parser.add_argument(
         "glob",
@@ -25,8 +45,10 @@ def _register_sources_subcommands(parser) -> None:
         default=None,
         nargs="?",
     )
-    clone_missing_parser = sources_subs.add_parser(
-        "clone-missing", help="Clone configured missing sources"
+    clone_missing_parser = add_subparser(
+        sources_subs,
+        "clone",
+        help="Clone configured missing sources",
     )
     clone_missing_parser.add_argument(
         "glob",
@@ -43,27 +65,8 @@ def _register_sources_subcommands(parser) -> None:
         action="store_true",
         dest="sources_yes",
     )
-    force_update_parser = sources_subs.add_parser(
-        "force-update",
-        help="Force update configured sources",
-    )
-    force_update_parser.add_argument(
-        "glob",
-        help="Glob pattern to filter sources (e.g., 'foo' matches '*foo*')",
-        default=None,
-        nargs="?",
-    )
-    force_update_parser.add_argument(
-        "-y",
-        "--yes",
-        help="Skip confirmation prompt",
-        required=False,
-        default=False,
-        action="store_true",
-        dest="sources_yes",
-    )
-    tainted_parser = sources_subs.add_parser(
-        "tainted", help="Show sources with local changes"
+    tainted_parser = add_subparser(
+        sources_subs, "tainted", help="Show sources with local changes"
     )
     tainted_parser.add_argument(
         "glob",
@@ -71,8 +74,9 @@ def _register_sources_subcommands(parser) -> None:
         default=None,
         nargs="?",
     )
-    suggest_existing_parser = sources_subs.add_parser(
-        "suggest-existing",
+    suggest_existing_parser = add_subparser(
+        sources_subs,
+        "suggest",
         help="Suggest source config entries for unmanaged existing checkouts",
     )
     suggest_apply_group = suggest_existing_parser.add_mutually_exclusive_group()
@@ -94,7 +98,10 @@ def _register_sources_subcommands(parser) -> None:
     )
     suggest_apply_group.add_argument(
         "--apply-profile",
-        help="Write suggestions into the etc/plonex.yml of the first configured profile",  # noqa: E501
+        help=(
+            "Write suggestions into the etc/plonex.yml of the first "
+            "configured profile"
+        ),  # noqa: E501
         required=False,
         default=False,
         action="store_true",
@@ -102,8 +109,76 @@ def _register_sources_subcommands(parser) -> None:
     )
 
 
+def _dependency_options(parser, *, default=None) -> None:
+    persist_group = parser.add_mutually_exclusive_group()
+    persist_group.add_argument(
+        "-p",
+        "--persist",
+        help="Persist missing constraints into project etc/constraints.d/",
+        required=False,
+        action="store_const",
+        const="project",
+        default=default,
+        dest="persist_mode",
+    )
+    persist_group.add_argument(
+        "--persist-local",
+        help="Persist missing constraints into a local (git-ignored) constraints file",
+        required=False,
+        action="store_const",
+        const="local",
+        default=default,
+        dest="persist_mode",
+    )
+    persist_group.add_argument(
+        "--persist-profile",
+        help=(
+            "Persist missing constraints into the first configured "
+            "profile's etc/constraints.d/"
+        ),  # noqa: E501
+        required=False,
+        action="store_const",
+        const="profile",
+        default=default,
+        dest="persist_mode",
+    )
+    parser.add_argument(
+        "--update-sources",
+        help="Update sources before installing dependencies",
+        required=False,
+        default=default,
+        action="store_true",
+        dest="update_sources",
+    )
+
+
 def register_setup_parsers(subs, add_subparser) -> None:
     """Register setup and information CLI parsers."""
+    options_parser = add_subparser(
+        subs, "options", help="Inspect resolved service options without running it"
+    )
+    options_parser.add_argument(
+        "--markdown", action="store_true", help="Print portable Markdown"
+    )
+    options_parser.add_argument(
+        "service_command",
+        nargs=REMAINDER,
+        help="Command and its normal flags, e.g. instance debug --port 8081",
+    )
+    shell_parser = add_subparser(
+        subs,
+        "shell",
+        help="Open an interactive prompt for plonex commands",
+        description=(
+            "Run plonex commands interactively without repeating the plonex prefix. "
+            "Use help for commands, exit or Ctrl-D to leave."
+        ),
+    )
+    # Accept the target on either side of the shell subcommand.
+    shell_parser.add_argument(
+        "-t", "--target", help="Path to the target project", default=SUPPRESS
+    )
+
     init_parser = add_subparser(
         subs,
         "init",
@@ -140,21 +215,51 @@ def register_setup_parsers(subs, add_subparser) -> None:
         "describe",
         help="Describe the current project configuration",
     )
-    describe_parser.add_argument(
-        "--html",
-        help="Export the generated description as HTML",
-        required=False,
-        default=False,
-        action="store_true",
-        dest="describe_html",
+    register_describe_sections(describe_parser, add_subparser)
+
+    doctor = add_subparser(subs, "doctor", help="Diagnose project health")
+    doctor.add_argument(
+        "--format",
+        choices=("terminal", "json"),
+        default="terminal",
+        dest="doctor_format",
+        help="Diagnostic output format",
     )
-    describe_parser.add_argument(
-        "--browse",
-        help="Open the generated HTML description in a browser",
-        required=False,
-        default=False,
-        action="store_true",
-        dest="describe_browse",
+    doctor.add_argument(
+        "--strict", action="store_true", help="Treat warnings as an unsuccessful check"
+    )
+
+    snapshot = add_subparser(
+        subs, "snapshot", help="Capture or compare deployment evidence"
+    )
+    snapshots = snapshot.add_subparsers(dest="snapshot_action", title="Actions")
+    create = add_subparser(snapshots, "create", help="Capture the installed project")
+    create.add_argument("--output", help="Write a new JSON file instead of stdout")
+    compare = add_subparser(
+        snapshots, "compare", help="Compare against a saved snapshot"
+    )
+    compare.add_argument("file", help="Previously saved snapshot JSON")
+    compare.add_argument(
+        "--format",
+        choices=("terminal", "json"),
+        default="terminal",
+        dest="snapshot_format",
+    )
+    prepare = add_subparser(
+        snapshots, "prepare", help="Recreate versions in a new virtualenv"
+    )
+    prepare.add_argument("file", help="Previously saved snapshot JSON")
+    prepare.add_argument("--to", required=True, help="New virtualenv directory")
+    prepare.add_argument("--python", help="Python interpreter matching the snapshot")
+
+    legacy = add_subparser(
+        subs, "inspect_legacy", help="Inspect mxdev or Buildout configuration"
+    )
+    legacy.add_argument(
+        "--format",
+        choices=("terminal", "json"),
+        default="terminal",
+        dest="legacy_format",
     )
 
     install_parser = add_subparser(
@@ -169,75 +274,57 @@ def register_setup_parsers(subs, add_subparser) -> None:
         nargs="+",
     )
 
-    add_subparser(
+    upgrade = add_subparser(
         subs,
         "upgrade",
         help="Run Plone upgrade steps",
+    )
+    upgrade.add_argument(
+        "--url", dest="upgrade_url", help="URL of a running Plone instance"
     )
 
     dependencies_parser = add_subparser(
         subs,
         "dependencies",
-        help="Install the dependencies",
+        help="Install, sync, inspect, or add project dependencies",
     )
-    persist_group = dependencies_parser.add_mutually_exclusive_group()
-    persist_group.add_argument(
-        "-p",
-        "--persist",
-        help="Persist missing constraints into project etc/constraints.d/",
-        required=False,
-        action="store_const",
-        const="project",
-        default=None,
-        dest="persist_mode",
+    dependency_subs = dependencies_parser.add_subparsers(
+        dest="dependencies_action", title="Actions"
     )
-    persist_group.add_argument(
-        "--persist-local",
-        help="Persist missing constraints into a local (git-ignored) constraints file",
-        required=False,
-        action="store_const",
-        const="local",
-        dest="persist_mode",
+    for action, description in (
+        ("install", "Install configured requirements and selected sources"),
+        ("sync", "Compile requirements and synchronize the virtualenv"),
+    ):
+        child = add_subparser(dependency_subs, action, help=description)
+        _dependency_options(child)
+    preview = add_subparser(
+        dependency_subs,
+        "preview",
+        help="Preview dependency changes without installation",
     )
-    persist_group.add_argument(
-        "--persist-profile",
-        help="Persist missing constraints into the first configured profile's etc/constraints.d/",  # noqa: E501
-        required=False,
-        action="store_const",
-        const="profile",
-        dest="persist_mode",
+    preview.add_argument(
+        "--online", action="store_true", help="Allow uv to query package indexes"
     )
-    dependencies_parser.add_argument(
-        "--update-sources",
-        help="Update sources before installing dependencies",
-        required=False,
-        default=None,
-        action="store_true",
-        dest="update_sources",
+    preview.add_argument(
+        "--format",
+        choices=("terminal", "json"),
+        default="terminal",
+        dest="preview_format",
     )
-    dependencies_parser.add_argument(
-        "--sync",
-        help="Synchronize virtualenv packages with compiled requirements",
-        required=False,
-        default=False,
-        action="store_true",
-        dest="sync",
+    add_subparser(dependency_subs, "outdated", help="List outdated installed packages")
+    add = add_subparser(
+        dependency_subs, "add", help="Add requirement specifications and install them"
     )
-    dependencies_parser.add_argument(
-        "--outdated",
-        help="Show outdated packages in the virtualenv",
-        required=False,
-        default=False,
-        action="store_true",
-        dest="show_outdated",
-    )
+    add.add_argument("package", nargs="+", help="Requirement specifications to add")
+    _dependency_options(add)
+    add.set_defaults(action="install")
 
     sources_parser = add_subparser(
         subs,
         "sources",
-        help="Manage project sources (uses Gitman under the hood)",
+        help="List, clone, update, or inspect source checkouts",
     )
-    _register_sources_subcommands(sources_parser)
+    _register_sources_subcommands(sources_parser, add_subparser)
 
     edit_parser = add_subparser(
         subs,

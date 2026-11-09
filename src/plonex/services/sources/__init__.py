@@ -1,9 +1,17 @@
 from dataclasses import dataclass
 from fnmatch import fnmatch
+from functools import cached_property
 from pathlib import Path
 from plonex.base import BaseService
+from plonex.services.sources.installation import source_checkout_path
+from plonex.services.sources.installation import SourceInstallPlan
 from rich.console import Console
+from rich.console import Group
+from rich.markup import escape
+from rich.panel import Panel
+from rich.syntax import Syntax
 from rich.table import Table
+from rich.text import Text
 from typing import Any
 from typing import Sequence
 
@@ -18,6 +26,12 @@ class SourcesService(BaseService):
 
     name: str = "sources"
     assume_yes: bool = False
+
+    @cached_property
+    def options_defaults(self):
+        defaults = super().options_defaults
+        defaults.update(sources={}, sources_location="src")
+        return defaults
 
     @property
     def gitman_file(self) -> Path:
@@ -51,6 +65,10 @@ class SourcesService(BaseService):
                 "type": str(source_options.get("type", "git")),
                 "repo": source_options.get("repo"),
             }
+            custom_path = source_options.get("path")
+            if isinstance(custom_path, str) and custom_path.strip():
+                # Gitman's 'name' is its checkout directory, not a package name.
+                entry["name"] = str(self._checkout_path(source_name, source_options))
             rev = source_options.get("rev", "main")
             if isinstance(rev, str) and rev.strip():
                 entry["rev"] = rev
@@ -170,11 +188,16 @@ class SourcesService(BaseService):
         return filtered
 
     def _checkout_path(self, source_name: str, source_options: Any) -> Path:
-        if isinstance(source_options, dict):
-            custom_path = source_options.get("path")
-            if isinstance(custom_path, str) and custom_path.strip():
-                return self.target / custom_path
-        return self.checkout_root / source_name
+        return source_checkout_path(
+            self.target,
+            str(self.options.get("sources_location", "src")),
+            source_name,
+            source_options,
+        )
+
+    @property
+    def source_install_plan(self) -> SourceInstallPlan:
+        return SourceInstallPlan.from_options(self.target, self.options)
 
     def _display_path(self, path: Path) -> str:
         try:
@@ -215,7 +238,8 @@ class SourcesService(BaseService):
     def _git_remote_url(self, checkout: Path) -> str | None:
         try:
             result = self.execute_command(
-                ["git", "-C", str(checkout), "remote", "get-url", "origin"]
+                ["git", "-C", str(checkout), "remote", "get-url", "origin"],
+                capture_output=True,
             ).strip()
         except sh.ErrorReturnCode:
             return None
@@ -224,12 +248,14 @@ class SourcesService(BaseService):
     def _git_revision(self, checkout: Path) -> str | None:
         try:
             branch = self.execute_command(
-                ["git", "-C", str(checkout), "branch", "--show-current"]
+                ["git", "-C", str(checkout), "branch", "--show-current"],
+                capture_output=True,
             ).strip()
             if branch:
                 return branch
             commit = self.execute_command(
-                ["git", "-C", str(checkout), "rev-parse", "HEAD"]
+                ["git", "-C", str(checkout), "rev-parse", "HEAD"],
+                capture_output=True,
             ).strip()
             return commit or None
         except sh.ErrorReturnCode:
@@ -238,7 +264,8 @@ class SourcesService(BaseService):
     def _git_current_branch(self, checkout: Path) -> str | None:
         try:
             branch = self.execute_command(
-                ["git", "-C", str(checkout), "branch", "--show-current"]
+                ["git", "-C", str(checkout), "branch", "--show-current"],
+                capture_output=True,
             ).strip()
         except sh.ErrorReturnCode:
             return None
@@ -247,15 +274,20 @@ class SourcesService(BaseService):
     def _has_modifications(self, checkout: Path) -> bool:
         try:
             status = self.execute_command(
-                ["git", "-C", str(checkout), "status", "--porcelain"]
+                ["git", "-C", str(checkout), "status", "--porcelain"],
+                capture_output=True,
             ).strip()
         except sh.ErrorReturnCode:
             return False
         return bool(status)
 
-    def suggested_sources_mapping(self) -> dict[str, Any]:
+    def suggested_sources_mapping(
+        self, checkouts: Sequence[Path] | None = None
+    ) -> dict[str, Any]:
         suggestions: dict[str, Any] = {}
-        for checkout in self.unmanaged_existing_checkouts():
+        if checkouts is None:
+            checkouts = self.unmanaged_existing_checkouts()
+        for checkout in checkouts:
             source_name = checkout.name
             source_options: dict[str, Any] = {}
             repo = self._git_remote_url(checkout)
@@ -270,8 +302,8 @@ class SourcesService(BaseService):
             suggestions[source_name] = source_options
         return suggestions
 
-    def render_suggestions_yaml(self) -> str:
-        suggestions = self.suggested_sources_mapping()
+    def render_suggestions_yaml(self, checkouts: Sequence[Path] | None = None) -> str:
+        suggestions = self.suggested_sources_mapping(checkouts)
         if not suggestions:
             return ""
         payload: dict[str, Any] = {"sources": suggestions}
@@ -340,7 +372,8 @@ class SourcesService(BaseService):
                 continue
             try:
                 status = self.execute_command(
-                    ["git", "-C", str(checkout), "status", "--porcelain"]
+                    ["git", "-C", str(checkout), "status", "--porcelain"],
+                    capture_output=True,
                 ).strip()
             except sh.ErrorReturnCode:
                 self.logger.warning("Unable to inspect checkout %r", checkout)
@@ -482,20 +515,33 @@ class SourcesService(BaseService):
     @BaseService.entered_only
     def run_list(self, glob: str | None = None) -> None:
         checkouts = self.configured_checkouts(glob)
-        if not checkouts:
-            self.print("No configured sources checkouts.")
+        unmanaged = list(
+            self._filter_sources(
+                {path.name: path for path in self.unmanaged_existing_checkouts()}, glob
+            ).values()
+        )
+        console = Console()
+        if not checkouts and not unmanaged:
+            console.print(
+                "No source checkouts match." if glob else "No source checkouts."
+            )
             return
 
-        console = Console()
-        table = Table(title="Configured Sources")
+        table = Table(title="Sources")
         table.add_column("Source", style="bold")
         table.add_column("Folder")
+        table.add_column("Install")
         table.add_column("Repo URL")
         table.add_column("Health", justify="center", no_wrap=True)
         table.add_column("Details")
 
-        for source_name, path in sorted(checkouts.items()):
-            source_options = self.sources.get(source_name)
+        installations = {
+            item.source: item for item in self.source_install_plan.installations
+        }
+        rows = [(name, path, True) for name, path in checkouts.items()]
+        rows.extend((path.name, path, False) for path in unmanaged)
+        for source_name, path, configured in sorted(rows):
+            source_options = self.sources.get(source_name) if configured else None
             configured_repo = None
             configured_rev = None
             if isinstance(source_options, dict):
@@ -504,32 +550,37 @@ class SourcesService(BaseService):
 
             detected_repo = None
             details: list[str] = []
-            severity = 0  # 0=ok, 1=warning, 2=error
-            health_badge = "[bold green]✓[/bold green]"
+            installation = installations.get(source_name) if configured else None
+            if installation and installation.path != path:
+                details.append(
+                    f"project:{escape(self._display_path(installation.path))}"
+                )
+            severity = 0 if configured else 1  # 0=ok, 1=warning, 2=error
+            if not configured:
+                details.append("[yellow]unmanaged[/yellow]")
             if not path.exists():
-                health_badge = "[bold red]✗[/bold red]"
                 details.append("missing")
                 severity = 2
             elif not (path / ".git").exists():
-                health_badge = "[bold yellow]⚠[/bold yellow]"
                 details.append("not-git")
                 severity = 1
             else:
                 detected_repo = self._git_remote_url(path)
                 branch = self._git_current_branch(path)
                 if self._has_modifications(path):
-                    health_badge = "[bold yellow]⚠[/bold yellow]"
                     details.append("modified")
                     severity = max(severity, 1)
 
                 if branch:
-                    details.append(f"[dim]branch:{branch}[/dim]")
+                    details.append(f"[dim]branch:{escape(branch)}[/dim]")
                     if (
                         isinstance(configured_rev, str)
                         and configured_rev
                         and configured_rev != branch
                     ):
-                        details.append(f"[yellow]expected:{configured_rev}[/yellow]")
+                        details.append(
+                            f"[yellow]expected:{escape(configured_rev)}[/yellow]"
+                        )
                         severity = max(severity, 1)
                 else:
                     details.append("[yellow]detached[/yellow]")
@@ -541,7 +592,6 @@ class SourcesService(BaseService):
                     and detected_repo
                     and configured_repo != detected_repo
                 ):
-                    health_badge = "[bold red]✗[/bold red]"
                     details.append("[bold red]repo-mismatch[/bold red]")
                     severity = 2
 
@@ -550,10 +600,17 @@ class SourcesService(BaseService):
                 or (configured_repo if isinstance(configured_repo, str) else None)
                 or "-"
             )
+            health_badge = {
+                0: "[bold green]✓[/bold green]",
+                1: "[bold yellow]⚠[/bold yellow]",
+                2: "[bold red]✗[/bold red]",
+            }[severity]
+            install_label = "checkout only" if configured else "not configured"
             table.add_row(
-                source_name,
-                self._display_path(path),
-                repo_url,
+                Text(source_name),
+                Text(self._display_path(path)),
+                Text(installation.description if installation else install_label),
+                Text(repo_url),
                 health_badge,
                 ", ".join(details) if details else "[dim]-[/dim]",
                 style={0: "green", 1: "yellow", 2: "red"}.get(severity, ""),
@@ -566,12 +623,8 @@ class SourcesService(BaseService):
             "[bold red]✗[/bold red] error"
         )
 
-        unmanaged = self.unmanaged_existing_checkouts()
         if unmanaged:
-            console.print("\nUnmanaged existing checkouts found:")
-            for path in unmanaged:
-                console.print(f"- {self._display_path(path)}")
-            self._print_suggestion_block(console)
+            self._print_suggestion_block(console, checkouts=unmanaged)
 
     @BaseService.entered_only
     def run_show_missing(self, glob: str | None = None) -> None:
@@ -620,12 +673,39 @@ class SourcesService(BaseService):
             if isinstance(rev, str) and rev.strip():
                 self.run_command(["git", "-C", str(destination), "checkout", rev])
 
-    def _print_suggestion_block(self, console: Console) -> None:
-        suggestion_yaml = self.render_suggestions_yaml()
+    def _print_suggestion_block(
+        self, console: Console, checkouts: Sequence[Path] | None = None
+    ) -> None:
+        suggestion_yaml = self.render_suggestions_yaml(checkouts)
         if not suggestion_yaml:
             return
-        console.print("\nSuggested configuration to add to etc/plonex.yml:")
-        console.print(suggestion_yaml)
+        console.print()
+        console.print(
+            Panel(
+                Group(
+                    Text(
+                        "These checkouts are not declared in your configuration.\n"
+                        "Merge these entries into your existing sources mapping:",
+                    ),
+                    Text(""),
+                    Syntax(
+                        suggestion_yaml.rstrip(),
+                        "yaml",
+                        theme="ansi_dark",
+                        background_color="default",
+                        word_wrap=True,
+                    ),
+                    Text(""),
+                    Text(
+                        "Add install: true for an editable installation in .venv.",
+                        style="dim",
+                    ),
+                ),
+                title="Suggested sources · etc/plonex.yml",
+                border_style="yellow",
+                expand=False,
+            )
+        )
 
     @BaseService.entered_only
     def run_suggest_existing(

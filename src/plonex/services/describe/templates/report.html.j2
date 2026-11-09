@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>{{ report.title }}</title>
+<style>
+:root{--bg:#f5f6f8;--surface:#fff;--ink:#182335;--muted:#586579;--line:#dce2ea;--accent:#086bba;--soft:#eaf4fc;font:15px/1.6 system-ui,sans-serif;color:var(--ink);background:var(--bg)}
+*{box-sizing:border-box}body{margin:0}a{color:var(--accent);text-underline-offset:3px}a:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid #e6a720;outline-offset:3px}
+.skip{position:absolute;left:-10000px}.skip:focus{left:12px;top:8px;background:var(--surface);padding:10px;z-index:10}
+header{padding:30px clamp(18px,4vw,64px);background:var(--ink);color:white}header h1{font-size:clamp(25px,3vw,38px);line-height:1.2;margin:6px 0 14px}header p{margin:4px 0;overflow-wrap:anywhere;color:#d2deed}.eyebrow{text-transform:uppercase;font-size:12px;letter-spacing:.15em;color:#91cfff}
+.layout{display:grid;grid-template-columns:235px minmax(0,1fr);max-width:1700px;margin:auto;gap:30px;padding:26px clamp(18px,3vw,48px)}
+nav{position:sticky;top:20px;align-self:start}nav a{display:block;padding:8px 12px;margin:3px 0;border-radius:7px;text-decoration:none;color:var(--muted)}nav a:hover{background:var(--soft);color:var(--accent)}nav strong{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.1em;margin:10px 12px}
+main{min-width:0}section{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:22px;margin-bottom:24px;scroll-margin-top:20px;box-shadow:0 2px 8px #14203305}h2{font-size:22px;margin:0 0 10px}h3{font-size:16px;margin:14px 0 8px}.description,.note{color:var(--muted)}.tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:20px}.tools label{font-weight:600}.tools input{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:7px;padding:10px;flex:1;min-width:180px}.tools button{border:1px solid var(--line);padding:10px 14px;border-radius:7px;background:var(--surface);color:var(--ink);cursor:pointer}
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px}table{width:100%;border-collapse:collapse;text-align:left;font-size:14px}th{background:var(--soft);font-weight:600;white-space:nowrap}th,td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}td{overflow-wrap:anywhere;white-space:pre-wrap;max-width:480px}tr:last-child td{border-bottom:0}tbody tr:hover{background:var(--bg)}.links{display:flex;flex-wrap:wrap;gap:8px;list-style:none;padding:0}.links a{display:inline-block;background:var(--soft);border-radius:6px;padding:4px 9px;font-size:13px}.empty{font-style:italic;color:var(--muted)}details{margin:14px 0;border:1px solid var(--line);border-radius:8px;padding:10px}summary{font-weight:600;cursor:pointer}pre{overflow:auto;background:var(--bg);padding:12px;border-radius:6px;font-size:13px}footer{font-size:13px;color:var(--muted);padding:0 0 25px}.count{font-size:12px;font-weight:400;color:var(--muted)}[hidden]{display:none!important}
+@media(prefers-color-scheme:dark){:root{--bg:#101721;--surface:#192332;--ink:#e2eaf5;--muted:#a8b8ce;--line:#334156;--accent:#79c5ff;--soft:#22354c}header{background:#111c2a}}
+@media(max-width:800px){.layout{grid-template-columns:1fr;gap:10px}nav{position:static;display:flex;flex-wrap:wrap;gap:2px}nav strong{width:100%}nav a{padding:5px 9px}section{padding:16px}td{min-width:110px}header{padding:22px}}
+@media print{nav,.tools{display:none}.layout{display:block;padding:0}section{break-inside:avoid;box-shadow:none}header{background:white;color:black}header p{color:black}.table-wrap{overflow:visible}td{max-width:none}a{color:inherit}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to report</a>
+<header><div class="eyebrow">Plonex · project intelligence</div><h1>{{ report.title }}</h1><p>{{ report.target }}</p><p>Generated {{ report.generated }} · configuration and filesystem snapshot</p></header>
+<div class="layout">
+<nav aria-label="Report sections"><strong>Project report</strong>{% for section in report.sections %}<a href="#{{ section.key }}">{{ section.title }}</a>{% endfor %}<a href="{{ markdown_file }}">Markdown export</a><a href="{{ json_file }}">JSON export</a></nav>
+<main id="main">
+<div class="tools"><label for="filter">Filter report</label><input id="filter" type="search" placeholder="Package, option, file, job…" autocomplete="off"><button type="button" id="clear">Clear</button><span id="matches" role="status" aria-live="polite"></span></div>
+{% for section in report.sections %}
+<section id="{{ section.key }}"><h2>{{ section.title }} <span class="count">{{ section.rows|length }} entries</span></h2><p class="description">{{ section.description }}</p>
+{% if section.rows %}<div class="table-wrap"><table><thead><tr>{% for column in section.columns %}<th scope="col">{{ column }}</th>{% endfor %}</tr></thead><tbody>{% for row in section.rows %}<tr class="filter-row">{% for value in row %}<td>{{ value }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>{% else %}<p class="empty">No entries in this section.</p>{% endif %}
+{% for detail in section.details %}<details><summary>{{ detail.key }} — definition history</summary><p>Winner: {{ detail.source }}</p><div class="table-wrap"><table><thead><tr><th>Source</th><th>Operation</th><th>Value before interpolation</th></tr></thead><tbody>{% for event in detail.history %}<tr><td>{{ event.source }}</td><td>{{ event.operation }}</td><td>{{ event.value|tojson(indent=2) }}</td></tr>{% endfor %}</tbody></table></div></details>{% endfor %}
+{% if section.links %}<ul class="links" aria-label="Related files">{% for item in section.links %}<li><a href="{{ item.href }}">{{ item.label }}</a></li>{% endfor %}</ul>{% endif %}
+{% for note in section.notes %}<p class="note">{{ note }}</p>{% endfor %}</section>
+{% endfor %}
+<footer>Local report · no external scripts, fonts, or network requests. Sensitive configuration fields are redacted. Regenerate after changing configuration.</footer>
+</main></div>
+<script>
+(()=>{const input=document.querySelector('#filter'),rows=[...document.querySelectorAll('.filter-row')],status=document.querySelector('#matches');function filter(){const term=input.value.toLocaleLowerCase().trim();let count=0;for(const row of rows){const visible=!term||row.textContent.toLocaleLowerCase().includes(term);row.hidden=!visible;count+=visible?1:0}status.textContent=term?`${count} matching entries`:''}input.addEventListener('input',filter);document.querySelector('#clear').addEventListener('click',()=>{input.value='';filter();input.focus()})})();
+</script>
+</body></html>

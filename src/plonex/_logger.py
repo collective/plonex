@@ -1,3 +1,4 @@
+from rich.console import Console
 from rich.logging import RichHandler
 
 import logging
@@ -9,6 +10,7 @@ logging.basicConfig(
     datefmt="[%X]",
     handlers=[
         RichHandler(
+            console=Console(stderr=True),
             markup=True,
             show_path=False,
             show_time=False,

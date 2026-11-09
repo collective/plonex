@@ -60,6 +60,7 @@ def _normalize_pip_requirements(value: Any) -> list[str]:
 
 
 SUPPORTED_OPTION_SPECS: dict[str, OptionSpec] = {
+    "aliases": OptionSpec(name="aliases", default={}),
     "default_action": OptionSpec(name="default_action"),
     "default_actions": OptionSpec(name="default_actions"),
     "editor": OptionSpec(name="editor"),
@@ -73,6 +74,19 @@ SUPPORTED_OPTION_SPECS: dict[str, OptionSpec] = {
         normalize=_normalize_pip_requirements,
     ),
     "sources": OptionSpec(name="sources", default={}, normalize=_normalize_sources),
+    "cron_jobs": OptionSpec(name="cron_jobs", default={}),
+    "cron_control_panel": OptionSpec(
+        name="cron_control_panel",
+        default=False,
+        normalize=lambda value: _normalize_bool_option("cron_control_panel", value),
+    ),
+    "upgrade_tempfile_auth": OptionSpec(
+        name="upgrade_tempfile_auth",
+        default=False,
+        normalize=lambda value: _normalize_bool_option("upgrade_tempfile_auth", value),
+    ),
+    "cron_timezone": OptionSpec(name="cron_timezone", default="UTC"),
+    "cron_workers": OptionSpec(name="cron_workers", default=1),
     "sources_location": OptionSpec(name="sources_location", default="src"),
     "services": OptionSpec(name="services", default=[], normalize=_normalize_services),
     "sources_update_before_dependencies": OptionSpec(

@@ -2,7 +2,13 @@ from argcomplete import autocomplete
 from argparse import ArgumentParser
 from argparse import SUPPRESS
 from pathlib import Path
+from plonex.cli.aliases import AliasArgumentParser
+from plonex.cli.aliases import load_aliases
+from plonex.cli.aliases import split_command
+from plonex.cli.commands import register_command_groups
+from plonex.cli.cron import register_cron_parsers
 from plonex.cli.db import register_db_parsers
+from plonex.cli.jobs import JOB_COMMANDS
 from plonex.cli.runtime import register_runtime_parsers
 from plonex.cli.setup_info import register_setup_parsers
 from plonex.cli.testing import register_test_parsers
@@ -10,6 +16,8 @@ from rich_argparse import RawTextRichHelpFormatter
 from textwrap import dedent
 
 import os
+import shlex
+import sys
 
 
 def _group_subcommands_for_help(subs, groups: dict[str, list[str]]) -> None:
@@ -17,6 +25,8 @@ def _group_subcommands_for_help(subs, groups: dict[str, list[str]]) -> None:
     choices_by_name = {action.dest: action for action in subs._choices_actions}
     grouped = []
     for title, names in groups.items():
+        if not names:
+            continue
         grouped.append(subs._ChoicesPseudoAction(f"\n{title}", [], ""))
         for name in names:
             action = choices_by_name.get(name)
@@ -54,8 +64,10 @@ def _add_subparser(subparsers, *args, **kwargs):
     return subparser
 
 
-def build_parser() -> ArgumentParser:
-    parser = ArgumentParser(
+def build_parser(
+    *, for_completion: bool = False, target: Path | None = None
+) -> ArgumentParser:
+    parser = AliasArgumentParser(
         description=dedent("""\
             Plone Deployment CLI.
 
@@ -64,7 +76,7 @@ def build_parser() -> ArgumentParser:
             eval "$(register-python-argcomplete plonex)"
             """),
         prog="plonex",
-        usage="%(prog)s [options]",
+        usage="%(prog)s [global options] COMMAND [ACTION] [options]",
         formatter_class=RawTextRichHelpFormatter,
     )
     parser.add_argument(
@@ -104,47 +116,79 @@ def build_parser() -> ArgumentParser:
         dest="version",
     )
 
-    subs = parser.add_subparsers(dest="action", title="Positional Arguments")
+    subs = parser.add_subparsers(
+        dest="action", title="Positional Arguments", metavar="COMMAND"
+    )
 
     register_setup_parsers(subs, _add_subparser)
     register_runtime_parsers(subs, _add_subparser)
     register_db_parsers(subs, _add_subparser)
     register_test_parsers(subs, _add_subparser)
+    register_cron_parsers(subs, _add_subparser)
+    register_command_groups(subs, _add_subparser)
+
+    try:
+        tokens = sys.argv[1:]
+        # Shell completion invokes the entry point without its command-line args.
+        if "_ARGCOMPLETE" in os.environ:
+            try:
+                words = shlex.split(os.environ.get("COMP_LINE", ""))
+                start = int(os.environ["_ARGCOMPLETE"])
+                tokens = words[start:]
+            except ValueError:
+                pass
+        alias_target = target if target is not None else split_command(tokens)[0]
+        # A doctor must be usable even when project configuration is broken or
+        # an uncached remote profile cannot be loaded without network access.
+        _, _, command = split_command(tokens, alias_target)
+        aliases = (
+            {}
+            if command[:2]
+            in (
+                ["project", "doctor"],
+                ["project", "snapshot"],
+                ["project", "inspect-legacy"],
+                ["dependencies", "preview"],
+            )
+            else load_aliases(alias_target)
+        )
+        reserved = set(subs.choices) | {"help", "exit", "quit", "plonex", *JOB_COMMANDS}
+        for name, command in aliases.items():
+            if name in reserved:
+                raise ValueError(
+                    f"Command alias {name!r} conflicts with a built-in command"
+                )
+            subs.add_parser(name, help=f"Alias for: {shlex.join(command)}")
+        parser.command_aliases = aliases
+    except (OSError, ValueError) as exc:
+        parser.error(str(exc))
 
     # Argcomplete introspects parser internals and expects only real subcommands.
     # Keep custom help grouping for human-facing --help, but disable it during
     # completion runs to avoid KeyError on pseudo header entries.
-    if "_ARGCOMPLETE" not in os.environ:
+    if not for_completion and "_ARGCOMPLETE" not in os.environ:
         _group_subcommands_for_help(
             subs,
             {
                 "Setup and information commands:": [
-                    "compile",
+                    "project",
+                    "options",
+                    "shell",
                     "dependencies",
-                    "describe",
                     "sources",
-                    "init",
-                    "install",
-                    "upgrade",
-                    "edit",
                 ],
                 "Runtime Commands:": [
-                    "adduser",
-                    "fg",
-                    "run",
-                    "runwsgi",
+                    "instance",
                     "supervisor",
-                    "zconsole",
-                    "zeoserver",
+                    "cron",
                 ],
                 "Database commands:": [
                     "db",
                 ],
                 "Test commands:": [
-                    "robotserver",
-                    "robottest",
-                    "zopetest",
+                    "test",
                 ],
+                "Project aliases:": list(aliases),
             },
         )
 

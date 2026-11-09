@@ -89,42 +89,17 @@ class ZeoServer(ZopeBasedService):
         self.logger.info("Completed zeopack")
 
     def run_backup(self):
-        """Use repozo to backup the database"""
-        repozo = self.virtualenv_dir / "bin" / "repozo"
-        backup_folder = self._ensure_dir(self.var_folder / "backup")
-        self.logger.info("Running backup")
-        self.run_command(
-            [
-                repozo,
-                "-Bv",
-                "-r",
-                backup_folder,
-                "-f",
-                self.var_folder / "filestorage" / "Data.fs",
-            ]
-        )
-        self.logger.info("Completed backup")
+        """Create an offline, verified database and blob snapshot."""
+        from plonex.services.zeoserver.backup import create_backup
 
-    def run_restore(self):
-        """Use repozo to restore the latest backup into Data.fs"""
-        repozo = self.virtualenv_dir / "bin" / "repozo"
-        backup_folder = self.var_folder / "backup"
-        filestorage = self.var_folder / "filestorage"
-        data_fs = filestorage / "Data.fs"
+        path = create_backup(self)
+        self.logger.info("Created backup: %s", path)
+        return path
 
-        if not backup_folder.exists() or not any(backup_folder.iterdir()):
-            raise FileNotFoundError(f"No backups found in {backup_folder}")
+    def run_restore(self, *, destination=None, backup=None):
+        """Recover a verified snapshot into a new directory."""
+        from plonex.services.zeoserver.backup import restore_backup
 
-        self._ensure_dir(filestorage)
-        self.logger.info("Running restore")
-        self.run_command(
-            [
-                repozo,
-                "-Rv",
-                "-r",
-                backup_folder,
-                "-o",
-                data_fs,
-            ]
-        )
-        self.logger.info("Completed restore")
+        path = restore_backup(self, destination=destination, backup=backup)
+        self.logger.info("Restored backup into: %s", path)
+        return path

@@ -5,17 +5,38 @@ log_level: info
 # supervisor_graceful_interval: 1.0
 # default_actions:
 #   - supervisor start
-#   - runwsgi
+#   - shell
 # sources_update_before_dependencies: true
 # sources:
 #   plone.reload:
 #     repo: https://github.com/plone/plone.reload
 #     rev: master
+#     install: true  # Install this checkout in .venv, editable by default.
+#     extras: [test]
+#     test_command: [python, -m, pytest, tests]
+#     # distribution: plone-reload  # Use if the package name is computed dynamically.
+#     # editable: false  # Build a regular installation instead.
+#     # subdirectory: packages/backend  # Python project inside the repository.
 #   If no rev is specified, it defaults to main,
 #   which is the default branch for most repositories.
 #   You can also specify a different branch or a specific commit hash.
 #   plone.restapi:
 #     repo: git@github.com:plone/plone.restapi.git
+#     # Sources without install: true are only checked out.
+# Optional scheduled jobs (require the declared callable and user in Plone):
+# cron_timezone: Europe/Rome
+# cron_workers: 1
+# cron_control_panel: true  # Opt in to the permission-protected Plone page.
+# upgrade_tempfile_auth: true  # Enable private local upgrade authentication.
+# cron_jobs:
+#   maintenance:
+#     schedule: "15 2 * * *"
+#     callable: my.addon.jobs:maintenance
+#     site: /Plone
+#     user: scheduler
+#     timeout: 900
+#     lock: plone
+#     enabled: false
 pip_requirements:
     - Plone
     - rich
@@ -48,7 +69,7 @@ services:
         target_path: "{{ '{{ target }}' }}/tmp/supervisor/etc/supervisor/zeoserver.conf"
         options:
             program: zeoserver
-            command: plonex zeoserver
+            command: plonex db start
             process_name: zeoserver
             directory: "{{ '{{ target }}' }}"
             priority: 1
@@ -58,7 +79,7 @@ services:
         target_path: "{{ '{{ target }}' }}/tmp/supervisor/etc/supervisor/runwsgi.conf"
         options:
             program: runwsgi
-            command: plonex runwsgi
+            command: plonex instance start
             process_name: runwsgi
             directory: "{{ '{{ target }}' }}"
             priority: 2

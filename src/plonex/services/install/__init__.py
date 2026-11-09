@@ -1,26 +1,54 @@
+from contextlib import nullcontext
 from dataclasses import dataclass
 from dataclasses import field
 from datetime import datetime
 from functools import cached_property
 from importlib import resources
+from packaging.utils import canonicalize_name
 from pathlib import Path
 from pip_requirements_parser import RequirementsFile  # type: ignore
 from plonex.base import BaseService
+from plonex.files import write_if_changed
+from plonex.services.install.report import DependencyReport
 from plonex.services.sources import SourcesService
+from plonex.services.sources.installation import local_package_name
+from plonex.services.sources.installation import SourceInstallPlan
 from rich.console import Console
 from tempfile import NamedTemporaryFile
+from typing import Any
+from typing import Sequence
 from urllib.parse import urljoin
 from urllib.parse import urlparse
 
+import logging
 import re
 import requests
 import sh  # type: ignore[import-untyped]
-import tomllib
 
 
-def name_as_pep503(name: str) -> str:
-    """Return a package name that is compatible with PEP 503"""
-    return re.sub(r"[-_.]+", "-", name).lower()
+def normalize_requirement(spec: str) -> str:
+    """Normalize distribution and extra names without changing URLs or markers."""
+    if re.match(r"^\s*[^\s;]+\.(?:whl|zip|tar\.(?:gz|bz2|xz)|tgz)(?:\s|;|$)", spec):
+        return spec
+    match = re.match(
+        r"^(\s*)([A-Za-z0-9][A-Za-z0-9._-]*)(\s*\[[^\]]+\])?"
+        r"(?=\s*(?:[<>=!~;@(#]|$))",
+        spec,
+    )
+    if not match:
+        return spec
+    prefix, name, extras = match.groups()
+    if extras:
+        extras = (
+            "["
+            + ",".join(
+                canonicalize_name(extra.strip())
+                for extra in extras.strip()[1:-1].split(",")
+            )
+            + "]"
+        )
+    end = match.end()
+    return prefix + canonicalize_name(name) + (extras or "") + spec[end:]
 
 
 @dataclass(kw_only=True)
@@ -36,6 +64,11 @@ class InstallService(BaseService):
     constraints_d_folder: Path = field(init=False)
     requirements_txt: Path = field(init=False)
     constrainst_txt: Path = field(init=False)
+    _dependency_output: list[str] | None = field(default=None, init=False, repr=False)
+    _inputs_prepared: bool = field(default=False, init=False, repr=False)
+    _use_cached_constraints: bool = field(default=False, init=False, repr=False)
+    _preparation_lock: Any = field(default=None, init=False, repr=False)
+    _reinstall_packages: list[str] = field(default_factory=list, init=False, repr=False)
 
     @cached_property
     def options_defaults(self) -> dict:
@@ -102,9 +135,9 @@ class InstallService(BaseService):
         now = datetime.now()
         time_marker = now.strftime("%Y%m%d-%H%M%S")
         lines = [
-            "# Packages added by plonex install",
+            "# Packages added by plonex dependencies add",
         ]
-        lines.extend(sorted(packages))
+        lines.extend(sorted({normalize_requirement(package) for package in packages}))
         (self.requirements_d_folder / f"999-add-package-{time_marker}.txt").write_text(
             "\n".join(lines) + "\n"
         )
@@ -113,6 +146,7 @@ class InstallService(BaseService):
     def install_package(self, package: str):
         """Install a package in the virtualenv respecting the constraints"""
         self.ensure_virtualenv()
+        package = normalize_requirement(package)
         self.logger.info("Installing %r", package)
         command = [
             str(self.virtualenv_dir / "bin" / "uv"),
@@ -131,11 +165,14 @@ class InstallService(BaseService):
             "",
             "## Minimal requirements to run Plone via plonex",
             "supervisor",
-            "ZEO",
+            "zeo",
             "rich",
-            "Plone",
+            "plone",
             "",
-            "## You can add more requirements in any file in the etc/requirements.d/ folder",  # noqa: E501
+            (
+                "## You can add more requirements in any file in the "
+                "etc/requirements.d/ folder"
+            ),  # noqa: E501
         ]
         for requirements_folder in self._requirements_d_folders():
             for file in sorted(requirements_folder.iterdir()):
@@ -145,7 +182,10 @@ class InstallService(BaseService):
         lines.extend(
             [
                 "",
-                "## You can also add direct pip requirement specs in the plonex.yml file with the pip_requirements option",  # noqa: E501
+                (
+                    "## You can also add direct pip requirement specs in the "
+                    "plonex.yml file with the pip_requirements option"
+                ),  # noqa: E501
             ]
         )
         # Allow users to append direct pip requirement specs from YAML options.
@@ -154,42 +194,38 @@ class InstallService(BaseService):
             raw_pip_requirements = [raw_pip_requirements]
         if isinstance(raw_pip_requirements, list):
             for requirement in raw_pip_requirements:
-                if isinstance(requirement, str) and requirement not in lines:
-                    lines.append(requirement)
+                if isinstance(requirement, str):
+                    requirement = normalize_requirement(requirement)
+                    if requirement not in lines:
+                        lines.append(requirement)
+        if self.options.get("cron_jobs") or self.options.get("cron_control_panel"):
+            from plonex.services.cron.installation import runtime_requirement
+            from plonex.services.cron.model import JobSet
+
+            JobSet.from_options(self.options)
+            lines.extend(["", "## Project job worker", runtime_requirement()])
+        installations = self.source_install_plan.installations
+        if installations:
+            lines.extend(["", "## Local projects selected with sources.<name>.install"])
+            lines.extend(installation.requirement for installation in installations)
         lines.append("")
 
         self.requirements_txt = self.var_folder / "requirements.txt"
-        with open(self.requirements_txt, "w") as file:
-            file.write("\n".join(lines))
+        write_if_changed(self.requirements_txt, "\n".join(lines))
 
     def resolve_package_name_from_path(self, requirement) -> str:
         """Resolve the package name from a path"""
+        return local_package_name(self._local_requirement_path(requirement))
+
+    def _local_requirement_path(self, requirement) -> Path:
         path = Path(requirement.link.path)
+        if not path.is_absolute():
+            path = self.target / path
+        return path
 
-        pyproject_toml = path / "pyproject.toml"
-        if pyproject_toml.exists():
-            pyproject = tomllib.loads(pyproject_toml.read_text())
-
-            try:
-                return pyproject["project"]["name"]
-            except KeyError:
-                try:
-                    return pyproject["tool"]["poetry"]["name"]
-                except KeyError:
-                    pass
-
-        setup_cfg_path = path / "setup.cfg"
-        if setup_cfg_path.exists():
-            # This is deprecated
-            from setuptools.config import read_configuration
-
-            config = read_configuration(str(setup_cfg_path))
-            try:
-                return config["metadata"]["name"]
-            except KeyError:
-                pass
-
-        return path.absolute().name
+    @property
+    def source_install_plan(self) -> SourceInstallPlan:
+        return SourceInstallPlan.from_options(self.target, self.options)
 
     def _collect_requirements_sources(self) -> list:
         """Collect all requirement sources (files + pip_requirements from YAML)"""
@@ -239,24 +275,39 @@ class InstallService(BaseService):
 
     def developed_packages(self) -> set[str]:
         """Try to understand which packages are under development"""
-        return {name_as_pep503(name) for name, _ in self._iter_editable_requirements()}
+        return {
+            canonicalize_name(name) for name, _ in self._iter_editable_requirements()
+        } | {
+            item.package_name
+            for item in self.source_install_plan.installations
+            if item.editable
+        }
 
     def developed_packages_and_paths(self) -> set[str]:
         """Try to understand which packages are under development"""
         return {
-            f"{name_as_pep503(name)} → {Path(requirement.link.path).absolute()}"  # noqa: E501
+            f"{canonicalize_name(name)} → {self._local_requirement_path(requirement)}"
             for name, requirement in self._iter_editable_requirements()
+        } | {
+            f"{item.package_name} → {item.path}"
+            for item in self.source_install_plan.installations
+            if item.editable
         }
 
     def make_constraints_txt(self):
         """Merge the constraints files in one big constraints.txt file"""
-        developed_packages = self.developed_packages()
+        developed_packages = (
+            self.developed_packages() | self.source_install_plan.package_names
+        )
         included_files = []
         resolved_constraints = {}
         explicit_constraints = {}
         plonex_base_constraint = self.plonex_base_constraint
         if plonex_base_constraint:
-            if self._is_remote_requirement_source(plonex_base_constraint):
+            if (
+                self._is_remote_requirement_source(plonex_base_constraint)
+                or self.source_install_plan.installations
+            ):
                 _, base_resolved, base_explicit = (
                     self._collect_compiled_constraint_entries(
                         plonex_base_constraint,
@@ -267,8 +318,8 @@ class InstallService(BaseService):
                     if key not in resolved_constraints:
                         resolved_constraints[key] = requirement
                 for key, requirement in base_explicit.items():
-                    if key not in explicit_constraints:
-                        explicit_constraints[key] = requirement
+                    if key not in resolved_constraints:
+                        resolved_constraints[key] = requirement
             else:
                 included_files.append(f"-c {plonex_base_constraint}")
 
@@ -297,14 +348,16 @@ class InstallService(BaseService):
         constraints.update(explicit_constraints)
 
         merged_constraints = included_files + [
-            requirement.dumps() for _, requirement in sorted(constraints.items())
+            self._normalize_requirement_dump(requirement)
+            for requirement in constraints.values()
         ]
 
         self.constrainst_txt = self.var_folder / "constraints.txt"
 
-        with open(self.constrainst_txt, "w") as file:
-            file.write("# This file is generated by plonex\n")
-            file.write("\n".join(merged_constraints))
+        write_if_changed(
+            self.constrainst_txt,
+            "# This file is generated by plonex\n" + "\n".join(merged_constraints),
+        )
 
     @cached_property
     def plonex_base_constraint(self) -> str | Path | None:
@@ -314,6 +367,15 @@ class InstallService(BaseService):
 
         if not isinstance(raw_source, str):
             return raw_source
+
+        raw_source = raw_source.strip()
+        markdown_link = re.fullmatch(r"\[[^\]]+\]\((https?://[^)]+)\)", raw_source)
+        if markdown_link:
+            self.logger.warning(
+                "plonex_base_constraint contains a Markdown link; "
+                "using its URL. Configure the plain URL in YAML."
+            )
+            raw_source = markdown_link.group(1)
 
         if raw_source.startswith("resource://"):
             source_path = raw_source.partition("resource://")[2]
@@ -339,33 +401,63 @@ class InstallService(BaseService):
         reference: str,
         base_source: str | Path,
     ) -> str | Path:
-        reference_path = Path(reference).expanduser()
-        if reference_path.is_absolute() or self._is_remote_requirement_source(
-            reference
-        ):
+        if self._is_remote_requirement_source(reference):
             return reference
 
-        if isinstance(base_source, Path):
-            return (base_source.parent / reference_path).resolve()
-        return urljoin(base_source, reference)
+        if self._is_remote_requirement_source(base_source):
+            return urljoin(str(base_source), reference)
+
+        reference_path = Path(reference).expanduser()
+        if reference_path.is_absolute():
+            return reference_path.resolve()
+        return (Path(base_source).parent / reference_path).resolve()
 
     def _parse_requirement_source(self, source: str | Path):
         if not self._is_remote_requirement_source(source):
             return RequirementsFile.from_file(str(source), include_nested=False)
 
         remote_source = str(source)
-        response = requests.get(remote_source, timeout=30)
-        response.raise_for_status()
+        from plonex.preparation.dependencies import ConstraintCache
+
+        cache = ConstraintCache(self.var_folder / "cache/constraints")
+        cached = cache.path(remote_source)
+        if self._use_cached_constraints and cached.is_file():
+            text = cached.read_text()
+            content_type = "text/plain"
+        else:
+            response = requests.get(remote_source, timeout=30)
+            response.raise_for_status()
+            content_type = response.headers.get("Content-Type", "")
+            text = response.text
+        if (
+            isinstance(content_type, str) and "html" in content_type.lower()
+        ) or re.search(r"<!doctype\s+html\b|<html\b", text, re.IGNORECASE):
+            message = (
+                f"Constraint URL {remote_source} returned HTML instead of raw "
+                "requirements. Use the raw file URL (for GitHub, use the Raw "
+                "button or raw.githubusercontent.com instead of a /blob/ URL)."
+            )
+            self.logger.warning(message)
+            raise ValueError(message)
         with NamedTemporaryFile(
             mode="w",
             suffix=".txt",
             dir=self.tmp_folder,
             delete=False,
         ) as handle:
-            handle.write(response.text)
+            handle.write(text)
             tmp_name = handle.name
         try:
-            return RequirementsFile.from_file(tmp_name, include_nested=False)
+            parsed = RequirementsFile.from_file(tmp_name, include_nested=False)
+            if parsed.invalid_lines:
+                message = (
+                    f"Invalid requirements from {remote_source}: "
+                    f"{parsed.invalid_lines[0].error_message}"
+                )
+                self.logger.warning(message)
+                raise ValueError(message)
+            cache.store(remote_source, text)
+            return parsed
         finally:
             Path(tmp_name).unlink(missing_ok=True)
 
@@ -390,28 +482,9 @@ class InstallService(BaseService):
         explicit_constraints = {}
 
         for option in getattr(parsed, "options", []):
-            for option_name, _flag in (("constraints", "-c"), ("requirements", "-r")):
+            for option_name in ("constraints", "requirements"):
                 for reference in option.options.get(option_name, []):
                     resolved = self._resolve_requirement_source(reference, source)
-                    if self._is_remote_requirement_source(resolved):
-                        nested_includes, nested_resolved, nested_explicit = (
-                            self._collect_compiled_constraint_entries(
-                                resolved,
-                                developed_packages=developed_packages,
-                                seen=seen,
-                            )
-                        )
-                        for include_line in nested_includes:
-                            if include_line not in included_files:
-                                included_files.append(include_line)
-                        for key, requirement in nested_resolved.items():
-                            if key not in resolved_constraints:
-                                resolved_constraints[key] = requirement
-                        for key, requirement in nested_explicit.items():
-                            if key not in explicit_constraints:
-                                explicit_constraints[key] = requirement
-                        continue
-
                     nested_includes, nested_resolved, nested_explicit = (
                         self._collect_compiled_constraint_entries(
                             resolved,
@@ -433,7 +506,7 @@ class InstallService(BaseService):
             name = getattr(requirement, "name", None)
             if not name:
                 continue
-            normalized_name = name_as_pep503(str(name))
+            normalized_name = canonicalize_name(str(name))
             key = (normalized_name, str(requirement.marker))
             if developed_packages is not None and normalized_name in developed_packages:
                 continue
@@ -493,7 +566,7 @@ class InstallService(BaseService):
             name = getattr(requirement, "name", None)
             if not name:
                 continue
-            normalized_name = name_as_pep503(str(name))
+            normalized_name = canonicalize_name(str(name))
             key = (normalized_name, str(requirement.marker))
             if developed_packages is not None and normalized_name in developed_packages:
                 continue
@@ -503,14 +576,14 @@ class InstallService(BaseService):
 
     @staticmethod
     def _normalize_requirement_dump(requirement) -> str:
-        return requirement.dumps().lower().replace("_", "-")
+        return normalize_requirement(requirement.dumps())
 
     @staticmethod
     def _requirement_key(requirement) -> str | None:
         name = getattr(requirement, "name", None)
         if not name:
             return None
-        return name_as_pep503(str(name))
+        return canonicalize_name(str(name))
 
     @property
     def command(self):
@@ -522,6 +595,11 @@ class InstallService(BaseService):
             str(self.requirements_txt.absolute()),
             "-c",
             str(self.constrainst_txt.absolute()),
+            *(
+                argument
+                for name in self._reinstall_packages
+                for argument in ("--reinstall-package", name)
+            ),
         ]
 
     @property
@@ -579,16 +657,74 @@ class InstallService(BaseService):
         return bool(self.options.get("sources_update_before_dependencies", False))
 
     @BaseService.entered_only
+    def run_command(self, command: Sequence[str | Path | int], cwd: Path | None = None):
+        if self._dependency_output is None:
+            return super().run_command(command, cwd=cwd)
+        verbose = self.logger.isEnabledFor(logging.DEBUG)
+        actual_command = [*command, "--no-progress", "--color", "never"]
+        captured_stderr: list[str] = []
+        if verbose:
+            actual_command.append("--verbose")
+        try:
+            self.execute_command(
+                actual_command,
+                cwd=cwd or self.target,
+                capture_output=not verbose,
+                stderr_callback=captured_stderr.append,
+            )
+        except sh.ErrorReturnCode as error:
+            # Captured resolver/build diagnostics must remain visible on failure.
+            if not verbose:
+                console = Console(stderr=True)
+                console.print(
+                    f"Dependency command failed (exit code {error.exit_code})."
+                )
+                diagnostic = "".join(captured_stderr) or error.stderr.decode(
+                    errors="replace"
+                )
+                for output in (error.stdout.decode(errors="replace"), diagnostic):
+                    if output:
+                        console.print(
+                            output.rstrip(),
+                            markup=False,
+                            highlight=False,
+                        )
+            raise SystemExit(error.exit_code) from error
+        finally:
+            self._dependency_output.extend(captured_stderr)
+
+    @BaseService.entered_only
     def update_gitman_sources(self) -> None:
-        with SourcesService(target=self.target) as gitman_service:
+        with SourcesService(
+            target=self.target,
+            cli_options={
+                "sources": self.options.get("sources", {}),
+                "sources_location": self.options.get("sources_location", "src"),
+            },
+        ) as gitman_service:
             gitman_service.run_update(assume_yes=True)
 
     def __enter__(self):
-        super().__enter__()
-        self.ensure_virtualenv()
-        self.make_requirements_txt()
-        self.make_constraints_txt()
+        from plonex.files import project_lock
+
+        self._preparation_lock = project_lock(self.var_folder / "preparation")
+        self._preparation_lock.__enter__()
+        try:
+            super().__enter__()
+            self.ensure_virtualenv()
+            if not self._inputs_prepared:
+                self.make_requirements_txt()
+                self.make_constraints_txt()
+        except BaseException:
+            self._preparation_lock.__exit__(None, None, None)
+            raise
         return self
+
+    def __exit__(self, *exception):
+        try:
+            return super().__exit__(*exception)
+        finally:
+            self._preparation_lock.__exit__(*exception)
 
     def _resolve_first_profile_root(self) -> Path | None:
         plonex_yml = self.target / "etc" / "plonex.yml"
@@ -692,7 +828,10 @@ class InstallService(BaseService):
         selected = [persist, persist_local, persist_profile]
         if sum(1 for v in selected if v) > 1:
             self.logger.error(
-                "Use only one persist flag: --persist, --persist-local, or --persist-profile"  # noqa: E501
+                (
+                    "Use only one persist flag: --persist, --persist-local, or "
+                    "--persist-profile"
+                )  # noqa: E501
             )
             return
 
@@ -706,19 +845,46 @@ class InstallService(BaseService):
         if should_update_sources:
             self.update_gitman_sources()
 
-        if sync:
-            self.run_command(self.compile_command)
-            self.run_command(self.sync_command)
-        else:
-            super().run()
-        # Run pip freeze and compare the output with the constraints
+        self.source_install_plan.validate()
+        if should_update_sources:
+            # Checkouts may now exist or declare a different distribution name.
+            self.make_requirements_txt()
+            self.make_constraints_txt()
+
+        console = Console()
+        verbose = self.logger.isEnabledFor(logging.DEBUG)
+        self._dependency_output = []
+        status = (
+            console.status("Updating dependencies…")
+            if console.is_terminal and self.command_output_enabled and not verbose
+            else nullcontext()
+        )
+        try:
+            with status:
+                if sync:
+                    self.run_command(self.compile_command)
+                    self.run_command(self.sync_command)
+                else:
+                    super().run()
+            report = DependencyReport.from_output("".join(self._dependency_output))
+        finally:
+            self._dependency_output = None
+        report.show(console, diagnostics=not verbose)
+        # Run uv pip freeze and compare the output with the constraints
         # to see if we are missing something
         self.logger.debug("Checking if all constraints are met")
 
         _, merged_constraints = self._collect_constraint_entries(self.constrainst_txt)
         constraints = list(merged_constraints.values())
         installed = self.execute_command(
-            [str(self.virtualenv_dir / "bin" / "pip"), "freeze"]
+            [
+                str(self.virtualenv_dir / "bin" / "uv"),
+                "pip",
+                "freeze",
+                "--python",
+                str(self.virtualenv_dir / "bin" / "python"),
+            ],
+            capture_output=True,
         )
 
         # Save the installed packages to a temporary file
@@ -735,12 +901,15 @@ class InstallService(BaseService):
         }
 
         missing = set()
+        local_source_names = self.source_install_plan.package_names
         for requirement in installed:
             requirement_dump = self._normalize_requirement_dump(requirement)
             if requirement_dump.startswith("--editable"):
                 continue
 
             requirement_key = self._requirement_key(requirement)
+            if requirement_key in local_source_names:
+                continue
             if requirement_key and requirement_key in constrained_names:
                 continue
             if requirement_dump in constrained_dumps:
@@ -777,7 +946,10 @@ class InstallService(BaseService):
                     )
                 autoinstalled_file.parent.mkdir(parents=True, exist_ok=True)
                 if autoinstalled_file.exists():
-                    missing |= set(autoinstalled_file.read_text().splitlines())
+                    missing |= {
+                        normalize_requirement(line)
+                        for line in autoinstalled_file.read_text().splitlines()
+                    }
                     self.logger.info(f"Adding new constraints to {autoinstalled_file}")
                 autoinstalled_file.write_text("\n".join(sorted(missing)) + "\n")
             else:
@@ -789,8 +961,17 @@ class InstallService(BaseService):
                 )
                 console.print(*sorted(missing), sep="\n")
                 console.print(
-                    "Running  `plonex dependencies [--persist|--persist-local|--persist-profile]` will do that for you."  # noqa: E501
+                    (
+                        "Running `plonex dependencies install "
+                        "[--persist|--persist-local|--persist-profile]` will do that "
+                        "for you."
+                    )  # noqa: E501
                 )
+
+        from plonex.preparation.dependencies import DependencyTasks
+
+        DependencyTasks(self.target, service=self).remember_install()
+        return report
 
     @BaseService.entered_only
     def run_show_outdated(self) -> None:

@@ -160,40 +160,23 @@ class TestZeoServer(PloneXTestCase):
     def test_run_backup(self):
         """Test the backup command"""
         with temp_zeo() as zeo:
-            with mock.patch.object(zeo, "run_command") as mock_run:
+            with mock.patch("plonex.services.zeoserver.backup.create_backup") as backup:
                 zeo.run_backup()
-            mock_run.assert_called_once_with(
-                [
-                    zeo.virtualenv_dir / "bin" / "repozo",
-                    "-Bv",
-                    "-r",
-                    zeo.var_folder / "backup",
-                    "-f",
-                    zeo.var_folder / "filestorage" / "Data.fs",
-                ]
-            )
+            backup.assert_called_once_with(zeo)
 
     def test_run_restore(self):
         """Test the restore command"""
         with temp_zeo() as zeo:
-            backup_folder = zeo.var_folder / "backup"
-            backup_folder.mkdir(exist_ok=True)
-            (backup_folder / "20260322-000000.fsz").write_text("backup")
-            with mock.patch.object(zeo, "run_command") as mock_run:
-                zeo.run_restore()
-            mock_run.assert_called_once_with(
-                [
-                    zeo.virtualenv_dir / "bin" / "repozo",
-                    "-Rv",
-                    "-r",
-                    zeo.var_folder / "backup",
-                    "-o",
-                    zeo.var_folder / "filestorage" / "Data.fs",
-                ]
+            with mock.patch(
+                "plonex.services.zeoserver.backup.restore_backup"
+            ) as restore:
+                zeo.run_restore(destination="recovered", backup="snapshot")
+            restore.assert_called_once_with(
+                zeo, destination="recovered", backup="snapshot"
             )
 
     def test_run_restore_without_backups(self):
         """Test restore fails when no backup files are available"""
         with temp_zeo() as zeo:
-            with self.assertRaises(FileNotFoundError):
+            with self.assertRaisesRegex(ValueError, "requires --to"):
                 zeo.run_restore()

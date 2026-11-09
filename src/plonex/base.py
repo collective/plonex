@@ -1,3 +1,4 @@
+from copy import deepcopy
 from dataclasses import dataclass
 from dataclasses import field
 from functools import cached_property
@@ -8,6 +9,9 @@ from pathlib import Path
 from plonex import logger
 from plonex._logger import warning_once
 from plonex.config import normalize_options
+from plonex.configuration import ConfigurationTrace
+from plonex.configuration import Definition
+from plonex.configuration import TrackedOptions
 from rich.console import Console
 from tempfile import mkdtemp
 from typing import Any
@@ -20,6 +24,7 @@ import os
 import sh  # type: ignore[import-untyped]
 import signal
 import sys
+import threading
 import time
 import yaml
 
@@ -43,11 +48,18 @@ class BaseService:
     post_services: None | list = field(default=None, init=False)
     logger: logging.Logger = field(default=logger, init=False)
     _entered: bool = field(default=False, init=False)
+    _invocation_parameters: dict | None = field(default=None, init=False, repr=False)
 
     stream_output: ClassVar[bool] = False
     command_output_enabled: ClassVar[bool] = True
 
     _yaml_resources: list[str] = field(default_factory=list, init=False, repr=False)
+    _configuration_trace: ConfigurationTrace | None = field(
+        default=None, init=False, repr=False
+    )
+    _profile_sources: dict[Path, str] = field(
+        default_factory=dict, init=False, repr=False
+    )
 
     @cached_property
     def options_defaults(self) -> dict:
@@ -72,7 +84,7 @@ class BaseService:
             # When the path is not relative to the target,
             # just store the absolute path
             self._yaml_resources.append(str(path.resolve()))
-        return file_options
+        return TrackedOptions(file_options, source=str(path.resolve()))
 
     @property
     def legacy_constraints_file(self) -> Path:
@@ -135,6 +147,7 @@ class BaseService:
         resolved_profile = self._resolve_profile_source(profile, relative_to)
         profile_service = ProfileService(source=resolved_profile, target=self.target)
         profile_root = profile_service.source_path
+        self._profile_sources[profile_root.absolute()] = str(profile)
 
         if seen is None:
             seen = set()
@@ -169,8 +182,8 @@ class BaseService:
         self,
         base_options: dict,
         incoming_options: dict,
-    ) -> dict:
-        merged = dict(base_options)
+    ) -> TrackedOptions:
+        merged = deepcopy(dict(base_options))
         for key, value in incoming_options.items():
             if key.startswith("+") and key[1:] in merged:
                 real_key = key[1:]
@@ -209,8 +222,8 @@ class BaseService:
                                 real_key,
                             )
             else:
-                merged[key] = value
-        return merged
+                merged[key] = deepcopy(value)
+        return TrackedOptions.merged(base_options, incoming_options, merged)
 
     @cached_property
     def plonex_options(self) -> dict:
@@ -285,9 +298,9 @@ class BaseService:
         Precedence is given in alphabetical order.
         """
         mapping = {}
-        paths = list(self.target.glob("etc/plonex.*.yml"))
-        paths += list(self.target.glob(f"etc/plonex-{self.name}.yml"))
-        paths += list(self.target.glob(f"etc/plonex-{self.name}.*.yml"))
+        paths = sorted(self.target.glob("etc/plonex.*.yml"))
+        paths += sorted(self.target.glob(f"etc/plonex-{self.name}.yml"))
+        paths += sorted(self.target.glob(f"etc/plonex-{self.name}.*.yml"))
 
         for path in paths:
             file_options = self._load_yaml_mapping(path)
@@ -307,9 +320,9 @@ class BaseService:
     @cached_property
     def config_files_options(self) -> dict:
         """Return the options from the config files"""
-        options = {}
+        options = TrackedOptions()
         for file_options in self.config_files_options_mapping.values():
-            options.update(file_options)
+            options = options.overlay(file_options)
         return options
 
     @cached_property
@@ -324,20 +337,22 @@ class BaseService:
         4. In the plonex.yml file
         5. In the class definition options_default (lowest priority)
         """
-        options = self.options_defaults.copy()
-        options.update(self.plonex_options)
+        options = TrackedOptions(
+            self.options_defaults, source=f"{type(self).__name__} defaults"
+        )
+        options = options.overlay(self.plonex_options)
         for path, file_options in self.additional_plonex_options.items():
             if not isinstance(file_options, dict):
                 self.logger.error("The config file %r should contain a dict", path)
                 continue
             options = self._merge_options_with_prefixes(options, file_options)
-        options.update(self.config_files_options)
-        options.update(self.cli_options)
+        options = options.overlay(self.config_files_options)
+        options = options.overlay(self.cli_options, source="CLI overrides")
 
         # FIXME: This should probably done in a more sane way
         # The goal is to resolve the variables inside the options
         # Maybe the ansible code has something that can be reused
-        options_as_yaml_text = yaml.dump(options)
+        options_as_yaml_text = yaml.dump(dict(options))
         env = Environment(loader=BaseLoader())
         counter = 0
         resolved_options = options_as_yaml_text
@@ -356,7 +371,17 @@ class BaseService:
         if not isinstance(resolved, dict):
             self.logger.error("Resolved options should contain a dict")
             return {}
-        return normalize_options(resolved, self.logger)
+        normalized = normalize_options(resolved, self.logger)
+        self._configuration_trace = ConfigurationTrace(
+            options.history, dict(options), normalized
+        )
+        return normalized
+
+    @property
+    def configuration_trace(self) -> ConfigurationTrace:
+        self.options
+        assert self._configuration_trace is not None
+        return self._configuration_trace
 
     @cached_property
     def console(self) -> Console:
@@ -387,7 +412,10 @@ class BaseService:
         if isinstance(path, str):
             path = Path(path)
         if not path.exists():
-            path.mkdir(parents=True)
+            from plonex.files import is_read_only
+
+            if not is_read_only():
+                path.mkdir(parents=True)
         elif not path.is_dir():
             raise ValueError(f"{path} is not a directory")
         return path.absolute()
@@ -431,7 +459,7 @@ class BaseService:
         if not (dir / "bin" / "activate").exists():
             raise FileNotFoundError(
                 f"No virtualenv found in {str(dir)!r}. "
-                "You may want to run `plonex init`"
+                "You may want to run `plonex project init`"
             )
         return dir.absolute()
 
@@ -456,9 +484,14 @@ class BaseService:
 
     def __enter__(self):
         """Load the environment variables before entering the context manager."""
-        if self.options.get("environment_vars"):
-            import os
+        if (
+            os.environ.get("PLONEX_JOB_SNAPSHOT")
+            and self._invocation_parameters is not None
+        ):
+            from plonex.inspection import record_service_snapshot
 
+            record_service_snapshot(self)
+        if self.options.get("environment_vars"):
             for key, value in self.options["environment_vars"].items():
                 if isinstance(value, str):
                     value = value.format(**self.options)
@@ -516,10 +549,15 @@ class BaseService:
         command: Sequence[str | Path | int],
         cwd: Path | None = None,
         stream_output: bool | None = None,
+        *,
+        capture_output: bool = False,
+        stderr_callback: Callable[[str], None] | None = None,
     ) -> str:
-        """Execute a command and return stdout as text."""
+        """Execute a command; capture_output returns stdout without echoing it."""
         if stream_output is None:
             stream_output = cls.stream_output
+        if capture_output:
+            stream_output = False
 
         command_list = list(map(str, command))
         executable, *args = command_list
@@ -530,9 +568,17 @@ class BaseService:
             kwargs["_fg"] = True
             return str(sh.Command(executable)(*args, **kwargs))
 
-        if not cls.command_output_enabled:
+        # wait() below reports failures in this thread, including fast failures.
+        kwargs["_bg_exc"] = False
+        if capture_output or not cls.command_output_enabled:
             kwargs["_new_session"] = True
             kwargs["_bg"] = True
+            if stderr_callback is not None:
+                kwargs["_err"] = lambda chunk: stderr_callback(
+                    chunk.decode(errors="replace")
+                    if isinstance(chunk, bytes)
+                    else str(chunk)
+                )
         else:
             stdout_chunks: list[str] = []
 
@@ -549,6 +595,8 @@ class BaseService:
 
             def _err(chunk: Any) -> None:
                 text = _to_text(chunk)
+                if stderr_callback is not None:
+                    stderr_callback(text)
                 sys.stderr.write(text)
                 sys.stderr.flush()
 
@@ -563,9 +611,20 @@ class BaseService:
 
         process = sh.Command(executable)(*args, **kwargs)
 
+        class Terminated(SystemExit):
+            pass
+
+        previous_term = None
+        if threading.current_thread() is threading.main_thread():
+            previous_term = signal.getsignal(signal.SIGTERM)
+
+            def terminate(signum, frame):
+                raise Terminated(128 + signum)
+
+            signal.signal(signal.SIGTERM, terminate)
         try:
             process.wait()
-        except KeyboardInterrupt:
+        except (KeyboardInterrupt, Terminated):
             try:
                 os.killpg(process.pid, signal.SIGTERM)
             except ProcessLookupError:
@@ -578,12 +637,20 @@ class BaseService:
                     os.killpg(process.pid, signal.SIGKILL)
                 except ProcessLookupError:
                     pass
-                process.wait()
-            except sh.SignalException_SIGTERM:
+                try:
+                    process.wait()
+                except sh.ErrorReturnCode:
+                    pass
+            except sh.ErrorReturnCode:
                 pass
 
             raise
+        finally:
+            if previous_term is not None:
+                signal.signal(signal.SIGTERM, previous_term)
 
+        if capture_output:
+            return str(process)
         return "".join(stdout_chunks) if cls.command_output_enabled else ""
 
     @entered_only
@@ -654,8 +721,30 @@ class ZopeBasedService(BaseService):
         var_folder = Path(options["var_folder"])
         if "zeo_address" not in options:
             options["zeo_address"] = str(var_folder / "zeosocket.sock")
+            if self._configuration_trace is not None:
+                self._configuration_trace.definitions[("zeo_address",)] = [
+                    Definition(
+                        "ZopeBasedService defaults",
+                        "default",
+                        "{{ var_folder }}/zeosocket.sock",
+                    )
+                ]
+                self._configuration_trace.raw["zeo_address"] = (
+                    "{{ var_folder }}/zeosocket.sock"
+                )
         if "blobstorage" not in options:
             options["blobstorage"] = str(var_folder / "blobstorage")
+            if self._configuration_trace is not None:
+                self._configuration_trace.definitions[("blobstorage",)] = [
+                    Definition(
+                        "ZopeBasedService defaults",
+                        "default",
+                        "{{ var_folder }}/blobstorage",
+                    )
+                ]
+                self._configuration_trace.raw["blobstorage"] = (
+                    "{{ var_folder }}/blobstorage"
+                )
         return options
 
     def _generate_password(self) -> str:
@@ -685,6 +774,13 @@ class ZopeBasedService(BaseService):
             self.var_folder is not None
         ), "var_folder must be set before calling _build_zope_pre_services"
 
+        upgrade_environment = {}
+        if self.options.get("upgrade_tempfile_auth"):
+            from plonex.services.upgrade import configured_auth_directory
+
+            upgrade_environment["UPGRADE_TEMPFILE_AUTH_DIR"] = str(
+                configured_auth_directory(self)
+            )
         pre_services = [
             TemplateService(
                 source_path=self.zope_conf_template,
@@ -698,7 +794,13 @@ class ZopeBasedService(BaseService):
                         "security_policy_implementation"
                     )
                     or security_policy_implementation,
-                    "environment_vars": self.options.get("environment_vars", {}),
+                    "environment_vars": self.options.get("environment_vars", {})
+                    | (
+                        {"PLONEX_PROJECT_ROOT": str(self.target)}
+                        if self.options.get("cron_control_panel")
+                        else {}
+                    )
+                    | upgrade_environment,
                     "verbose_security": self.options.get("verbose_security")
                     or verbose_security,
                     "blobstorage": self.options["blobstorage"],
@@ -710,6 +812,7 @@ class ZopeBasedService(BaseService):
                 target_path=self.tmp_folder / "etc" / "site.zcml",
                 options={
                     "zcml_folder": str(self.tmp_folder / "etc"),
+                    "cron_control_panel": bool(self.options.get("cron_control_panel")),
                 },
             ),
         ]
@@ -719,17 +822,6 @@ class ZopeBasedService(BaseService):
             raise ValueError("zcml_additional should be a list of templates")
 
         packages_includes = self.tmp_folder / "etc" / "package-includes"
-        if packages_includes.exists():
-            for file in packages_includes.iterdir():
-                if file.is_file():
-                    file.unlink()
-
-        chameleon_cache = self.options.get("environment_vars", {}).get(
-            "CHAMELEON_CACHE"
-        )
-        if chameleon_cache:
-            Path(chameleon_cache).mkdir(parents=True, exist_ok=True)
-
         options = {"context": self} | self.options
         for template in map(Path, zcml_additional):
             target_path = packages_includes / template.name
@@ -750,6 +842,29 @@ class ZopeBasedService(BaseService):
             )
 
         return pre_services
+
+    def _prepare_zope_runtime(self):
+        """Mutate runtime files only for execution, never for option inspection."""
+        assert self.tmp_folder is not None
+        if self.options.get("upgrade_tempfile_auth"):
+            from plonex.services.upgrade import configured_auth_directory
+            from plonex.services.upgrade import private_auth_directory
+
+            private_auth_directory(configured_auth_directory(self))
+        packages_includes = self.tmp_folder / "etc" / "package-includes"
+        if packages_includes.exists():
+            for path in packages_includes.iterdir():
+                if path.is_file():
+                    path.unlink()
+        chameleon_cache = self.options.get("environment_vars", {}).get(
+            "CHAMELEON_CACHE"
+        )
+        if chameleon_cache:
+            Path(chameleon_cache).mkdir(parents=True, exist_ok=True)
+
+    def __enter__(self):
+        self._prepare_zope_runtime()
+        return super().__enter__()
 
     @property
     def zope_conf_additional(self) -> list:

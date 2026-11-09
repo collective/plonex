@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<object name="portal_controlpanel" meta_type="Plone Control Panel Tool">
+  <configlet action_id="PlonexQueue" appId="PlonexQueue"
+             category="plone-general" title="Plonex queue"
+             url_expr="string:${portal_url}/@@plonex-queue" visible="True">
+    <permission>Manage portal</permission>
+  </configlet>
+</object>

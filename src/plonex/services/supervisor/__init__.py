@@ -35,6 +35,7 @@ class Supervisor(BaseService):
     etc_folder: Path = field(init=False)
     log_folder: Path = field(init=False)
     tmp_folder: Path = field(init=False)
+    _render_configuration: bool = field(default=True, init=False, repr=False)
 
     @cached_property
     def options_defaults(self) -> dict:
@@ -76,6 +77,17 @@ class Supervisor(BaseService):
     def supervisord(self) -> sh.Command:
         """Return the supervisord command to run."""
         return sh.Command(str(self.virtualenv_dir / "bin" / "supervisord"))
+
+    def __enter__(self):
+        from plonex.services.cron import CronService
+
+        if self._render_configuration:
+            CronService(
+                target=self.target,
+                config_files=self.config_files,
+                cli_options=self.options,
+            ).configure_supervisor(self.programs_folder)
+        return super().__enter__()
 
     @property
     def supervisorctl(self) -> sh.Command:
@@ -155,11 +167,24 @@ class Supervisor(BaseService):
         super().run()
 
     @BaseService.entered_only
-    def run_restart(self):
+    def run_restart(self, programs=None):
+        import re
+
+        if programs and any(
+            not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.:*-]*", name)
+            for name in programs
+        ):
+            raise ValueError("Invalid Supervisor program name")
         if not self.is_running():
+            if programs:
+                raise ValueError(
+                    "Supervisord is not running; start it before restarting programs"
+                )
             self.logger.info("supervisord is not running, starting it instead")
             return self.run()
-        output = self.supervisorctl("-c", str(self.supervisord_conf), "restart", "all")
+        output = self.supervisorctl(
+            "-c", str(self.supervisord_conf), "restart", *(programs or ["all"])
+        )
         output = output.replace(" started", "[green] started[/green]")
         output = output.replace(" stopped", "[red] stopped[/red]")
         self.print(output.rstrip())

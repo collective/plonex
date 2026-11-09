@@ -17,11 +17,14 @@ maintainers = [
     { name="Alessandro Pisa", email="pisa@syslab.com" },
 ]
 dependencies = [
+    "doit>=0.36,<0.37",
     "argcomplete",
     "Jinja2",
+    "packaging",
     "pip-requirements-parser",
     "PyYAML",
     "requests",
+    "rich",
     "rich-argparse",
     "sh",
     "types-PyYAML",
@@ -33,10 +36,12 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
@@ -51,7 +56,8 @@ Issues = "https://github.com/collective/plonex/issues"
 Changelog = "https://github.com/collective/plonex/CHANGELOG.md"
 
 [project.optional-dependencies]
-test = ["mypy", "pytest", "pytest-cov", "supervisor"]
+jobs = ["huey[stats]>=3.5,<4"]
+test = ["mypy", "pytest", "pytest-cov", "supervisor", "huey[stats]>=3.5,<4", "ZODB"]
 
 [tool.flake8]
 max-line-length = 88

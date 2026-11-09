@@ -5,6 +5,8 @@ from plonex.base import ZopeBasedService
 from plonex.services.template import TemplateService
 from typing import ClassVar
 
+import subprocess
+
 
 @dataclass(kw_only=True)
 class RunWSGI(ZopeBasedService):
@@ -54,8 +56,47 @@ class RunWSGI(ZopeBasedService):
         assert (
             self.tmp_folder is not None
         ), "tmp_folder should be set before accessing command"
-        return [
+        command = [
             str(self.virtualenv_dir / "bin" / "runwsgi"),
             str(self.tmp_folder / "etc" / "wsgi.ini"),
             *self.args,
         ]
+        port = self.cli_options.get("debugpy_port")
+        if port:
+            prefix = [
+                str(self.virtualenv_dir / "bin/python"),
+                "-m",
+                "debugpy",
+                "--listen",
+                f"127.0.0.1:{port}",
+            ]
+            if self.cli_options.get("debugpy_wait"):
+                prefix.append("--wait-for-client")
+            return prefix + command
+        return command
+
+    @ZopeBasedService.entered_only
+    def run(self):
+        if self.cli_options.get("debugpy_port"):
+            try:
+                check = subprocess.run(
+                    [
+                        str(self.virtualenv_dir / "bin/python"),
+                        "-I",
+                        "-B",
+                        "-c",
+                        "import importlib.util,sys; "
+                        "sys.exit(importlib.util.find_spec('debugpy') is None)",
+                    ],
+                    capture_output=True,
+                    timeout=15,
+                )
+            except (OSError, subprocess.TimeoutExpired) as error:
+                raise ValueError(
+                    "Cannot check debugpy in the target Python."
+                ) from error
+            if check.returncode:
+                raise ValueError(
+                    "debugpy is not installed. Run 'plonex dependencies add debugpy'."
+                )
+        return super().run()

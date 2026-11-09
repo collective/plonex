@@ -1,6 +1,8 @@
 from .utils import PloneXTestCase
 from .utils import temp_cwd
+from io import StringIO
 from plonex.services.sources import SourcesService
+from rich.console import Console
 from unittest import mock
 
 import sh
@@ -400,6 +402,7 @@ class TestSourcesService(PloneXTestCase):
                 "    managed.package:\n"
                 "      repo: https://github.com/example/managed.package.git\n"
             )
+            output = StringIO()
             with SourcesService() as svc:
                 with (
                     mock.patch.object(
@@ -412,6 +415,7 @@ class TestSourcesService(PloneXTestCase):
                         "_git_current_branch",
                         return_value="main",
                     ),
+                    mock.patch.object(svc, "_git_revision", return_value="main"),
                     mock.patch.object(
                         svc,
                         "_git_remote_url",
@@ -421,16 +425,22 @@ class TestSourcesService(PloneXTestCase):
                             else "https://github.com/example/extra.package.git"
                         ),
                     ),
-                    mock.patch("plonex.services.sources.Console") as MockConsole,
+                    mock.patch(
+                        "plonex.services.sources.Console",
+                        return_value=Console(file=output, width=200, color_system=None),
+                    ),
                 ):
                     svc.run_list()
-            rendered = "\n".join(
-                str(call.args[0])
-                for call in MockConsole.return_value.print.call_args_list
+            rendered = output.getvalue()
+            self.assertIn("Suggested sources · etc/plonex.yml", rendered)
+            self.assertIn(
+                "Merge these entries into your existing sources mapping", rendered
             )
-            self.assertIn("Unmanaged existing checkouts found:", rendered)
-            self.assertIn("Suggested configuration to add to etc/plonex.yml:", rendered)
             self.assertIn("extra.package", rendered)
+            table, suggestion = rendered.split("Legend:")
+            self.assertIn("extra.package", table)
+            self.assertIn("unmanaged", table)
+            self.assertIn("extra.package:", suggestion)
 
     def test_run_suggest_existing_without_unmanaged(self):
         with temp_cwd() as cwd:

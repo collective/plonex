@@ -1,5 +1,26 @@
+from argparse import REMAINDER
+
+
 def register_test_parsers(subs, add_subparser) -> None:
     """Register test-related CLI parsers."""
+    sources = add_subparser(
+        subs, "test_sources", help="Run configured tests for selected sources"
+    )
+    sources.add_argument(
+        "source_args",
+        nargs=REMAINDER,
+        help="Source names, followed by -- and optional runner arguments",
+    )
+    pytest_parser = add_subparser(
+        subs, "pytest", help="Run pytest for an importable package or test path"
+    )
+    pytest_parser.add_argument("package", help="Python package or test path to run")
+    pytest_parser.add_argument(
+        "pytest_args",
+        nargs=REMAINDER,
+        help="Arguments passed to pytest after the package, e.g. -k login -x",
+    )
+
     robotserver_parser = add_subparser(
         subs,
         "robotserver",

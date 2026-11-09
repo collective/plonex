@@ -1,0 +1,43 @@
+name: Tests
+on:
+  push:
+  pull_request:
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.15']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m venv .venv
+      - run: .venv/bin/pip install -e '.[test]' uv
+      - run: .venv/bin/mypy src/plonex
+      - run: .venv/bin/pytest -q
+  plone:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.15']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: python -m venv .venv
+      - run: .venv/bin/pip install -e '.[test]' uv
+      - run: python -m venv .venv-plone
+      - run: .venv-plone/bin/pip install -c https://dist.plone.org/release/6.2.1/constraints.txt 'Plone==6.2.1' ZEO supervisor rich collective.ftw.upgrade
+      - run: .venv-plone/bin/pip install -e '.[jobs]' debugpy
+      - name: Start Plone, run a queue job, back up and recover
+        env:
+          PLONEX_INTEGRATION_VENV: ${{ github.workspace }}/.venv-plone
+          PLONEX_INTEGRATION_PANEL: '1'
+          PLONEX_INTEGRATION_DEBUGGER: '1'
+        run: .venv/bin/pytest -q tests/test_real_plone.py

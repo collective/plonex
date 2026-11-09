@@ -67,7 +67,7 @@ class TestBuildParser(unittest.TestCase):
         self.assertTrue(args.version)
 
     def test_verbose_flag_after_top_level_command(self):
-        args = self.parser.parse_args(["compile", "-v"])
+        args = self.parser.parse_args(["project", "compile", "-v"])
         self.assertEqual(args.action, "compile")
         self.assertTrue(args.verbose)
 
@@ -78,7 +78,7 @@ class TestBuildParser(unittest.TestCase):
         self.assertTrue(args.verbose)
 
     def test_quiet_flag_after_top_level_command(self):
-        args = self.parser.parse_args(["compile", "-q"])
+        args = self.parser.parse_args(["project", "compile", "-q"])
         self.assertEqual(args.action, "compile")
         self.assertTrue(args.quiet)
 
@@ -89,56 +89,71 @@ class TestBuildParser(unittest.TestCase):
         self.assertTrue(args.quiet)
 
     def test_target_flag(self):
-        args = self.parser.parse_args(["-t", "/some/path", "compile"])
+        args = self.parser.parse_args(["-t", "/some/path", "project", "compile"])
         self.assertEqual(args.target, "/some/path")
 
     # --- subcommands ---
 
     def test_action_init(self):
-        args = self.parser.parse_args(["init", "/tmp/project"])
+        args = self.parser.parse_args(["project", "init", "/tmp/project"])
         self.assertEqual(args.action, "init")
         self.assertEqual(args.target, "/tmp/project")
 
     def test_action_init_without_target(self):
-        args = self.parser.parse_args(["init"])
+        args = self.parser.parse_args(["project", "init"])
         self.assertEqual(args.action, "init")
         self.assertIsNone(args.target)
 
     def test_action_compile(self):
-        args = self.parser.parse_args(["compile"])
+        args = self.parser.parse_args(["project", "compile"])
         self.assertEqual(args.action, "compile")
 
+    def test_action_shell_accepts_global_flags_on_either_side(self):
+        for tokens in (
+            ["--target", "/my/project", "--verbose", "shell"],
+            ["shell", "--target", "/my/project", "--verbose"],
+        ):
+            with self.subTest(tokens=tokens):
+                args = self.parser.parse_args(tokens)
+                self.assertEqual(args.action, "shell")
+                self.assertEqual(args.target, "/my/project")
+                self.assertTrue(args.verbose)
+
     def test_action_describe(self):
-        args = self.parser.parse_args(["describe"])
+        args = self.parser.parse_args(["project", "describe"])
         self.assertEqual(args.action, "describe")
 
     def test_action_robotserver_default_layer(self):
-        args = self.parser.parse_args(["robotserver"])
+        args = self.parser.parse_args(["test", "robot-server"])
         self.assertEqual(args.action, "robotserver")
         self.assertIn("ROBOT_TESTING", args.layer)
 
     def test_action_robotserver_custom_layer(self):
-        args = self.parser.parse_args(["robotserver", "-l", "my.layer.TESTING"])
+        args = self.parser.parse_args(
+            ["test", "robot-server", "-l", "my.layer.TESTING"]
+        )
         self.assertEqual(args.layer, "my.layer.TESTING")
 
     def test_action_robottest(self):
-        args = self.parser.parse_args(["robottest", "tests/robot/test_login.robot"])
+        args = self.parser.parse_args(["test", "robot", "tests/robot/test_login.robot"])
         self.assertEqual(args.action, "robottest")
         self.assertEqual(args.paths, ["tests/robot/test_login.robot"])
         self.assertEqual(args.browser, "firefox")
 
     def test_action_zopetest(self):
-        args = self.parser.parse_args(["zopetest", "my.package"])
+        args = self.parser.parse_args(["test", "zope", "my.package"])
         self.assertEqual(args.action, "zopetest")
         self.assertEqual(args.package, "my.package")
 
     def test_action_install(self):
-        args = self.parser.parse_args(["install", "my.package", "other.package"])
+        args = self.parser.parse_args(
+            ["dependencies", "add", "my.package", "other.package"]
+        )
         self.assertEqual(args.action, "install")
         self.assertEqual(args.package, ["my.package", "other.package"])
 
     def test_action_upgrade(self):
-        args = self.parser.parse_args(["upgrade"])
+        args = self.parser.parse_args(["instance", "upgrade"])
         self.assertEqual(args.action, "upgrade")
 
     def test_action_supervisor_default(self):
@@ -162,11 +177,11 @@ class TestBuildParser(unittest.TestCase):
         self.assertIsNone(args.graceful_interval)
 
     def test_action_zeoserver(self):
-        args = self.parser.parse_args(["zeoserver"])
+        args = self.parser.parse_args(["db", "start"])
         self.assertEqual(args.action, "zeoserver")
 
     def test_action_runwsgi_defaults(self):
-        args = self.parser.parse_args(["runwsgi"])
+        args = self.parser.parse_args(["instance", "start"])
         self.assertEqual(args.action, "runwsgi")
         self.assertEqual(args.name, "runwsgi")
         self.assertEqual(args.port, 0)
@@ -174,14 +189,14 @@ class TestBuildParser(unittest.TestCase):
 
     def test_action_runwsgi_options(self):
         args = self.parser.parse_args(
-            ["runwsgi", "-n", "app1", "-p", "8082", "--host", "127.0.0.1"]
+            ["instance", "start", "-n", "app1", "-p", "8082", "--host", "127.0.0.1"]
         )
         self.assertEqual(args.name, "app1")
         self.assertEqual(args.port, 8082)
         self.assertEqual(args.host, "127.0.0.1")
 
     def test_action_fg_defaults(self):
-        args = self.parser.parse_args(["fg"])
+        args = self.parser.parse_args(["instance", "debug"])
         self.assertEqual(args.action, "fg")
         self.assertEqual(args.name, "fg")
         self.assertEqual(args.port, 0)
@@ -189,30 +204,32 @@ class TestBuildParser(unittest.TestCase):
 
     def test_action_fg_options(self):
         args = self.parser.parse_args(
-            ["fg", "-n", "app1", "-p", "8082", "--host", "127.0.0.1"]
+            ["instance", "debug", "-n", "app1", "-p", "8082", "--host", "127.0.0.1"]
         )
         self.assertEqual(args.name, "app1")
         self.assertEqual(args.port, 8082)
         self.assertEqual(args.host, "127.0.0.1")
 
-    def test_action_zconsole_subcommands(self):
-        for sub in ("debug", "run"):
-            args = self.parser.parse_args(["zconsole", sub])
-            self.assertEqual(args.zconsole_action, sub)
+    def test_action_console_is_interactive_only(self):
+        args = self.parser.parse_args(["instance", "console"])
+        self.assertEqual(args.action, "zconsole")
+        for action in ("debug", "run"):
+            with self.assertRaises(SystemExit):
+                self.parser.parse_args(["instance", "console", action])
 
     def test_action_run(self):
-        args = self.parser.parse_args(["run", "script.py"])
+        args = self.parser.parse_args(["instance", "run", "script.py"])
         self.assertEqual(args.action, "run")
         self.assertEqual(args.args, ["script.py"])
 
     def test_action_adduser(self):
-        args = self.parser.parse_args(["adduser", "admin", "secret"])
+        args = self.parser.parse_args(["instance", "add-user", "admin", "secret"])
         self.assertEqual(args.action, "adduser")
         self.assertEqual(args.username, "admin")
         self.assertEqual(args.password, "secret")
 
     def test_action_adduser_no_password(self):
-        args = self.parser.parse_args(["adduser", "admin"])
+        args = self.parser.parse_args(["instance", "add-user", "admin"])
         self.assertIsNone(args.password)
 
     def test_action_db_default(self):
@@ -241,29 +258,29 @@ class TestBuildParser(unittest.TestCase):
         self.assertEqual(args.days, 3)
 
     def test_action_dependencies(self):
-        args = self.parser.parse_args(["dependencies"])
+        args = self.parser.parse_args(["dependencies", "install"])
         self.assertEqual(args.action, "dependencies")
         self.assertIsNone(args.persist_mode)
 
     def test_action_dependencies_persist(self):
-        args = self.parser.parse_args(["dependencies", "--persist"])
+        args = self.parser.parse_args(["dependencies", "install", "--persist"])
         self.assertEqual(args.persist_mode, "project")
 
     def test_action_dependencies_persist_local(self):
-        args = self.parser.parse_args(["dependencies", "--persist-local"])
+        args = self.parser.parse_args(["dependencies", "install", "--persist-local"])
         self.assertEqual(args.persist_mode, "local")
 
     def test_action_dependencies_persist_profile(self):
-        args = self.parser.parse_args(["dependencies", "--persist-profile"])
+        args = self.parser.parse_args(["dependencies", "install", "--persist-profile"])
         self.assertEqual(args.persist_mode, "profile")
 
     def test_action_dependencies_update_sources(self):
-        args = self.parser.parse_args(["dependencies", "--update-sources"])
+        args = self.parser.parse_args(["dependencies", "install", "--update-sources"])
         self.assertEqual(args.action, "dependencies")
         self.assertTrue(args.update_sources)
 
     def test_action_dependencies_sync(self):
-        args = self.parser.parse_args(["dependencies", "--sync"])
+        args = self.parser.parse_args(["dependencies", "sync"])
         self.assertEqual(args.action, "dependencies")
         self.assertTrue(args.sync)
 
@@ -285,9 +302,9 @@ class TestBuildParser(unittest.TestCase):
         self.assertEqual(args.glob, "foo")
 
     def test_action_sources_force_update(self):
-        args = self.parser.parse_args(["sources", "force-update", "--yes"])
+        args = self.parser.parse_args(["sources", "update", "--force", "--yes"])
         self.assertEqual(args.action, "sources")
-        self.assertEqual(args.sources_action, "force-update")
+        self.assertEqual(args.sources_action, "update")
         self.assertTrue(args.sources_yes)
 
     def test_action_sources_tainted(self):
@@ -309,41 +326,39 @@ class TestBuildParser(unittest.TestCase):
         self.assertIsNone(args.glob)
 
     def test_action_sources_clone_missing(self):
-        args = self.parser.parse_args(["sources", "clone-missing"])
+        args = self.parser.parse_args(["sources", "clone"])
         self.assertEqual(args.action, "sources")
-        self.assertEqual(args.sources_action, "clone-missing")
+        self.assertEqual(args.sources_action, "clone")
         self.assertIsNone(args.glob)
 
     def test_action_sources_clone_missing_yes(self):
-        args = self.parser.parse_args(["sources", "clone-missing", "--yes"])
+        args = self.parser.parse_args(["sources", "clone", "--yes"])
         self.assertEqual(args.action, "sources")
-        self.assertEqual(args.sources_action, "clone-missing")
+        self.assertEqual(args.sources_action, "clone")
         self.assertTrue(args.sources_yes)
         self.assertIsNone(args.glob)
 
     def test_action_sources_suggest_existing(self):
-        args = self.parser.parse_args(["sources", "suggest-existing"])
+        args = self.parser.parse_args(["sources", "suggest"])
         self.assertEqual(args.action, "sources")
-        self.assertEqual(args.sources_action, "suggest-existing")
+        self.assertEqual(args.sources_action, "suggest")
 
     def test_action_sources_suggest_existing_apply_local(self):
-        args = self.parser.parse_args(["sources", "suggest-existing", "--apply-local"])
+        args = self.parser.parse_args(["sources", "suggest", "--apply-local"])
         self.assertEqual(args.action, "sources")
-        self.assertEqual(args.sources_action, "suggest-existing")
+        self.assertEqual(args.sources_action, "suggest")
         self.assertTrue(args.sources_apply_local)
 
     def test_action_sources_suggest_existing_apply(self):
-        args = self.parser.parse_args(["sources", "suggest-existing", "--apply"])
+        args = self.parser.parse_args(["sources", "suggest", "--apply"])
         self.assertEqual(args.action, "sources")
-        self.assertEqual(args.sources_action, "suggest-existing")
+        self.assertEqual(args.sources_action, "suggest")
         self.assertTrue(args.sources_apply)
 
     def test_action_sources_suggest_existing_apply_profile(self):
-        args = self.parser.parse_args(
-            ["sources", "suggest-existing", "--apply-profile"]
-        )
+        args = self.parser.parse_args(["sources", "suggest", "--apply-profile"])
         self.assertEqual(args.action, "sources")
-        self.assertEqual(args.sources_action, "suggest-existing")
+        self.assertEqual(args.sources_action, "suggest")
         self.assertTrue(args.sources_apply_profile)
 
 
@@ -458,6 +473,9 @@ class TestMain(unittest.TestCase):
     def setUp(self):
         super().setUp()
         self.temp_dir = self.enterContext(temp_cwd())
+        self.preparation = self.enterContext(
+            mock.patch("plonex.preparation.supervisor.SupervisorPreparation")
+        )
 
     def _run(self, argv):
         with mock.patch.object(sys, "argv", ["plonex"] + argv):
@@ -486,7 +504,7 @@ class TestMain(unittest.TestCase):
                 [
                     "default_actions:",
                     "  - supervisor start",
-                    "  - runwsgi",
+                    "  - instance start",
                     "",
                 ]
             )
@@ -513,10 +531,7 @@ class TestMain(unittest.TestCase):
                             main()
         self.assertEqual(
             mock_deps.call_args_list,
-            [
-                mock.call(self.temp_dir.resolve(), "supervisor"),
-                mock.call(self.temp_dir.resolve(), "runwsgi"),
-            ],
+            [mock.call(self.temp_dir.resolve(), "runwsgi")],
         )
         MockSupervisor.return_value.run.assert_called_once()
         MockRunWSGI.return_value.run.assert_called_once()
@@ -528,7 +543,7 @@ class TestMain(unittest.TestCase):
                 return_value=MockSvc.return_value
             )
             MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-            self._run(["init", target_str])
+            self._run(["project", "init", target_str])
         MockSvc.assert_called_once_with(target=self.temp_dir)
         MockSvc.return_value.run.assert_called_once()
 
@@ -541,7 +556,7 @@ class TestMain(unittest.TestCase):
                 )
                 MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
                 with mock.patch("pathlib.Path.cwd", return_value=self.temp_dir):
-                    self._run(["init"])
+                    self._run(["project", "init"])
         MockConsole.return_value.input.assert_called_once_with(
             f"Please select the target folder (default: {self.temp_dir}): "
         )
@@ -570,11 +585,47 @@ class TestMain(unittest.TestCase):
         return MockSvc
 
     def test_action_compile(self):
-        svc = self._run_service(["compile"], "plonex.cli.CompileService")
+        svc = self._run_service(["project", "compile"], "plonex.cli.CompileService")
         svc.return_value.run.assert_called_once()
 
+    def test_shell_dispatch_preserves_target_and_flags_without_loading_environment(
+        self,
+    ):
+        with (
+            mock.patch("plonex.cli.run_shell") as shell,
+            mock.patch("plonex.cli.InitService") as init,
+        ):
+            self._run_with_target(["shell", "--verbose"])
+        shell.assert_called_once_with(
+            target=self.temp_dir.resolve(), verbose=True, quiet=False
+        )
+        init.assert_not_called()
+
+    def test_invalid_constraints_exit_cleanly_for_explicit_and_default_actions(self):
+        for argv, defaults in [
+            (["dependencies", "install"], None),
+            ([], [["dependencies", "install"]]),
+        ]:
+            with (
+                self.subTest(argv=argv),
+                mock.patch("plonex.cli._load_default_actions", return_value=defaults),
+                mock.patch(
+                    "plonex.cli._dispatch",
+                    side_effect=ValueError(
+                        "Constraint URL returned HTML instead of raw requirements"
+                    ),
+                ),
+                mock.patch("plonex.cli.logger.error") as error,
+            ):
+                with self.assertRaises(SystemExit) as exc:
+                    self._run_with_target(argv)
+                self.assertEqual(exc.exception.code, 1)
+                error.assert_called_once_with(
+                    "Constraint URL returned HTML instead of raw requirements"
+                )
+
     def test_action_describe(self):
-        svc = self._run_service(["describe"], "plonex.cli.DescribeService")
+        svc = self._run_service(["project", "describe"], "plonex.cli.DescribeService")
         svc.return_value.run.assert_called_once()
 
     def test_action_describe_html_browse(self):
@@ -583,20 +634,25 @@ class TestMain(unittest.TestCase):
                 return_value=MockSvc.return_value
             )
             MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-            self._run_with_target(["describe", "--html", "--browse"])
+            self._run_with_target(
+                ["project", "describe", "--format", "html", "--browse"]
+            )
         MockSvc.assert_called_once_with(
             target=self.temp_dir.resolve(),
-            generate_html=True,
             browse_html=True,
+            output_format="html",
+            section="all",
+            key="",
+            inspect_command=[],
         )
         MockSvc.return_value.run.assert_called_once()
 
     def test_action_upgrade(self):
-        svc = self._run_service(["upgrade"], "plonex.cli.UpgradeService")
+        svc = self._run_service(["instance", "upgrade"], "plonex.cli.UpgradeService")
         svc.return_value.run.assert_called_once()
 
     def test_action_zeoserver(self):
-        svc = self._run_service(["zeoserver"], "plonex.cli.ZeoServer")
+        svc = self._run_service(["db", "start"], "plonex.cli.ZeoServer")
         svc.return_value.run.assert_called_once()
 
     def test_action_db_backup(self):
@@ -605,7 +661,9 @@ class TestMain(unittest.TestCase):
 
     def test_action_db_restore(self):
         svc = self._run_service(["db", "restore"], "plonex.cli.ZeoServer")
-        svc.return_value.run_restore.assert_called_once()
+        svc.return_value.run_restore.assert_called_once_with(
+            destination=None, backup=None
+        )
 
     def test_action_db_pack(self):
         svc = self._run_service(["db", "pack", "-d", "3"], "plonex.cli.ZeoServer")
@@ -622,9 +680,11 @@ class TestMain(unittest.TestCase):
                 return_value=MockSvc.return_value
             )
             MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-            self._run_with_target(["runwsgi", "--host", "127.0.0.1", "-p", "8082"])
+            self._run_with_target(
+                ["instance", "start", "--host", "127.0.0.1", "-p", "8082"]
+            )
         _, kwargs = MockSvc.call_args
-        self.assertEqual(kwargs["cli_options"]["http_host"], "127.0.0.1")
+        self.assertEqual(kwargs["cli_options"]["http_address"], "127.0.0.1")
         self.assertEqual(kwargs["cli_options"]["http_port"], 8082)
 
     def test_action_fg_sets_debug_options(self):
@@ -633,7 +693,7 @@ class TestMain(unittest.TestCase):
                 return_value=MockSvc.return_value
             )
             MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-            self._run_with_target(["fg"])
+            self._run_with_target(["instance", "debug"])
         _, kwargs = MockSvc.call_args
         self.assertEqual(kwargs["cli_options"]["debug_mode"], "on")
         self.assertEqual(kwargs["cli_options"]["verbose_security"], "on")
@@ -648,7 +708,7 @@ class TestMain(unittest.TestCase):
                 return_value=MockSvc.return_value
             )
             MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-            self._run_with_target(["fg"])
+            self._run_with_target(["instance", "debug"])
         _, kwargs = MockSvc.call_args
         self.assertEqual(kwargs["name"], "fg")
 
@@ -658,9 +718,11 @@ class TestMain(unittest.TestCase):
                 return_value=MockSvc.return_value
             )
             MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-            self._run_with_target(["fg", "--host", "127.0.0.1", "-p", "8082"])
+            self._run_with_target(
+                ["instance", "debug", "--host", "127.0.0.1", "-p", "8082"]
+            )
         _, kwargs = MockSvc.call_args
-        self.assertEqual(kwargs["cli_options"]["http_host"], "127.0.0.1")
+        self.assertEqual(kwargs["cli_options"]["http_address"], "127.0.0.1")
         self.assertEqual(kwargs["cli_options"]["http_port"], 8082)
 
     def test_action_zconsole_default_action_is_debug(self):
@@ -669,7 +731,7 @@ class TestMain(unittest.TestCase):
                 return_value=MockSvc.return_value
             )
             MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-            self._run_with_target(["zconsole"])
+            self._run_with_target(["instance", "console"])
         _, kwargs = MockSvc.call_args
         self.assertEqual(kwargs["action"], "debug")
 
@@ -679,7 +741,7 @@ class TestMain(unittest.TestCase):
                 return_value=MockSvc.return_value
             )
             MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-            self._run_with_target(["adduser", "admin", "secret"])
+            self._run_with_target(["instance", "add-user", "admin", "secret"])
         MockSvc.return_value.run.assert_called_once()
 
     def test_action_supervisor_start(self):
@@ -690,7 +752,8 @@ class TestMain(unittest.TestCase):
                 )
                 MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
                 self._run_with_target(["supervisor", "start"])
-        mock_deps.assert_called_once_with(self.temp_dir.resolve(), "supervisor")
+        mock_deps.assert_not_called()
+        self.preparation.return_value.run.assert_called_once()
         MockSvc.return_value.run.assert_called_once()
 
     def test_action_supervisor_stop(self):
@@ -701,7 +764,7 @@ class TestMain(unittest.TestCase):
                 )
                 MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
                 self._run_with_target(["supervisor", "stop"])
-        mock_deps.assert_called_once_with(self.temp_dir.resolve(), "supervisor")
+        mock_deps.assert_not_called()
         MockSvc.return_value.run_stop.assert_called_once()
 
     def test_action_supervisor_restart(self):
@@ -723,7 +786,7 @@ class TestMain(unittest.TestCase):
                 )
                 MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
                 self._run_with_target(["supervisor", "status"])
-        mock_deps.assert_called_once_with(self.temp_dir.resolve(), "supervisor")
+        mock_deps.assert_not_called()
         MockSvc.return_value.run_status.assert_called_once()
 
     def test_action_dependencies(self):
@@ -733,7 +796,7 @@ class TestMain(unittest.TestCase):
                     return_value=MockSvc.return_value
                 )
                 MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-                self._run_with_target(["dependencies", "--persist"])
+                self._run_with_target(["dependencies", "install", "--persist"])
         mock_deps.assert_called_once_with(self.temp_dir.resolve(), "dependencies")
         MockSvc.return_value.run.assert_called_once_with(
             persist=True,
@@ -750,7 +813,7 @@ class TestMain(unittest.TestCase):
                     return_value=MockSvc.return_value
                 )
                 MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-                self._run_with_target(["dependencies", "--update-sources"])
+                self._run_with_target(["dependencies", "install", "--update-sources"])
         mock_deps.assert_called_once_with(self.temp_dir.resolve(), "dependencies")
         MockSvc.return_value.run.assert_called_once_with(
             persist=False,
@@ -767,7 +830,7 @@ class TestMain(unittest.TestCase):
                     return_value=MockSvc.return_value
                 )
                 MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-                self._run_with_target(["dependencies", "--sync"])
+                self._run_with_target(["dependencies", "sync"])
         mock_deps.assert_called_once_with(self.temp_dir.resolve(), "dependencies")
         MockSvc.return_value.run.assert_called_once_with(
             persist=False,
@@ -806,7 +869,7 @@ class TestMain(unittest.TestCase):
                     return_value=MockSvc.return_value
                 )
                 MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-                self._run_with_target(["sources", "force-update", "--yes"])
+                self._run_with_target(["sources", "update", "--force", "--yes"])
         mock_deps.assert_called_once_with(self.temp_dir.resolve(), "sources")
         MockSvc.return_value.run_update.assert_called_once_with(
             force=True,
@@ -854,7 +917,7 @@ class TestMain(unittest.TestCase):
                     return_value=MockSvc.return_value
                 )
                 MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-                self._run_with_target(["sources", "clone-missing"])
+                self._run_with_target(["sources", "clone"])
         mock_deps.assert_called_once_with(self.temp_dir.resolve(), "sources")
         MockSvc.return_value.run_clone_missing.assert_called_once_with(
             assume_yes=False,
@@ -868,7 +931,7 @@ class TestMain(unittest.TestCase):
                     return_value=MockSvc.return_value
                 )
                 MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-                self._run_with_target(["sources", "clone-missing", "--yes"])
+                self._run_with_target(["sources", "clone", "--yes"])
         mock_deps.assert_called_once_with(self.temp_dir.resolve(), "sources")
         MockSvc.return_value.run_clone_missing.assert_called_once_with(
             assume_yes=True,
@@ -882,7 +945,7 @@ class TestMain(unittest.TestCase):
                     return_value=MockSvc.return_value
                 )
                 MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-                self._run_with_target(["sources", "suggest-existing"])
+                self._run_with_target(["sources", "suggest"])
         mock_deps.assert_called_once_with(self.temp_dir.resolve(), "sources")
         MockSvc.return_value.run_suggest_existing.assert_called_once_with(
             apply=False,
@@ -897,7 +960,7 @@ class TestMain(unittest.TestCase):
                     return_value=MockSvc.return_value
                 )
                 MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-                self._run_with_target(["sources", "suggest-existing", "--apply-local"])
+                self._run_with_target(["sources", "suggest", "--apply-local"])
         mock_deps.assert_called_once_with(self.temp_dir.resolve(), "sources")
         MockSvc.return_value.run_suggest_existing.assert_called_once_with(
             apply=False,
@@ -912,7 +975,7 @@ class TestMain(unittest.TestCase):
                     return_value=MockSvc.return_value
                 )
                 MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-                self._run_with_target(["sources", "suggest-existing", "--apply"])
+                self._run_with_target(["sources", "suggest", "--apply"])
         mock_deps.assert_called_once_with(self.temp_dir.resolve(), "sources")
         MockSvc.return_value.run_suggest_existing.assert_called_once_with(
             apply=True,
@@ -927,9 +990,7 @@ class TestMain(unittest.TestCase):
                     return_value=MockSvc.return_value
                 )
                 MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-                self._run_with_target(
-                    ["sources", "suggest-existing", "--apply-profile"]
-                )
+                self._run_with_target(["sources", "suggest", "--apply-profile"])
         mock_deps.assert_called_once_with(self.temp_dir.resolve(), "sources")
         MockSvc.return_value.run_suggest_existing.assert_called_once_with(
             apply=False,
@@ -955,7 +1016,7 @@ class TestMain(unittest.TestCase):
                     return_value=MockSvc.return_value
                 )
                 MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
-                self._run_with_target(["install", "my.package"])
+                self._run_with_target(["dependencies", "add", "my.package"])
         mock_deps.assert_called_once_with(self.temp_dir.resolve(), "install")
         self.assertEqual(
             MockSvc.call_args_list,

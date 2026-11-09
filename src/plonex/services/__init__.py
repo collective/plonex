@@ -7,6 +7,7 @@ from plonex.services.directory import DirectoryService
 from plonex.services.init import InitService
 from plonex.services.install import InstallService
 from plonex.services.profile import ProfileService
+from plonex.services.pytest import PytestService
 from plonex.services.robotserver import RobotServer
 from plonex.services.robottest import RobotTest
 from plonex.services.runwsgi import RunWSGI
@@ -25,6 +26,7 @@ __all__ = [
     "InitService",
     "InstallService",
     "ProfileService",
+    "PytestService",
     "RobotServer",
     "RobotTest",
     "RunWSGI",

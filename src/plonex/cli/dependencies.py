@@ -1,62 +1,9 @@
-from dataclasses import fields
 from pathlib import Path
 from plonex.base import BaseService
-from plonex.services.adduser import AddUser
-from plonex.services.compile import CompileService
-from plonex.services.describe import DescribeService
-from plonex.services.directory import DirectoryService
-from plonex.services.edit import EditService
-from plonex.services.init import InitService
-from plonex.services.install import InstallService
-from plonex.services.robotserver import RobotServer
-from plonex.services.robottest import RobotTest
-from plonex.services.runwsgi import RunWSGI
-from plonex.services.sources import SourcesService
-from plonex.services.supervisor import Supervisor
-from plonex.services.template import TemplateService
-from plonex.services.upgrade import UpgradeService
-from plonex.services.zconsole import ZConsole
-from plonex.services.zeoserver import ZeoServer
-from plonex.services.zopetest import ZopeTest
+from plonex.services.registry import service_registry
 from typing import Any
 
-
-def _service_name(service_class) -> str | None:
-    for cls_field in fields(service_class):
-        if cls_field.name == "name" and isinstance(cls_field.default, str):
-            return cls_field.default or None
-    return None
-
-
-def _build_service_registry() -> dict[str, type[BaseService]]:
-    service_classes = [
-        AddUser,
-        CompileService,
-        DescribeService,
-        DirectoryService,
-        EditService,
-        SourcesService,
-        InitService,
-        InstallService,
-        RobotServer,
-        RobotTest,
-        RunWSGI,
-        Supervisor,
-        UpgradeService,
-        ZConsole,
-        ZeoServer,
-        ZopeTest,
-    ]
-    registry: dict[str, type[BaseService]] = {}
-    for service_class in service_classes:
-        service_name = _service_name(service_class)
-        if service_name:
-            registry[service_name] = service_class
-    registry["template"] = TemplateService
-    return registry
-
-
-_SERVICE_REGISTRY: dict[str, type[BaseService]] = _build_service_registry()
+_SERVICE_REGISTRY = service_registry.services
 
 
 def _normalize_template_kwargs(kwargs: dict[str, Any], target: Path) -> dict[str, Any]:
