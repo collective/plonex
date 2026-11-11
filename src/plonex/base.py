@@ -502,10 +502,8 @@ class BaseService:
                     old = os.environ[key]
                     if old != value:
                         self.logger.info(
-                            "Overriding existing environment variable %r: %r -> %r",
+                            "Overriding existing environment variable %r",
                             key,
-                            old,
-                            value,
                         )
                 os.environ[key] = str(value)
         for pre_service in self.pre_services or []:

@@ -243,6 +243,100 @@ For example:
 Because these files are merged with precedence, you can keep common settings in
 one place and make only small targeted overrides where needed.
 
+### Project environment variables
+
+Before running a command, plonex reads the optional `.env` and `.env.local` files
+in the project root (the directory containing `etc/plonex.yml`). Both supply
+variables to plonex and the services it starts, including Supervisor and its
+child processes. `.env.local` overrides `.env`, so it can hold machine-specific
+values. Other names, such as `.env.production`, are not loaded automatically.
+
+Each file contains one `NAME=value` assignment per line. Empty lines, comments,
+optional `export`, and shell-style single or double quotes are supported. Quote
+values containing spaces or `#`. Values are literal: variable expansion, command
+substitution, and multiline values are not supported. Either file may be absent.
+
+When the same variable is defined in multiple places, the highest applicable
+setting wins:
+
+1. A job's `environment` settings, for that job. A managed process may also
+   define its own environment settings.
+1. The service's resolved `environment_vars` in YAML or configuration overrides.
+   YAML files and `-c/--config` follow the configuration precedence above.
+1. Variables already exported in the shell that starts plonex (including an
+   explicitly exported empty value).
+1. The project root `.env.local`.
+1. The project root `.env`.
+
+For example, start with these files in the project root:
+
+`.env`:
+
+```dotenv
+COLOR=blue
+TZ=Europe/Rome
+```
+
+`.env.local`:
+
+```dotenv
+COLOR=green
+```
+
+With no other definition of `COLOR`, a service receives `COLOR=green` and
+`TZ=Europe/Rome`. Remove `COLOR` from `.env.local` and the service receives
+`COLOR=blue`. To override both files for one command, run:
+
+```shell
+COLOR=red plonex instance start
+```
+
+The service now receives `COLOR=red`. To override it for a particular service,
+add the following to `etc/plonex-runwsgi.yml`:
+
+```yaml
+environment_vars:
+  COLOR: purple
+```
+
+That service receives `COLOR=purple`, even when `COLOR=red` is exported in the
+shell. Other services use their own resolved configuration. To override a YAML
+setting for one invocation, create `etc/one-off.yml`:
+
+```yaml
+environment_vars:
+  COLOR: yellow
+```
+
+Then run `plonex instance start --config etc/one-off.yml`; that invocation
+receives `COLOR=yellow`.
+
+A scheduled job can override the service value for its own process. For example,
+in the applicable cron configuration:
+
+```yaml
+cron_jobs:
+  example:
+    schedule: "*/15 * * * *"
+    command: ["/usr/bin/env"]
+    environment:
+      COLOR: orange
+```
+
+This job receives `COLOR=orange`. Other jobs retain their own resolved values.
+
+The environment files supply process environment variables; they do not
+substitute values into YAML options. YAML `environment_vars` is an option mapping:
+a higher-priority definition normally replaces the mapping, while `+environment_vars` can extend it in profile and additional project
+configuration files that support `+` merges.
+Plonex does not automatically load separate service-specific `.env` files.
+Services may implement their own environment handling.
+
+Keep files containing secrets out of version control and give them appropriate
+permissions; plonex does not create or configure the project's ignore rules.
+Restart running processes to pick up changes. The interactive shell reloads the
+files for each command.
+
 ## Dependency-driven services
 
 `plonex` supports declarative helper services in `etc/plonex.yml`.
