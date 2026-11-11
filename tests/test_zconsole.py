@@ -4,6 +4,7 @@ from .utils import temp_cwd
 from contextlib import contextmanager
 from pathlib import Path
 from plonex.services.zconsole import ZConsole
+from unittest import mock
 
 import inspect
 
@@ -89,6 +90,41 @@ class TestZConsole(PloneXTestCase):
                 zope_conf.read_text(),
                 read_expected("test_zope_conf_run", svc),
             )
+
+    def test_deprecation_warnings(self):
+        for value, action in [
+            ("default", "default"),
+            ("ignore", "ignore"),
+            ("error", "error"),
+        ]:
+            with self.subTest(value=value):
+                with temp_zconsole(cli_options={"deprecation_warnings": value}) as svc:
+                    config = (svc.tmp_folder / "etc" / "zope.conf").read_text()
+                    self.assertIn(
+                        f"<warnfilter>\n  action {action}\n"
+                        "  category DeprecationWarning\n</warnfilter>",
+                        config,
+                    )
+
+    def test_non_string_deprecation_warnings_is_ignored(self):
+        with mock.patch("logging.Logger.warning") as warning:
+            with temp_zconsole(cli_options={"deprecation_warnings": True}) as svc:
+                config = (svc.tmp_folder / "etc" / "zope.conf").read_text()
+                self.assertIn("action default", config)
+        warning.assert_any_call(
+            "Ignoring deprecation_warnings: expected a string, got %s", "bool"
+        )
+
+    def test_invalid_deprecation_warnings_uses_debug_default(self):
+        with mock.patch("logging.Logger.warning") as warning:
+            with temp_zconsole(
+                action="run", cli_options={"deprecation_warnings": "on"}
+            ) as svc:
+                config = (svc.tmp_folder / "etc" / "zope.conf").read_text()
+                self.assertIn("action ignore", config)
+        warning.assert_any_call(
+            "Ignoring invalid deprecation_warnings action: %r", "on"
+        )
 
     def test_command_debug(self):
         """Test the command property for debug action"""

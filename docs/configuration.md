@@ -93,6 +93,17 @@ In this example the resulting `http_port` is `8082`, because the local
 `etc/plonex.yml` overrides `profiles/development`, which overrides
 `profiles/default`.
 
+By default, `deprecation_warnings` is `default` when debug mode is on and
+`ignore` when debug mode is off.
+Set it to one of these strings to override the default:
+
+- `"default"`: show each warning once per location.
+- `"ignore"`: suppress warnings.
+- `"always"`, `"module"`, `"once"`, or `"error"`: use the corresponding Python
+  warning action.
+
+Invalid or non-string values are ignored with a warning.
+
 ## Base Constraints
 
 `plonex` generates a merged `var/constraints.txt` for installation.

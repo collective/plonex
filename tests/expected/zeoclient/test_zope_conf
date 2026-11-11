@@ -3,6 +3,10 @@ instancehome $INSTANCEHOME
 %define CLIENTHOME TARGET_PATH/var/zeoclient
 clienthome $CLIENTHOME
 debug-mode off
+<warnfilter>
+  action ignore
+  category DeprecationWarning
+</warnfilter>
 security-policy-implementation C
 verbose-security off
 default-zpublisher-encoding utf-8

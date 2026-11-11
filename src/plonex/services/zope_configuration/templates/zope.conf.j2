@@ -3,6 +3,10 @@ instancehome $INSTANCEHOME
 %define CLIENTHOME {{ client_home }}
 clienthome $CLIENTHOME
 debug-mode {{ debug_mode }}
+<warnfilter>
+  action {{ deprecation_warnings }}
+  category DeprecationWarning
+</warnfilter>
 security-policy-implementation {{ security_policy_implementation }}
 verbose-security {{ verbose_security }}
 default-zpublisher-encoding utf-8

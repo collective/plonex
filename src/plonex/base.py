@@ -779,6 +779,38 @@ class ZopeBasedService(BaseService):
             upgrade_environment["UPGRADE_TEMPFILE_AUTH_DIR"] = str(
                 configured_auth_directory(self)
             )
+        effective_debug_mode = self.options.get("debug_mode")
+        if effective_debug_mode is None:
+            effective_debug_mode = debug_mode
+        default_warning_action = (
+            "default"
+            if str(effective_debug_mode).lower() in {"on", "true", "yes", "1"}
+            else "ignore"
+        )
+        deprecation_warnings = self.options.get("deprecation_warnings")
+        if isinstance(deprecation_warnings, str):
+            deprecation_warnings = deprecation_warnings.strip()
+            if deprecation_warnings not in {
+                "default",
+                "ignore",
+                "always",
+                "module",
+                "once",
+                "error",
+            }:
+                self.logger.warning(
+                    "Ignoring invalid deprecation_warnings action: %r",
+                    deprecation_warnings,
+                )
+                deprecation_warnings = default_warning_action
+        elif deprecation_warnings is not None:
+            self.logger.warning(
+                "Ignoring deprecation_warnings: expected a string, got %s",
+                type(deprecation_warnings).__name__,
+            )
+            deprecation_warnings = default_warning_action
+        else:
+            deprecation_warnings = default_warning_action
         pre_services = [
             TemplateService(
                 source_path=self.zope_conf_template,
@@ -787,7 +819,8 @@ class ZopeBasedService(BaseService):
                     "context": self,
                     "instance_home": self.tmp_folder,
                     "client_home": self.client_home,
-                    "debug_mode": self.options.get("debug_mode") or debug_mode,
+                    "debug_mode": effective_debug_mode,
+                    "deprecation_warnings": deprecation_warnings,
                     "security_policy_implementation": self.options.get(
                         "security_policy_implementation"
                     )
