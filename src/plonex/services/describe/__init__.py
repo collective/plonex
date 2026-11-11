@@ -339,6 +339,18 @@ class DescribeService(BaseService):
             options={"context": self},
         ).run()
 
+    def report_file_uri(self, value: object) -> str | None:
+        """Link existing file paths shown in the local HTML report."""
+        if not isinstance(value, str) or not value or "\n" in value:
+            return None
+        path = Path(value)
+        if not path.is_absolute():
+            path = self.target.absolute() / path
+        try:
+            return path.absolute().as_uri() if path.is_file() else None
+        except (OSError, ValueError):
+            return None
+
     def run(self):
         from .report import ProjectReport
         from importlib import resources
@@ -373,6 +385,7 @@ class DescribeService(BaseService):
             .from_string(template)
             .render(
                 report=report,
+                file_uri=self.report_file_uri,
                 markdown_file=self.description_path.name,
                 json_file=json_path.name,
             )

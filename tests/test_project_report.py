@@ -217,3 +217,29 @@ def test_explaining_an_instance_preserves_existing_runtime_includes(project):
         service.run()
     assert existing.read_text() == "<configure />"
     assert not cache.exists()
+
+
+def test_html_links_existing_file_cells_and_configuration_history(project):
+    config = project / "etc" / "plonex.local.yml"
+    with DescribeService(target=project, section="files") as service:
+        service.run()
+    html = service.description_html_path.read_text()
+    assert f'<a href="{config.as_uri()}">etc/plonex.local.yml</a>' in html
+    assert ">var/requirements.txt</a>" not in html
+
+    with DescribeService(
+        target=project, section="configuration", key="http_port"
+    ) as service:
+        service.run()
+    html = service.description_html_path.read_text()
+    assert f'<a href="{config.as_uri()}">{config}</a>' in html
+
+
+def test_html_file_links_quote_special_characters(project):
+    path = project / "etc" / "requirements.d" / "a & b.txt"
+    path.parent.mkdir()
+    path.write_text("example\n")
+    with DescribeService(target=project, section="files") as service:
+        service.run()
+    html = service.description_html_path.read_text()
+    assert f'<a href="{path.as_uri()}">etc/requirements.d/a &amp; b.txt</a>' in html

@@ -598,8 +598,11 @@ plonex project describe jobs --browse
 The complete report is `var/plonex_description/index.html`. It has responsive
 layout, section navigation, search, file links, and definition history. Markdown
 and JSON exports sit alongside it. Focused reports use their section name and
-preserve the complete report. Inspection does not install, compile, export the
-configured environment, or start application services.
+preserve the complete report. Existing file paths in the HTML report are clickable,
+including configuration history. Open the report on the project host: browsers may
+block local file links from a web server, and they decide whether to display or
+download each file. Inspection does not install, compile, export the configured
+environment, or start application services.
 
 ### Why is my project not working as expected?
 
