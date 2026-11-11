@@ -1,6 +1,14 @@
 .PHONY: all
 all: help
 
+.PHONY: docs
+docs: ## Build the documentation locally
+	.venv/bin/sphinx-build -b html docs docs/_build/html
+
+.PHONY: docs-live
+docs-live: ## Serve documentation with automatic rebuilds
+	.venv/bin/sphinx-autobuild docs docs/_build/html
+
 .PHONY: test
 test: install  ## Run the tests
 	.venv/bin/mypy src/plonex

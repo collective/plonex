@@ -251,7 +251,7 @@ and template paths are unaffected.
 The interactive shell's `fg` only reattaches a job. Start an instance with
 `instance debug`; use `jobs`, `attach`, `bg`, `logs`, and `kill` for shell jobs.
 Scheduled jobs use the separate `cron` resource, avoiding that namespace collision.
-See [scheduled jobs](jobs.md) and the [development FAQ](../README.md#development-faq).
+See [scheduled jobs](jobs.md) and the [development FAQ](appendix.md).
 
 ## Project job runtime
 

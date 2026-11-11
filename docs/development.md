@@ -25,7 +25,7 @@ service/template wiring, runtime health, and job history. Its HTML report is
 searchable and responsive; focused sections also export JSON and Markdown.
 
 `cron` adds manual and scheduled jobs through a Supervisor-managed Huey consumer.
-See the [job guide](jobs.md) and [development FAQ](../README.md#development-faq).
+See the [job guide](jobs.md) and [development FAQ](appendix.md).
 
 Supervisor startup now uses an incremental preparation graph. `supervisor start --plan` and `project describe preparation` explain required work; see the
 [preparation guide](preparation.md). Extending the graph to other command families

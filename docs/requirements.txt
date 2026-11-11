@@ -1,0 +1,6 @@
+sphinx>=7.2,<9
+myst-parser>=3,<5
+sphinx-rtd-theme>=2,<4
+sphinxcontrib-mermaid>=1,<2
+linkify-it-py>=2,<3
+sphinx-autobuild>=2024.10.3,<2027

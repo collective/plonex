@@ -20,7 +20,7 @@ replaced with a local checkout; planning never clones it.
 
 ## What startup prepares
 
-```mermaid
+```{mermaid}
 flowchart TD
     D[Generate requirements and constraints] --> E[Ensure virtualenv dependencies]
     E --> H[Configured Supervisor helper services]
