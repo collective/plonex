@@ -86,7 +86,11 @@ plonex[myproject]> exit
 ```
 
 - Tab completes commands, subcommands, flags, and paths when readline is available.
-- Up/Down recall commands from the current session; history is kept in memory.
+- Up/Down recall commands from this project's current and previous sessions.
+- `history` lists remembered commands. History is stored in
+  `var/plonex-shell-history` under the target project with owner-only permissions.
+  Commands with recognizable credentials are omitted, but avoid placing secrets
+  in command arguments: detection cannot recognize every possible secret.
 - `help` lists commands; `help COMMAND` and `COMMAND --help` show command help.
 - `exit`, `quit`, or Ctrl-D leave the shell. Ctrl-C cancels the current input or
   interrupts a running command and returns to the prompt.
@@ -211,7 +215,7 @@ optionally start with `plonex`. Quotes preserve arguments containing spaces;
 commands are not evaluated as shell code.
 
 Aliases can refer to other aliases, but loops produce an error. Built-in command
-names and shell commands such as `help`, `exit`, `jobs`, and `attach` cannot be replaced.
+names and shell commands such as `help`, `history`, `exit`, `jobs`, and `attach` cannot be replaced.
 Aliases appear in project help and Tab completion, work in `plonex shell`, and can
 be used by `default_action` or `default_actions`. Edits take effect on the next
 shell command or completion.

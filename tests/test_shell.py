@@ -119,6 +119,12 @@ class TestShell(unittest.TestCase):
         self.assertIn("No closing quotation", self.stderr.getvalue())
         self.assertIn("already in a plonex shell", self.stderr.getvalue())
 
+    def test_history_builtin_lists_previous_commands(self):
+        self.run_lines("supervisor status", "history", "exit")
+        self.assertIn("1  supervisor status", self.stdout.getvalue())
+        self.assertIn("2  history", self.stdout.getvalue())
+        self.assertEqual(self.execute.call_count, 1)
+
     def test_exit_quit_and_eof_leave_without_running_more_commands(self):
         for ending in ("exit", "quit", EOFError):
             with self.subTest(ending=ending):
@@ -338,3 +344,63 @@ class TestShellProcess(unittest.TestCase):
             ):
                 main()
             shell.assert_called_once_with(target=target, verbose=False, quiet=False)
+
+
+class TestPersistentShellHistory(unittest.TestCase):
+    def test_history_persists_and_is_project_specific(self):
+        from plonex.cli.shell import CommandHistory
+
+        with temp_cwd() as project:
+            first = CommandHistory(project)
+            first.load()
+            first.record("supervisor status")
+            first.record("sources list 'plone.*'")
+            second = CommandHistory(project)
+            second.load()
+            self.assertEqual(
+                second.entries, ["supervisor status", "sources list 'plone.*'"]
+            )
+            self.assertEqual(second.path.stat().st_mode & 0o777, 0o600)
+            other = CommandHistory(project / "other")
+            other.load()
+            self.assertEqual(other.entries, [])
+
+    def test_sensitive_commands_are_not_recorded(self):
+        from plonex.cli.shell import CommandHistory
+
+        with temp_cwd() as project:
+            history = CommandHistory(project)
+            for line in (
+                "adduser admin password123",
+                "instance run --token abc",
+                "instance run https://user:pass@example.org",
+                "instance run --secret-key=value",
+                "instance run 'unterminated",
+            ):
+                history.record(line)
+            self.assertEqual(history.entries, [])
+            self.assertFalse(history.path.exists())
+
+    def test_readline_recalls_saved_commands_and_restores_previous_history(self):
+        from plonex.cli.shell import CommandHistory
+
+        import readline
+
+        with temp_cwd() as project:
+            previous = [
+                readline.get_history_item(i)
+                for i in range(1, readline.get_current_history_length() + 1)
+            ]
+            history = CommandHistory(project, entries=["supervisor status"])
+            with mock.patch("sys.stdin.isatty", return_value=True):
+                with line_editing(history):
+                    self.assertEqual(readline.get_history_item(1), "supervisor status")
+                    history.record("sources list")
+                    self.assertEqual(readline.get_history_item(2), "sources list")
+            self.assertEqual(
+                [
+                    readline.get_history_item(i)
+                    for i in range(1, readline.get_current_history_length() + 1)
+                ],
+                previous,
+            )

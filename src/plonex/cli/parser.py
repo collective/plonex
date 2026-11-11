@@ -152,7 +152,14 @@ def build_parser(
             )
             else load_aliases(alias_target)
         )
-        reserved = set(subs.choices) | {"help", "exit", "quit", "plonex", *JOB_COMMANDS}
+        reserved = set(subs.choices) | {
+            "help",
+            "exit",
+            "quit",
+            "history",
+            "plonex",
+            *JOB_COMMANDS,
+        }
         for name, command in aliases.items():
             if name in reserved:
                 raise ValueError(
