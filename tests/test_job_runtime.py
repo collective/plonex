@@ -47,15 +47,31 @@ def test_job_requirements_are_injected_only_for_configured_jobs(project):
     service = InstallService(target=project)
     service.make_requirements_txt()
     assert runtime_requirement() not in service.requirements_txt.read_text()
+    assert "huey[stats]" not in service.requirements_txt.read_text()
+    assert {"supervisor", "rich"} <= set(
+        service.requirements_txt.read_text().splitlines()
+    )
     configure(project)
     service = InstallService(target=project)
     service.make_requirements_txt()
     assert runtime_requirement() in service.requirements_txt.read_text()
-    assert "[jobs]" in service.requirements_txt.read_text()
+    assert "[jobs]" not in service.requirements_txt.read_text()
+    assert "huey[stats]>=3.5,<4" in service.requirements_txt.read_text()
     with mock.patch(
         "plonex.services.cron.installation.runtime_source", return_value=None
     ):
-        assert runtime_requirement().startswith("plonex[jobs]==")
+        assert runtime_requirement().startswith("plonex==")
+
+
+def test_control_panel_also_injects_worker_requirements(project):
+    (project / "etc/plonex.yml").write_text(
+        "plonex_base_constraint: null\ncron_control_panel: true\n"
+    )
+    service = InstallService(target=project)
+    service.make_requirements_txt()
+    requirements = service.requirements_txt.read_text()
+    assert runtime_requirement() in requirements
+    assert "huey[stats]>=3.5,<4" in requirements
 
 
 def test_base_cli_and_reports_do_not_import_huey_or_peewee(project):
@@ -89,6 +105,17 @@ print('core-is-independent')
     )
     assert result.returncode == 0, result.stderr
     assert "core-is-independent" in result.stdout
+
+
+def test_project_runtime_includes_required_dependencies(project, install_job_runtime):
+    python = install_job_runtime(project)
+    result = subprocess.run(
+        [str(python), "-I", "-B", "-c", "import huey, peewee, rich, supervisor"],
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def test_worker_and_relative_python_commands_use_only_the_target_environment(

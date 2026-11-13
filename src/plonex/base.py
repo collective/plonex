@@ -811,6 +811,7 @@ class ZopeBasedService(BaseService):
             deprecation_warnings = default_warning_action
         else:
             deprecation_warnings = default_warning_action
+        self._deprecation_warning_action = deprecation_warnings
         pre_services = [
             TemplateService(
                 source_path=self.zope_conf_template,
@@ -820,7 +821,6 @@ class ZopeBasedService(BaseService):
                     "instance_home": self.tmp_folder,
                     "client_home": self.client_home,
                     "debug_mode": effective_debug_mode,
-                    "deprecation_warnings": deprecation_warnings,
                     "security_policy_implementation": self.options.get(
                         "security_policy_implementation"
                     )
@@ -896,6 +896,24 @@ class ZopeBasedService(BaseService):
     def __enter__(self):
         self._prepare_zope_runtime()
         return super().__enter__()
+
+    def run_command(self, command: Sequence[str | Path | int], cwd: Path | None = None):
+        # Python reads PYTHONWARNINGS when the child interpreter starts.
+        action = getattr(self, "_deprecation_warning_action", None)
+        if action is None:
+            return super().run_command(command, cwd=cwd)
+        previous = os.environ.get("PYTHONWARNINGS")
+        warning_filter = f"{action}::DeprecationWarning"
+        os.environ["PYTHONWARNINGS"] = (
+            f"{warning_filter},{previous}" if previous else warning_filter
+        )
+        try:
+            return super().run_command(command, cwd=cwd)
+        finally:
+            if previous is None:
+                os.environ.pop("PYTHONWARNINGS", None)
+            else:
+                os.environ["PYTHONWARNINGS"] = previous
 
     @property
     def zope_conf_additional(self) -> list:

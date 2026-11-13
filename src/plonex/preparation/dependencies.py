@@ -180,8 +180,11 @@ class DependencyTasks:
         ):
             from plonex.services.cron.installation import runtime_requirement
             from plonex.services.cron.installation import runtime_source
+            from plonex.services.cron.installation import WORKER_REQUIREMENTS
 
-            values["configuration: job worker"] = digest(runtime_requirement())
+            values["configuration: job worker"] = digest(
+                [runtime_requirement(), *WORKER_REQUIREMENTS]
+            )
             source = runtime_source()
             if source is not None:
                 self.metadata(source, values)

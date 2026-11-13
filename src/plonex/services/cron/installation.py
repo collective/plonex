@@ -1,4 +1,4 @@
-"""The optional project worker is installed with the CLI's matching release."""
+"""Install the project worker from the CLI's matching release."""
 
 from importlib.metadata import distribution
 from pathlib import Path
@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 import json
 
 PROTOCOL_VERSION = 1
+WORKER_REQUIREMENTS = ("huey[stats]>=3.5,<4",)
 
 
 def runtime_source() -> Path | None:
@@ -23,8 +24,8 @@ def runtime_source() -> Path | None:
 def runtime_requirement() -> str:
     source = runtime_source()
     if source is not None:
-        return f"-e {source.as_uri()}[jobs]"
-    return f"plonex[jobs]=={distribution('plonex').version}"
+        return f"-e {source.as_uri()}"
+    return f"plonex=={distribution('plonex').version}"
 
 
 def runtime_command(target: Path, configs=()) -> list[str]:

@@ -102,7 +102,9 @@ Set it to one of these strings to override the default:
 - `"always"`, `"module"`, `"once"`, or `"error"`: use the corresponding Python
   warning action.
 
-Invalid or non-string values are ignored with a warning.
+The setting is applied through `PYTHONWARNINGS` when starting Zope. Existing
+`PYTHONWARNINGS` filters take precedence. Invalid or non-string values are ignored
+with a warning.
 
 ## Base Constraints
 

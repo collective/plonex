@@ -7,6 +7,7 @@ from plonex.services.zconsole import ZConsole
 from unittest import mock
 
 import inspect
+import os
 
 read_expected = ReadExpected(Path(__file__).parent / "expected" / "zconsole")
 
@@ -100,17 +101,28 @@ class TestZConsole(PloneXTestCase):
             with self.subTest(value=value):
                 with temp_zconsole(cli_options={"deprecation_warnings": value}) as svc:
                     config = (svc.tmp_folder / "etc" / "zope.conf").read_text()
-                    self.assertIn(
-                        f"<warnfilter>\n  action {action}\n"
-                        "  category DeprecationWarning\n</warnfilter>",
-                        config,
-                    )
+                    self.assertNotIn("<warnfilter>", config)
+                    with mock.patch.dict(
+                        os.environ, {"PYTHONWARNINGS": "ignore::UserWarning"}
+                    ):
+                        with mock.patch.object(svc, "execute_command") as execute:
+                            execute.side_effect = (
+                                lambda *args, action=action, **kwargs: self.assertEqual(
+                                    os.environ["PYTHONWARNINGS"],
+                                    f"{action}::DeprecationWarning,ignore::UserWarning",
+                                )
+                            )
+                            svc.run_command(["unused"])
+                        self.assertEqual(
+                            os.environ["PYTHONWARNINGS"], "ignore::UserWarning"
+                        )
 
     def test_non_string_deprecation_warnings_is_ignored(self):
         with mock.patch("logging.Logger.warning") as warning:
             with temp_zconsole(cli_options={"deprecation_warnings": True}) as svc:
                 config = (svc.tmp_folder / "etc" / "zope.conf").read_text()
-                self.assertIn("action default", config)
+                self.assertNotIn("<warnfilter>", config)
+                self.assertEqual(svc._deprecation_warning_action, "default")
         warning.assert_any_call(
             "Ignoring deprecation_warnings: expected a string, got %s", "bool"
         )
@@ -121,7 +133,8 @@ class TestZConsole(PloneXTestCase):
                 action="run", cli_options={"deprecation_warnings": "on"}
             ) as svc:
                 config = (svc.tmp_folder / "etc" / "zope.conf").read_text()
-                self.assertIn("action ignore", config)
+                self.assertNotIn("<warnfilter>", config)
+                self.assertEqual(svc._deprecation_warning_action, "ignore")
         warning.assert_any_call(
             "Ignoring invalid deprecation_warnings action: %r", "on"
         )

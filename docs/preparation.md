@@ -76,10 +76,9 @@ settings such as `UV_*`, `PIP_*`, and compiler flags. Runtime-only settings do n
 invalidate installation. Arbitrary application environment variables are not
 assumed to influence package builds.
 
-Configured jobs add the matching `plonex[jobs]` project runtime, including Huey's
-statistics extension, to dependency inputs. Manual-only jobs also request the
-runtime; their Supervisor worker consumes explicitly enqueued work. The base CLI
-has no Huey dependency.
+Configured jobs add the matching `plonex` project runtime and Huey with its
+statistics extension to the target environment's dependency inputs. Manual-only jobs also request the
+runtime; their Supervisor worker consumes explicitly enqueued work.
 
 The virtualenv check observes interpreter identity and installed distribution
 metadata. It is not a full integrity scan of every installed Python file.

@@ -3,6 +3,7 @@
 from importlib.metadata import distribution
 from packaging.requirements import Requirement
 from pathlib import Path
+from plonex.services.cron.installation import WORKER_REQUIREMENTS
 
 import pytest
 import shutil
@@ -29,8 +30,7 @@ def runtime_environment_template(tmp_path_factory):
     )
     metadata = tomllib.loads((Path(__file__).parents[1] / "pyproject.toml").read_text())
     pending = (
-        metadata["project"]["dependencies"]
-        + metadata["project"]["optional-dependencies"]["jobs"]
+        metadata["project"]["dependencies"] + list(WORKER_REQUIREMENTS) + ["supervisor"]
     )
     copied = set()
     while pending:

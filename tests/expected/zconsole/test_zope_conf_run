@@ -3,10 +3,6 @@ instancehome $INSTANCEHOME
 %define CLIENTHOME TARGET_PATH/var/zconsole
 clienthome $CLIENTHOME
 debug-mode off
-<warnfilter>
-  action ignore
-  category DeprecationWarning
-</warnfilter>
 security-policy-implementation C
 verbose-security off
 default-zpublisher-encoding utf-8

@@ -200,10 +200,18 @@ class InstallService(BaseService):
                         lines.append(requirement)
         if self.options.get("cron_jobs") or self.options.get("cron_control_panel"):
             from plonex.services.cron.installation import runtime_requirement
+            from plonex.services.cron.installation import WORKER_REQUIREMENTS
             from plonex.services.cron.model import JobSet
 
             JobSet.from_options(self.options)
-            lines.extend(["", "## Project job worker", runtime_requirement()])
+            lines.extend(
+                [
+                    "",
+                    "## Project job worker",
+                    runtime_requirement(),
+                    *WORKER_REQUIREMENTS,
+                ]
+            )
         installations = self.source_install_plan.installations
         if installations:
             lines.extend(["", "## Local projects selected with sources.<name>.install"])

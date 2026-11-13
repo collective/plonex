@@ -6,9 +6,9 @@ all execution paths share history, logs, timeouts, and file locks. The scheduler
 runs under Supervisor. See the [Huey guide](https://huey.readthedocs.io/en/latest/guide.html#periodic-tasks)
 for the underlying periodic-task model.
 
-Huey belongs to the target project's virtualenv. The base plonex CLI does not
-require it. When `cron_jobs` contains any jobs, dependency generation adds the
-matching `plonex[jobs]` runtime, including `huey[stats]`. `dependencies install`,
+When `cron_jobs` contains any jobs, dependency generation adds the matching
+`plonex` runtime and `huey[stats]` to the target project's virtualenv.
+`dependencies install`,
 `dependencies sync`, and Supervisor startup preparation install that runtime with
 the project's interpreter and constraints. An editable CLI checkout supplies an
 editable project runtime from the same source; packaged releases request the
@@ -198,7 +198,7 @@ Plone control panel described below. No separate web service is needed.
 
 Set `cron_control_panel: true` in the project YAML, install dependencies, and
 restart the Plone instance. The option enables the queue view and supplies the
-project path to the instance. It also requests `plonex[jobs]` even if no jobs have
+project path to the instance. It also requests `plonex` and Huey even if no jobs have
 been declared yet.
 
 Users with the **Manage portal** permission can visit `/Plone/@@plonex-queue`

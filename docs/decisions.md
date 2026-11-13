@@ -243,8 +243,8 @@ families can adopt the same graph when their preparation policies are defined.
 
 ## Project workers own queue dependencies
 
-Huey is an optional `jobs` extra and belongs to the target virtualenv. The install
-service injects the matching `plonex[jobs]` runtime when jobs are configured. Editable
+The install service injects Huey and the matching `plonex` runtime into the target
+virtualenv when jobs are configured. Editable
 CLI sources propagate as editable runtimes; release installs request the matching
 version. The preparation graph tracks that requirement and its source metadata.
 
