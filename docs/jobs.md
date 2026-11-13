@@ -6,13 +6,13 @@ all execution paths share history, logs, timeouts, and file locks. The scheduler
 runs under Supervisor. See the [Huey guide](https://huey.readthedocs.io/en/latest/guide.html#periodic-tasks)
 for the underlying periodic-task model.
 
-When `cron_jobs` contains any jobs, dependency generation adds the matching
-`plonex` runtime and `huey[stats]` to the target project's virtualenv.
-`dependencies install`,
-`dependencies sync`, and Supervisor startup preparation install that runtime with
-the project's interpreter and constraints. An editable CLI checkout supplies an
-editable project runtime from the same source; packaged releases request the
-matching plonex version.
+When `cron_jobs` contains any jobs, dependency generation adds `plonex` and
+`huey[stats]` to the target project's requirements. `dependencies install`,
+`dependencies sync`, and Supervisor startup preparation install them with the
+project's interpreter and constraints. The Plonex requirement is unpinned; specify
+an editable source in the project's requirements or source configuration if it
+must be preserved during dependency synchronization. The worker protocol must
+match the CLI protocol.
 
 `plonex cron daemon` replaces its launcher with the target interpreter running
 `plonex.services.cron.runtime`. Supervisor uses that entry point directly. The

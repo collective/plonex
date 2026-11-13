@@ -110,7 +110,6 @@ class CronService(BaseService):
         ).show(Console())
 
     def runtime_probe(self):
-        from importlib.metadata import version
         from plonex.services.cron.installation import PROTOCOL_VERSION
         from plonex.services.cron.installation import runtime_command
 
@@ -124,7 +123,6 @@ class CronService(BaseService):
                 isinstance(payload, dict)
                 and isinstance(payload.get("prefix"), str)
                 and payload.get("protocol") == PROTOCOL_VERSION
-                and payload.get("version") == version("plonex")
                 and Path(payload["prefix"]).resolve()
                 == (self.target / ".venv").resolve()
             ):

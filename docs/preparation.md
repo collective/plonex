@@ -76,7 +76,7 @@ settings such as `UV_*`, `PIP_*`, and compiler flags. Runtime-only settings do n
 invalidate installation. Arbitrary application environment variables are not
 assumed to influence package builds.
 
-Configured jobs add the matching `plonex` project runtime and Huey with its
+Configured jobs add the `plonex` project runtime and Huey with its
 statistics extension to the target environment's dependency inputs. Manual-only jobs also request the
 runtime; their Supervisor worker consumes explicitly enqueued work.
 

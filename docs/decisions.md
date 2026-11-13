@@ -243,10 +243,9 @@ families can adopt the same graph when their preparation policies are defined.
 
 ## Project workers own queue dependencies
 
-The install service injects Huey and the matching `plonex` runtime into the target
-virtualenv when jobs are configured. Editable
-CLI sources propagate as editable runtimes; release installs request the matching
-version. The preparation graph tracks that requirement and its source metadata.
+The install service injects Huey and an unpinned `plonex` runtime requirement into
+the target virtualenv when jobs are configured. Projects can declare an editable
+source explicitly. The preparation graph tracks the worker requirements.
 
 The CLI delegates queue operations through the target interpreter using an isolated
 Python invocation and a versioned JSON protocol. Configuration overrides travel

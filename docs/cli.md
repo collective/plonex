@@ -255,7 +255,7 @@ See [scheduled jobs](jobs.md) and the [development FAQ](appendix.md).
 
 ## Project job runtime
 
-Configured jobs add the matching `plonex` runtime and `huey[stats]` requirements
+Configured jobs add the `plonex` runtime and `huey[stats]` requirements
 to the project. Huey runs in that target virtualenv. `cron daemon` delegates to its
 interpreter; Supervisor launches that interpreter directly.
 

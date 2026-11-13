@@ -46,7 +46,9 @@ def configure(root, script="print('worked')", **options):
 def test_job_requirements_are_injected_only_for_configured_jobs(project):
     service = InstallService(target=project)
     service.make_requirements_txt()
-    assert runtime_requirement() not in service.requirements_txt.read_text()
+    assert (
+        runtime_requirement() not in service.requirements_txt.read_text().splitlines()
+    )
     assert "huey[stats]" not in service.requirements_txt.read_text()
     assert {"supervisor", "rich"} <= set(
         service.requirements_txt.read_text().splitlines()
@@ -54,13 +56,10 @@ def test_job_requirements_are_injected_only_for_configured_jobs(project):
     configure(project)
     service = InstallService(target=project)
     service.make_requirements_txt()
-    assert runtime_requirement() in service.requirements_txt.read_text()
+    assert runtime_requirement() in service.requirements_txt.read_text().splitlines()
     assert "[jobs]" not in service.requirements_txt.read_text()
     assert "huey[stats]>=3.5,<4" in service.requirements_txt.read_text()
-    with mock.patch(
-        "plonex.services.cron.installation.runtime_source", return_value=None
-    ):
-        assert runtime_requirement().startswith("plonex==")
+    assert runtime_requirement() == "plonex"
 
 
 def test_control_panel_also_injects_worker_requirements(project):
@@ -70,7 +69,7 @@ def test_control_panel_also_injects_worker_requirements(project):
     service = InstallService(target=project)
     service.make_requirements_txt()
     requirements = service.requirements_txt.read_text()
-    assert runtime_requirement() in requirements
+    assert runtime_requirement() in requirements.splitlines()
     assert "huey[stats]>=3.5,<4" in requirements
 
 
@@ -346,6 +345,17 @@ def test_missing_runtime_uses_the_preparation_graph_then_rechecks(
         service.ensure_runtime()
     dependencies.return_value.graph.run.assert_called_once()
     assert service.runtime_probe()["prefix"] == str(project / ".venv")
+
+
+def test_runtime_probe_accepts_different_version_with_matching_protocol(project):
+    service = CronService(target=project)
+    payload = {"prefix": str(project / ".venv"), "protocol": 1, "version": "99.0"}
+    result = mock.Mock(returncode=0, stdout=json.dumps(payload))
+    with mock.patch("plonex.services.cron.subprocess.run", return_value=result):
+        assert service.runtime_probe() == payload
+        payload["protocol"] = 999
+        result.stdout = json.dumps(payload)
+        assert service.runtime_probe() is None
 
 
 def test_read_only_missing_runtime_does_not_install_and_empty_daemon_is_rejected(

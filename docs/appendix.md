@@ -275,7 +275,7 @@ Create the named Plone user with the roles it needs; no password belongs in this
 job declaration. Test with `cron run StoreSessionStats`, inspect `cron logs` and
 `cron history`, then enable the schedule and apply Supervisor configuration.
 
-Plonex installs the matching job runtime and Huey into the target virtualenv
+Plonex installs the job runtime and Huey into the target virtualenv
 when jobs are configured. Supervisor launches
 the target interpreter directly. Manual-only job declarations still keep a worker
 for explicitly queued tasks.
