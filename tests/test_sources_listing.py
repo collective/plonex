@@ -5,6 +5,7 @@ from rich.console import Console
 from rich.text import Text
 from unittest import mock
 
+import logging
 import pytest
 import subprocess
 
@@ -14,6 +15,7 @@ def checkouts(tmp_path, monkeypatch):
     """Use real Git probes so accidental stdout and stderr echoing is visible."""
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("COLUMNS", "200")
+    monkeypatch.setattr(logging.getLogger("sh"), "level", logging.WARNING)
     (tmp_path / "etc").mkdir()
     (tmp_path / "etc" / "plonex.yml").write_text("{}\n")
     paths = {}
@@ -75,7 +77,7 @@ def test_unmanaged_checkout_is_a_table_row_with_highlighted_yaml_suggestion(chec
     target, _ = checkouts
     output = StringIO()
     console = Console(
-        file=output, width=200, force_terminal=True, color_system="standard"
+        file=output, width=200, height=25, force_terminal=True, color_system="standard"
     )
     with make_service(target) as service:
         with mock.patch("plonex.services.sources.Console", return_value=console):

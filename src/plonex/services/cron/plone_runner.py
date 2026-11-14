@@ -14,9 +14,7 @@ def execute(app, specification):
     from zope.component.hooks import (
         getSite,  # type: ignore[import-not-found,import-untyped]
     )
-    from zope.component.hooks import (
-        setSite,  # type: ignore[import-not-found,import-untyped]
-    )
+    from zope.component.hooks import setSite
 
     import transaction  # type: ignore[import-not-found,import-untyped]
 
