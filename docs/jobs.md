@@ -1,7 +1,7 @@
 # Scheduled jobs
 
-Plonex uses a local Huey scheduler with a persistent SQLite queue. No Redis server
-or system crontab is required. Jobs can be run manually, queued, or scheduled;
+Plonex uses Huey with a persistent SQLite queue by default. No Redis server
+or system crontab is required for the default setup. Jobs can be run manually, queued, or scheduled;
 all execution paths share history, logs, timeouts, and file locks. The scheduler
 runs under Supervisor. See the [Huey guide](https://huey.readthedocs.io/en/latest/guide.html#periodic-tasks)
 for the underlying periodic-task model.
@@ -24,6 +24,31 @@ a fresh target-venv `zconsole` subprocess.
 Read-only inspection commands report a missing runtime without installing it.
 Use `plonex dependencies install` to prepare explicitly. Constraints must permit
 Huey 3.5 or newer, below 4; incompatible pins cause a normal resolver error.
+
+## Queue backend
+
+Configure `cron_backend` and `cron_backend_options` to select a Huey storage
+backend and pass its storage options. For example:
+
+```yaml
+cron_backend: redis
+cron_backend_options:
+  url: redis://localhost:6379/0
+```
+
+Available values are `sqlite` (the default), `cy-sqlite`, `redis`,
+`redis-expire`, `priority-redis`, `priority-redis-expire`, `postgres`, `file`,
+`memory`, and `blackhole`. Options are passed to the corresponding Huey storage
+class; consult the [Huey storage documentation](https://huey.readthedocs.io/en/latest/api.html#storage)
+for supported arguments. For SQLite, `filename` defaults to
+`var/cron/queue.sqlite3` and relative paths are relative to the project root.
+For file storage, `path` defaults to `var/cron/queue`. Redis, PostgreSQL, and
+Cython SQLite drivers are installed as needed when dependencies are prepared.
+The memory backend is local to each process, while blackhole discards tasks;
+neither provides a shared persistent queue. History and statistics remain in
+local SQLite databases regardless of the queue backend. Switching backends does
+not migrate existing queued tasks. All producers and workers for a project must
+use the same settings. Restart the worker after changing them.
 
 ## A Plone job without HTTP credentials
 
@@ -309,7 +334,7 @@ execution guarantee.
 
 State is under the configured `var_folder`:
 
-- `cron/queue.sqlite3`: persistent Huey queue.
+- `cron/queue.sqlite3`: default SQLite Huey queue.
 - `cron/history.sqlite3`: task IDs, execution attempts, exit codes, timestamps, and log paths.
 - `cron/stats.sqlite3`: Huey lifecycle events and in-flight statistics.
 - `cron/daemon.json`: identity of the lock-owning worker while it runs.

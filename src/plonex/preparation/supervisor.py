@@ -117,6 +117,10 @@ class SupervisorPreparation:
                         "scheduled job declarations": digest(
                             self.options.get("cron_jobs", {})
                         ),
+                        "backend": digest(self.options.get("cron_backend", "sqlite")),
+                        "backend options": digest(
+                            self.options.get("cron_backend_options", {})
+                        ),
                         "workers": digest(self.options.get("cron_workers", 1)),
                         "timezone": digest(self.options.get("cron_timezone", "UTC")),
                     },

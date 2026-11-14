@@ -6,6 +6,8 @@ from pathlib import Path
 from plonex.files import read_only as inspect_only
 from plonex.files import write_if_changed
 from plonex.inspection import safe_value
+from plonex.services.cron.installation import backend_config
+from plonex.services.cron.installation import BACKENDS
 from plonex.services.cron.installation import PROTOCOL_VERSION
 from plonex.services.cron.runner import JobRunner
 from plonex.services.cron.runner import timestamp
@@ -31,29 +33,43 @@ class QueueRuntime:
             self.runner = JobRunner(service)
             self.jobs = service.jobs
         self.read_only = read_only
-        self.queue_path = self.runner.folder / "queue.sqlite3"
+        self.backend, self.backend_options = backend_config(service.options)
+        self.queue_path = Path(
+            self.backend_options.get("filename", self.runner.folder / "queue.sqlite3")
+        )
+        if not self.queue_path.is_absolute():
+            self.queue_path = service.target / self.queue_path
         self.stats_path = self.runner.folder / "stats.sqlite3"
         self.recorder = None
 
     @cached_property
     def huey(self):
-        from huey import SqliteHuey  # type: ignore[import-untyped]
+        import huey as huey_module  # type: ignore[import-untyped]
 
+        huey_class = getattr(huey_module, BACKENDS[self.backend][0])
+        options = dict(self.backend_options)
+        if self.backend in {"sqlite", "cy-sqlite"}:
+            options["filename"] = str(self.queue_path)
+            if self.read_only:
+                options.update(
+                    filename=self.queue_path.as_uri() + "?mode=ro",
+                    uri=True,
+                    create_tables=False,
+                    journal_mode=None,
+                )
+        elif self.backend == "postgres" and self.read_only:
+            options["create_tables"] = False
+        elif self.backend == "file":
+            options.setdefault("path", str(self.runner.folder / "queue"))
+
+        if not self.read_only:
+            self.runner.prepare()
+            if self.backend in {"sqlite", "cy-sqlite"}:
+                self.queue_path.touch(mode=0o600, exist_ok=True)
+            self.stats_path.touch(mode=0o600, exist_ok=True)
+        huey = huey_class(QUEUE_NAME, utc=True, results=False, **options)
         if self.read_only:
-            return SqliteHuey(
-                QUEUE_NAME,
-                filename=self.queue_path.as_uri() + "?mode=ro",
-                uri=True,
-                journal_mode=None,
-                create_tables=False,
-                results=False,
-            )
-        self.runner.prepare()
-        self.queue_path.touch(mode=0o600, exist_ok=True)
-        self.stats_path.touch(mode=0o600, exist_ok=True)
-        huey = SqliteHuey(
-            QUEUE_NAME, filename=str(self.queue_path), utc=True, results=False
-        )
+            return huey
         from huey.contrib.stats import database  # type: ignore[import-untyped]
         from huey.contrib.stats import enable_stats  # type: ignore[import-untyped]
 
@@ -169,7 +185,7 @@ class QueueRuntime:
         return {"running": running, **details}
 
     def queue(self, limit=50):
-        if not self.queue_path.is_file():
+        if self.backend in {"sqlite", "cy-sqlite"} and not self.queue_path.is_file():
             return {
                 "pending": [],
                 "scheduled": [],
@@ -347,6 +363,7 @@ def main(argv=None):
     )
     parser.add_argument("argument", nargs="?")
     parser.add_argument("--workers", type=int)
+    parser.add_argument("--backend", default="sqlite")
     parser.add_argument("--limit", type=int, default=50)
     parser.add_argument("--overrides-stdin", action="store_true")
     args = parser.parse_args(argv)
@@ -355,9 +372,18 @@ def main(argv=None):
         parser.error("limit must be between 1 and 1000")
     if args.action == "probe":
         from huey.contrib.stats import enable_stats  # noqa: F401
+        from importlib import import_module
         from importlib.metadata import version
 
         import peewee  # noqa: F401
+
+        backend, _ = backend_config({"cron_backend": args.backend})
+        if "redis" in backend:
+            import_module("redis")
+        elif backend == "postgres":
+            import_module("psycopg")
+        elif backend == "cy-sqlite":
+            import_module("cysqlite")
 
         print(
             json.dumps(

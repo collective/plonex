@@ -225,7 +225,10 @@ class TestEditService(PloneXTestCase):
             files = [file1, file2]
 
             # Multiple selections are rejected.
-            with mock.patch("plonex.services.edit.Prompt.ask", return_value="1,2"):
+            with (
+                mock.patch("plonex.services.edit.sys.stdin.isatty", return_value=False),
+                mock.patch("plonex.services.edit.Prompt.ask", return_value="1,2"),
+            ):
                 result = svc.select_files_interactive(files)
 
             self.assertEqual(result, [])
@@ -243,7 +246,10 @@ class TestEditService(PloneXTestCase):
             files = [file1, file2]
 
             # Mock user selection of only file 1
-            with mock.patch("plonex.services.edit.Prompt.ask", return_value="1"):
+            with (
+                mock.patch("plonex.services.edit.sys.stdin.isatty", return_value=False),
+                mock.patch("plonex.services.edit.Prompt.ask", return_value="1"),
+            ):
                 result = svc.select_files_interactive(files)
 
             self.assertEqual(len(result), 1)
@@ -260,7 +266,10 @@ class TestEditService(PloneXTestCase):
             files = [file1]
 
             # Mock user input with invalid value
-            with mock.patch("plonex.services.edit.Prompt.ask", return_value="invalid"):
+            with (
+                mock.patch("plonex.services.edit.sys.stdin.isatty", return_value=False),
+                mock.patch("plonex.services.edit.Prompt.ask", return_value="invalid"),
+            ):
                 result = svc.select_files_interactive(files)
 
             self.assertEqual(result, [])
@@ -278,7 +287,10 @@ class TestEditService(PloneXTestCase):
 
     def test_noninteractive_selection_handles_eof(self):
         with temp_cwd() as cwd:
-            with mock.patch("plonex.services.edit.Prompt.ask", side_effect=EOFError):
+            with (
+                mock.patch("plonex.services.edit.sys.stdin.isatty", return_value=False),
+                mock.patch("plonex.services.edit.Prompt.ask", side_effect=EOFError),
+            ):
                 assert EditService().select_files_interactive([cwd / "test.yml"]) == []
 
     def test_run_with_open_all_flag(self):

@@ -85,6 +85,8 @@ SUPPORTED_OPTION_SPECS: dict[str, OptionSpec] = {
         default=False,
         normalize=lambda value: _normalize_bool_option("upgrade_tempfile_auth", value),
     ),
+    "cron_backend": OptionSpec(name="cron_backend", default="sqlite"),
+    "cron_backend_options": OptionSpec(name="cron_backend_options", default={}),
     "cron_timezone": OptionSpec(name="cron_timezone", default="UTC"),
     "cron_workers": OptionSpec(name="cron_workers", default=1),
     "sources_location": OptionSpec(name="sources_location", default="src"),

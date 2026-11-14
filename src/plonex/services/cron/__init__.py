@@ -110,10 +110,16 @@ class CronService(BaseService):
         ).show(Console())
 
     def runtime_probe(self):
+        from plonex.services.cron.installation import backend_config
         from plonex.services.cron.installation import PROTOCOL_VERSION
         from plonex.services.cron.installation import runtime_command
 
-        command = runtime_command(self.target, self.config_files) + ["probe"]
+        backend, _ = backend_config(self.options)
+        command = runtime_command(self.target, self.config_files) + [
+            "probe",
+            "--backend",
+            backend,
+        ]
         try:
             process = subprocess.run(
                 command, cwd=self.target, capture_output=True, text=True, timeout=15
@@ -145,7 +151,11 @@ class CronService(BaseService):
         service = InstallService(
             target=self.target,
             config_files=self.config_files,
-            cli_options={"cron_jobs": self.options.get("cron_jobs", {})},
+            cli_options={
+                "cron_jobs": self.options.get("cron_jobs", {}),
+                "cron_backend": self.options.get("cron_backend", "sqlite"),
+                "cron_backend_options": self.options.get("cron_backend_options", {}),
+            },
             dont_ask=True,
         )
         DependencyTasks(self.target, service=service).graph.run()

@@ -179,10 +179,10 @@ class DependencyTasks:
             "cron_control_panel"
         ):
             from plonex.services.cron.installation import runtime_requirement
-            from plonex.services.cron.installation import WORKER_REQUIREMENTS
+            from plonex.services.cron.installation import worker_requirements
 
             values["configuration: job worker"] = digest(
-                [runtime_requirement(), *WORKER_REQUIREMENTS]
+                [runtime_requirement(), *worker_requirements(service.options)]
             )
         visited = set()
 
