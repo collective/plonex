@@ -92,6 +92,17 @@ class TestZConsole(PloneXTestCase):
                 read_expected("test_zope_conf_run", svc),
             )
 
+    def test_command_receives_project_root(self):
+        with mock.patch.dict(os.environ, {"PLONEX_TARGET": "inherited"}):
+            with temp_zconsole(action="run") as svc:
+                os.environ["PLONEX_TARGET"] = "inherited"
+                with mock.patch.object(svc, "execute_command") as execute:
+                    execute.side_effect = lambda *args, **kwargs: self.assertEqual(
+                        os.environ["PLONEX_TARGET"], str(svc.target)
+                    )
+                    svc.run_command(["true"])
+                self.assertEqual(os.environ["PLONEX_TARGET"], "inherited")
+
     def test_deprecation_warnings(self):
         for value, action in [
             ("default", "default"),

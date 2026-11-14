@@ -9,6 +9,7 @@ its services, and troubleshoot common problems.
 :caption: User guide
 
 getting-started
+migration
 configuration
 shell
 workflows

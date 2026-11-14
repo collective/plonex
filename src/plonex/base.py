@@ -826,12 +826,8 @@ class ZopeBasedService(BaseService):
                     )
                     or security_policy_implementation,
                     "environment_vars": self.options.get("environment_vars", {})
-                    | (
-                        {"PLONEX_PROJECT_ROOT": str(self.target)}
-                        if self.options.get("cron_control_panel")
-                        else {}
-                    )
-                    | upgrade_environment,
+                    | upgrade_environment
+                    | {"PLONEX_TARGET": str(self.target.absolute())},
                     "verbose_security": self.options.get("verbose_security")
                     or verbose_security,
                     "blobstorage": self.options["blobstorage"],
@@ -898,6 +894,17 @@ class ZopeBasedService(BaseService):
         return super().__enter__()
 
     def run_command(self, command: Sequence[str | Path | int], cwd: Path | None = None):
+        previous_root = os.environ.get("PLONEX_TARGET")
+        os.environ["PLONEX_TARGET"] = str(self.target.absolute())
+        try:
+            return self._run_zope_command(command, cwd)
+        finally:
+            if previous_root is None:
+                os.environ.pop("PLONEX_TARGET", None)
+            else:
+                os.environ["PLONEX_TARGET"] = previous_root
+
+    def _run_zope_command(self, command: Sequence[str | Path | int], cwd: Path | None):
         # Python reads PYTHONWARNINGS when the child interpreter starts.
         action = getattr(self, "_deprecation_warning_action", None)
         if action is None:

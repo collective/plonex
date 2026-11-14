@@ -145,7 +145,8 @@ Adjust the paths to match `mx.ini`. mxdev remains responsible for generating tho
 files and managing its checkouts; Plonex installs the resulting inputs. Avoid also
 selecting the same checkout in Plonex's `sources` configuration. Legacy inspection
 reports possible mappings; Buildout recipes and configuration interpolation require
-manual review and are not executed or converted.
+manual review and are not executed or converted. See the [Buildout and mxdev
+migration guide](migration.md) for a staged migration workflow.
 
 Configured selected sources can declare an argv-list `test_command`:
 

@@ -22,7 +22,7 @@ class QueuePanel(BrowserView):
         from plone.protect import createToken  # type: ignore[import-not-found]
         from plone.protect import PostOnly  # type: ignore[import-not-found]
 
-        root = os.environ.get("PLONEX_PROJECT_ROOT")
+        root = os.environ.get("PLONEX_TARGET")
         if not root or not Path(root).is_absolute():
             raise ValueError("Plonex project root is not configured for this instance")
         with read_only():

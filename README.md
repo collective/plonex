@@ -638,8 +638,8 @@ See [project snapshots](docs/snapshots.md) for limitations and reproducibility.
 
 Run `plonex --target /path/to/project project inspect-legacy`. The report reads
 local configuration without running recipes or modifying the project. The
-[CLI reference](docs/cli.md#dependencies-and-sources) shows how to consume mxdev's
-generated files while leaving mxdev in charge of generating them.
+[migration guide](docs/migration.md) covers Buildout and mxdev projects, including
+how to keep mxdev in charge of its generated files during a transition.
 
 ### How do I run tests and stop in a failing test?
 
@@ -1174,6 +1174,11 @@ Because these files are merged with precedence, you can keep common settings in
 one place and make only small targeted overrides where needed.
 
 ### Project environment variables
+
+Plonex automatically supplies `PLONEX_TARGET` to Zope instances and
+instance console and run commands. Its value is the absolute project root;
+it takes precedence over a value inherited from the shell or defined in the
+configuration.
 
 Before running a command, plonex reads the optional `.env` and `.env.local` files
 in the project root (the directory containing `etc/plonex.yml`). Both supply

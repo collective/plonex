@@ -7,6 +7,7 @@ security-policy-implementation python
 verbose-security on
 default-zpublisher-encoding utf-8
 <environment>
+    PLONEX_TARGET TARGET_PATH
 </environment>
 <zodb_db main>
     # Main database

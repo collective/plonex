@@ -49,7 +49,7 @@ def test_panel_escapes_output_and_get_never_mutates(
     panel_module, monkeypatch, tmp_path
 ):
     module, protect = panel_module
-    monkeypatch.setenv("PLONEX_PROJECT_ROOT", str(tmp_path))
+    monkeypatch.setenv("PLONEX_TARGET", str(tmp_path))
     service = mock.Mock()
     service.jobs.jobs = [SimpleNamespace(name="safe", schedule="* * * * *")]
     service.invoke_runtime.return_value = {
@@ -78,7 +78,7 @@ def test_panel_rejects_missing_csrf_before_calling_queue(
     panel_module, monkeypatch, tmp_path
 ):
     module, protect = panel_module
-    monkeypatch.setenv("PLONEX_PROJECT_ROOT", str(tmp_path))
+    monkeypatch.setenv("PLONEX_TARGET", str(tmp_path))
     protect.CheckAuthenticator.side_effect = PermissionError("invalid token")
     service = mock.Mock()
     request = Request("POST", {"action": "enqueue", "value": "safe"})
@@ -95,7 +95,7 @@ def test_panel_performs_only_allowlisted_authenticated_actions(
     panel_module, monkeypatch, tmp_path
 ):
     module, protect = panel_module
-    monkeypatch.setenv("PLONEX_PROJECT_ROOT", str(tmp_path))
+    monkeypatch.setenv("PLONEX_TARGET", str(tmp_path))
     service = mock.Mock()
     context = SimpleNamespace(absolute_url=lambda: "http://example/Plone")
     request = Request("POST", {"action": "enqueue", "value": "safe"})

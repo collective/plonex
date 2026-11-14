@@ -7,6 +7,7 @@ from plonex.services.runwsgi import RunWSGI
 from unittest import mock
 
 import inspect
+import os
 
 read_expected = ReadExpected(Path(__file__).parent / "expected" / "runwsgi")
 
@@ -82,6 +83,21 @@ class TestRunWSGI(PloneXTestCase):
                 zope_conf.read_text(),
                 read_expected("test_zope_conf", svc),
             )
+
+    def test_project_root_overrides_config_and_process_environment(self):
+        with mock.patch.dict(os.environ, {"PLONEX_TARGET": "inherited"}):
+            with temp_runwsgi(
+                cli_options={"environment_vars": {"PLONEX_TARGET": "configured"}}
+            ) as svc:
+                config = (svc.tmp_folder / "etc" / "zope.conf").read_text()
+                self.assertIn(f"PLONEX_TARGET {svc.target}", config)
+                os.environ["PLONEX_TARGET"] = "configured"
+                with mock.patch.object(svc, "execute_command") as execute:
+                    execute.side_effect = lambda *args, **kwargs: self.assertEqual(
+                        os.environ["PLONEX_TARGET"], str(svc.target)
+                    )
+                    svc.run_command(["true"])
+                self.assertEqual(os.environ["PLONEX_TARGET"], "configured")
 
     def test_wsgi_ini(self):
         """Test that wsgi.ini is generated"""
