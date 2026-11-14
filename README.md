@@ -577,11 +577,14 @@ plonex project describe analytics instance debug
 plonex project describe profiles
 ```
 
-The configuration report shows the resolved value, winning definition, earlier
-values, and Jinja references. Adding a command inspects that command's defaults,
-service-specific files, extra files, and CLI overrides. Analytics shows override
-chains and configuration dependencies. Sensitive fields and derived secrets are
-redacted. Use `--format json` for automation.
+The configuration report includes the complete compiled YAML, resolved values,
+winning definitions, earlier values, and Jinja references. In the HTML report,
+select a YAML key to open its definition history and links to the source files.
+Without a command, the YAML uses the same configuration as `project compile`;
+adding a command shows that command's defaults, service-specific files, extra
+files, and CLI overrides. Analytics shows override chains and configuration
+dependencies. Sensitive fields and derived secrets are redacted in every format.
+Use `--format json` for automation.
 
 ### How do I keep personal settings out of a shared profile?
 

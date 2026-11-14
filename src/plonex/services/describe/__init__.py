@@ -375,6 +375,8 @@ class DescribeService(BaseService):
             if references
             else {}
         )
+        from .formatting import compiled_anchor
+        from .formatting import render_compiled_yaml
         from .formatting import render_value
         from .formatting import variable_definitions
 
@@ -406,6 +408,8 @@ class DescribeService(BaseService):
             .render(
                 report=report,
                 render_value=render_value,
+                render_compiled_yaml=render_compiled_yaml,
+                compiled_anchor=compiled_anchor,
                 references=references,
                 origins=origins,
                 destinations=destinations,

@@ -392,3 +392,100 @@ def test_variable_origin_handles_nested_values_and_non_file_sources():
     )
     assert 'class="variable" tabindex="0"' in rendered
     assert "default: fallback\nDefined in: service defaults" in rendered
+
+
+def test_compiled_configuration_links_nested_origins_and_redacts_secrets(tmp_path):
+    from html.parser import HTMLParser
+    from plonex.services.describe.formatting import compiled_anchor
+
+    import json
+    import yaml
+
+    profile = tmp_path / "profiles/base/etc"
+    profile.mkdir(parents=True)
+    (profile / "plonex.yml").write_text(
+        "settings:\n  host: from-profile\n  port: 8080\n"
+        "api_token: hidden-profile-secret\n"
+    )
+    etc = tmp_path / "etc"
+    etc.mkdir()
+    (etc / "plonex.yml").write_text(
+        "profiles: [profiles/base]\n"
+        "+settings:\n  host: from-project\n"
+        "derived: '{{ api_token }}'\n"
+    )
+    (etc / "plonex-compile.yml").write_text("compile_only: yes\n")
+    with DescribeService(target=tmp_path, section="configuration") as service:
+        service.run()
+
+    html = service.description_html_path.read_text()
+    payload = json.loads((service.describe_folder / "configuration.json").read_text())
+    section = payload["sections"][0]
+    compiled = section["compiled_configuration"]
+    assert compiled["settings"] == {"host": "from-project", "port": 8080}
+    assert compiled["compile_only"] is True
+    assert compiled["api_token"] == "[redacted]"
+    assert compiled["derived"] == "[redacted]"
+    assert "hidden-profile-secret" not in html
+    assert "hidden-profile-secret" not in json.dumps(payload)
+    assert (profile / "plonex.yml").as_uri() in html
+    assert (etc / "plonex.yml").as_uri() in html
+    assert f'href="#{compiled_anchor("settings.host")}"' in html
+    assert f'id="{compiled_anchor("settings.host")}"' in html
+    assert f'href="#{compiled_anchor("settings.port")}"' in html
+    assert not (tmp_path / "var/plonex.yml").exists()
+
+    class CompiledText(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.in_compiled = False
+            self.parts = []
+
+        def handle_starttag(self, tag, attrs):
+            if tag == "pre" and dict(attrs).get("class") == "compiled-yaml":
+                self.in_compiled = True
+
+        def handle_endtag(self, tag):
+            if tag == "pre":
+                self.in_compiled = False
+
+        def handle_data(self, data):
+            if self.in_compiled:
+                self.parts.append(data)
+
+    parser = CompiledText()
+    parser.feed(html)
+    assert yaml.safe_load("".join(parser.parts)) == compiled
+    assert "### Compiled configuration" in service.description_path.read_text()
+
+
+def test_compiled_configuration_uses_selected_command_and_keeps_full_view(tmp_path):
+    import json
+
+    (tmp_path / "etc").mkdir()
+    (tmp_path / "etc/plonex.yml").write_text("http_port: 8000\nother: present\n")
+    with DescribeService(
+        target=tmp_path,
+        section="configuration",
+        key="http_port",
+        inspect_command=["instance", "debug", "--port", "9000"],
+    ) as service:
+        service.run()
+    payload = json.loads((service.describe_folder / "configuration.json").read_text())
+    compiled = payload["sections"][0]["compiled_configuration"]
+    assert compiled["http_port"] == 9000
+    assert compiled["other"] == "present"
+
+
+def test_compiled_yaml_escapes_values_and_links_list_items_to_their_origin():
+    from plonex.services.describe.formatting import compiled_anchor
+    from plonex.services.describe.formatting import render_compiled_yaml
+
+    value = {"services": [{"<script>": "<img src=x>"}]}
+    definitions = [{"key": "services", "active": True, "source": 'file "one"'}]
+    html = str(render_compiled_yaml(value, definitions))
+    assert html.count(f'href="#{compiled_anchor("services")}"') == 2
+    assert "&lt;script&gt;" in html
+    assert "&lt;img src=x&gt;" in html
+    assert "Defined in: file &quot;one&quot;" in html
+    assert "<script>" not in html

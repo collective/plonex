@@ -21,6 +21,7 @@ from plonex.services.sources.installation import SourceInstallPlan
 import configparser
 import json
 import shlex
+import yaml
 
 SECTIONS = {
     "overview": "Overview",
@@ -49,9 +50,18 @@ class Section:
     links: list[dict] = field(default_factory=list)
     details: list[dict] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
+    compiled_configuration: dict | None = None
+    compiled_definitions: list[dict] = field(default_factory=list)
 
     def markdown(self, include_details=False):
         parts = [f"## {self.title}", self.description]
+        if self.compiled_configuration is not None:
+            compiled = yaml.safe_dump(
+                self.compiled_configuration, sort_keys=True, allow_unicode=True
+            ).rstrip()
+            parts.extend(
+                ["### Compiled configuration", "```yaml\n" + compiled + "\n```"]
+            )
         if self.columns:
             parts.append(MarkdownTable(self.columns, self.rows).markdown())
         for detail in self.details if include_details else []:
@@ -104,6 +114,18 @@ class ProjectReport:
     @cached_property
     def trace(self):
         return self.inspected.configuration_trace
+
+    @cached_property
+    def compiled_trace(self):
+        if self.service.inspect_command:
+            return self.trace
+        from plonex.files import read_only
+        from plonex.services.compile import CompileService
+
+        with read_only():
+            return CompileService(
+                target=self.target, config_files=self.service.config_files
+            ).configuration_trace
 
     @cached_property
     def config_files(self):
@@ -232,6 +254,8 @@ class ProjectReport:
             ),
             rows,
             details=data,
+            compiled_configuration=self.compiled_trace.safe_options(),
+            compiled_definitions=self.compiled_trace.rows(nested=True),
             links=[
                 self.link(path)
                 for path in dict.fromkeys(

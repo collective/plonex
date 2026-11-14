@@ -14,6 +14,51 @@ _VARIABLE = re.compile(r"{{\s*([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s*}}")
 _MISSING = object()
 
 
+def compiled_anchor(name):
+    return "compiled-option-" + hashlib.sha256(name.encode("utf-8")).hexdigest()[:16]
+
+
+def render_compiled_yaml(values, definitions):
+    """Render valid YAML, linking mapping keys to their recorded histories."""
+    text = yaml.safe_dump(values, sort_keys=True, allow_unicode=True)
+    root = yaml.compose(text)
+    active = {row["key"]: row for row in definitions if row["active"]}
+    links = []
+
+    def walk(node, prefix=(), inherited=None):
+        if isinstance(node, yaml.MappingNode):
+            for key, value in node.value:
+                if not isinstance(key, yaml.ScalarNode):
+                    continue
+                path = (*prefix, str(key.value))
+                name = ".".join(path)
+                destination = name if name in active else inherited
+                if destination:
+                    links.append(
+                        (key.start_mark.index, key.end_mark.index, destination)
+                    )
+                walk(value, path, destination)
+        elif isinstance(node, yaml.SequenceNode):
+            for item in node.value:
+                walk(item, prefix, inherited)
+
+    walk(root)
+    result = []
+    position = 0
+    for start, end, name in sorted(links):
+        result.append(escape(text[position:start]))
+        source = escape(str(active[name]["source"]), quote=True)
+        result.append(
+            f'<a class="compiled-key" href="#{compiled_anchor(name)}" '
+            f'title="Defined in: {source}">{escape(text[start:end])}</a>'
+        )
+        position = end
+    result.append(escape(text[position:]))
+    return Markup(
+        '<pre class="compiled-yaml"><code>' + "".join(result) + "</code></pre>"
+    )
+
+
 def _reference(name, values):
     value = values
     for part in name.split("."):
