@@ -1,3 +1,20 @@
+from argparse import ArgumentParser
+from argparse import Namespace
+from pathlib import Path
+from plonex import logger
+from plonex.cli.dependencies import _run_service_dependencies
+from plonex.services.adduser import AddUser
+from plonex.services.invocation import ServiceInvocation
+from plonex.services.robotserver import RobotServer
+from plonex.services.runwsgi import RunWSGI
+from plonex.services.supervisor import Supervisor
+from plonex.services.upgrade import UpgradeService
+from plonex.services.zconsole import ZConsole
+from plonex.services.zeoserver import ZeoServer
+from rich.console import Console
+from typing import cast
+
+
 def register_runtime_parsers(subs, add_subparser) -> None:
     """Register runtime-related CLI parsers."""
 
@@ -134,3 +151,119 @@ def register_runtime_parsers(subs, add_subparser) -> None:
     )
     adduser_parser.add_argument("username", type=str, help="Username")
     adduser_parser.add_argument("password", type=str, help="Password", nargs="?")
+
+
+def _handle_robotserver(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "robotserver")
+    with ServiceInvocation.from_args(args, target).create(RobotServer) as svc:
+        svc.run()
+
+
+def _handle_zeoserver(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "zeoserver")
+    logger.debug("Starting ZEO Server")
+    with ServiceInvocation.from_args(args, target).create(ZeoServer) as svc:
+        svc.run()
+
+
+def _handle_runwsgi(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "runwsgi")
+    logger.debug("Starting runwsgi")
+    with ServiceInvocation.from_args(args, target).create(RunWSGI) as svc:
+        svc.run()
+
+
+def _handle_fg(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "fg")
+    logger.debug("Starting foreground instance (debug mode)")
+    with ServiceInvocation.from_args(args, target).create(RunWSGI) as svc:
+        svc.run()
+
+
+def _handle_zconsole(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "zconsole")
+    with ServiceInvocation.from_args(args, target).create(ZConsole) as svc:
+        svc.run()
+
+
+def _handle_run(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "run")
+    with ServiceInvocation.from_args(args, target).create(ZConsole) as svc:
+        svc.run()
+
+
+def _handle_adduser(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "adduser")
+    with ServiceInvocation.from_args(args, target).create(AddUser) as svc:
+        svc.run()
+
+
+def _handle_supervisor(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    from plonex.files import read_only
+
+    supervisor_action = getattr(args, "supervisor_action", None) or "status"
+    if supervisor_action == "start":
+        from plonex.preparation.supervisor import SupervisorPreparation
+
+        preparation = SupervisorPreparation(target)
+        if getattr(args, "plan", False):
+            preparation.show_plan()
+            return
+        preparation.run()
+    elif supervisor_action not in {"status", "stop"}:
+        _run_service_dependencies(target, "supervisor")
+    with read_only():
+        service = cast(
+            Supervisor, ServiceInvocation.from_args(args, target).create(Supervisor)
+        )
+    if supervisor_action in {"start", "status", "stop"}:
+        service.pre_services = []
+        service._render_configuration = False
+    with service as svc:
+        if supervisor_action == "start":
+            was_running = svc.is_running()
+            svc.run()
+            if was_running and preparation.graph.changed:
+                Console().print(
+                    "Prepared changes affect: "
+                    + ", ".join(sorted(preparation.graph.changed))
+                    + ". Restart affected running programs explicitly to load them.",
+                    markup=False,
+                )
+        elif supervisor_action == "stop":
+            svc.run_stop()
+        elif supervisor_action == "restart":
+            if args.programs:
+                svc.run_restart(args.programs)
+            else:
+                svc.run_restart()
+        elif supervisor_action == "status":
+            svc.run_status()
+        elif supervisor_action == "graceful":
+            interval = getattr(args, "graceful_interval", None)
+            svc.run_graceful(
+                delay=svc.graceful_interval if interval is None else interval
+            )
+        elif supervisor_action == "reread":
+            svc.run_reread()
+        elif supervisor_action == "update":
+            svc.run_update()
+
+
+def _handle_upgrade(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "upgrade")
+    with ServiceInvocation.from_args(args, target).create(UpgradeService) as svc:
+        svc.run()
+
+
+ACTION_HANDLERS = {
+    "robotserver": _handle_robotserver,
+    "zeoserver": _handle_zeoserver,
+    "runwsgi": _handle_runwsgi,
+    "fg": _handle_fg,
+    "zconsole": _handle_zconsole,
+    "run": _handle_run,
+    "adduser": _handle_adduser,
+    "supervisor": _handle_supervisor,
+    "upgrade": _handle_upgrade,
+}

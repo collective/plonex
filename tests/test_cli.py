@@ -510,9 +510,11 @@ class TestMain(unittest.TestCase):
             )
         )
         with mock.patch("plonex.cli._configure_logging"):
-            with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
-                with mock.patch("plonex.cli.Supervisor") as MockSupervisor:
-                    with mock.patch("plonex.cli.RunWSGI") as MockRunWSGI:
+            with mock.patch(
+                "plonex.cli.runtime._run_service_dependencies"
+            ) as mock_deps:
+                with mock.patch("plonex.cli.runtime.Supervisor") as MockSupervisor:
+                    with mock.patch("plonex.cli.runtime.RunWSGI") as MockRunWSGI:
                         MockSupervisor.return_value.__enter__ = mock.Mock(
                             return_value=MockSupervisor.return_value
                         )
@@ -585,14 +587,16 @@ class TestMain(unittest.TestCase):
         return MockSvc
 
     def test_action_compile(self):
-        svc = self._run_service(["project", "compile"], "plonex.cli.CompileService")
+        svc = self._run_service(
+            ["project", "compile"], "plonex.cli.setup_info.CompileService"
+        )
         svc.return_value.run.assert_called_once()
 
     def test_shell_dispatch_preserves_target_and_flags_without_loading_environment(
         self,
     ):
         with (
-            mock.patch("plonex.cli.run_shell") as shell,
+            mock.patch("plonex.cli.shell.run_shell") as shell,
             mock.patch("plonex.cli.InitService") as init,
         ):
             self._run_with_target(["shell", "--verbose"])
@@ -625,11 +629,13 @@ class TestMain(unittest.TestCase):
                 )
 
     def test_action_describe(self):
-        svc = self._run_service(["project", "describe"], "plonex.cli.DescribeService")
+        svc = self._run_service(
+            ["project", "describe"], "plonex.cli.describe.DescribeService"
+        )
         svc.return_value.run.assert_called_once()
 
     def test_action_describe_html_browse(self):
-        with mock.patch("plonex.cli.DescribeService") as MockSvc:
+        with mock.patch("plonex.cli.describe.DescribeService") as MockSvc:
             MockSvc.return_value.__enter__ = mock.Mock(
                 return_value=MockSvc.return_value
             )
@@ -648,25 +654,27 @@ class TestMain(unittest.TestCase):
         MockSvc.return_value.run.assert_called_once()
 
     def test_action_upgrade(self):
-        svc = self._run_service(["instance", "upgrade"], "plonex.cli.UpgradeService")
+        svc = self._run_service(
+            ["instance", "upgrade"], "plonex.cli.runtime.UpgradeService"
+        )
         svc.return_value.run.assert_called_once()
 
     def test_action_zeoserver(self):
-        svc = self._run_service(["db", "start"], "plonex.cli.ZeoServer")
+        svc = self._run_service(["db", "start"], "plonex.cli.runtime.ZeoServer")
         svc.return_value.run.assert_called_once()
 
     def test_action_db_backup(self):
-        svc = self._run_service(["db", "backup"], "plonex.cli.ZeoServer")
+        svc = self._run_service(["db", "backup"], "plonex.cli.db.ZeoServer")
         svc.return_value.run_backup.assert_called_once()
 
     def test_action_db_restore(self):
-        svc = self._run_service(["db", "restore"], "plonex.cli.ZeoServer")
+        svc = self._run_service(["db", "restore"], "plonex.cli.db.ZeoServer")
         svc.return_value.run_restore.assert_called_once_with(
             destination=None, backup=None
         )
 
     def test_action_db_pack(self):
-        svc = self._run_service(["db", "pack", "-d", "3"], "plonex.cli.ZeoServer")
+        svc = self._run_service(["db", "pack", "-d", "3"], "plonex.cli.db.ZeoServer")
         svc.return_value.run_pack.assert_called_once_with(days=3)
 
     def test_action_db_without_subcommand_prints_help(self):
@@ -675,7 +683,7 @@ class TestMain(unittest.TestCase):
         mock_help.assert_called_once()
 
     def test_action_runwsgi_host_port(self):
-        with mock.patch("plonex.cli.RunWSGI") as MockSvc:
+        with mock.patch("plonex.cli.runtime.RunWSGI") as MockSvc:
             MockSvc.return_value.__enter__ = mock.Mock(
                 return_value=MockSvc.return_value
             )
@@ -688,7 +696,7 @@ class TestMain(unittest.TestCase):
         self.assertEqual(kwargs["cli_options"]["http_port"], 8082)
 
     def test_action_fg_sets_debug_options(self):
-        with mock.patch("plonex.cli.RunWSGI") as MockSvc:
+        with mock.patch("plonex.cli.runtime.RunWSGI") as MockSvc:
             MockSvc.return_value.__enter__ = mock.Mock(
                 return_value=MockSvc.return_value
             )
@@ -703,7 +711,7 @@ class TestMain(unittest.TestCase):
         MockSvc.return_value.run.assert_called_once()
 
     def test_action_fg_default_name(self):
-        with mock.patch("plonex.cli.RunWSGI") as MockSvc:
+        with mock.patch("plonex.cli.runtime.RunWSGI") as MockSvc:
             MockSvc.return_value.__enter__ = mock.Mock(
                 return_value=MockSvc.return_value
             )
@@ -713,7 +721,7 @@ class TestMain(unittest.TestCase):
         self.assertEqual(kwargs["name"], "fg")
 
     def test_action_fg_host_port(self):
-        with mock.patch("plonex.cli.RunWSGI") as MockSvc:
+        with mock.patch("plonex.cli.runtime.RunWSGI") as MockSvc:
             MockSvc.return_value.__enter__ = mock.Mock(
                 return_value=MockSvc.return_value
             )
@@ -726,7 +734,7 @@ class TestMain(unittest.TestCase):
         self.assertEqual(kwargs["cli_options"]["http_port"], 8082)
 
     def test_action_zconsole_default_action_is_debug(self):
-        with mock.patch("plonex.cli.ZConsole") as MockSvc:
+        with mock.patch("plonex.cli.runtime.ZConsole") as MockSvc:
             MockSvc.return_value.__enter__ = mock.Mock(
                 return_value=MockSvc.return_value
             )
@@ -736,7 +744,7 @@ class TestMain(unittest.TestCase):
         self.assertEqual(kwargs["action"], "debug")
 
     def test_action_adduser(self):
-        with mock.patch("plonex.cli.AddUser") as MockSvc:
+        with mock.patch("plonex.cli.runtime.AddUser") as MockSvc:
             MockSvc.return_value.__enter__ = mock.Mock(
                 return_value=MockSvc.return_value
             )
@@ -745,8 +753,8 @@ class TestMain(unittest.TestCase):
         MockSvc.return_value.run.assert_called_once()
 
     def test_action_supervisor_start(self):
-        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
-            with mock.patch("plonex.cli.Supervisor") as MockSvc:
+        with mock.patch("plonex.cli.runtime._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.runtime.Supervisor") as MockSvc:
                 MockSvc.return_value.__enter__ = mock.Mock(
                     return_value=MockSvc.return_value
                 )
@@ -757,8 +765,8 @@ class TestMain(unittest.TestCase):
         MockSvc.return_value.run.assert_called_once()
 
     def test_action_supervisor_stop(self):
-        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
-            with mock.patch("plonex.cli.Supervisor") as MockSvc:
+        with mock.patch("plonex.cli.runtime._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.runtime.Supervisor") as MockSvc:
                 MockSvc.return_value.__enter__ = mock.Mock(
                     return_value=MockSvc.return_value
                 )
@@ -768,8 +776,8 @@ class TestMain(unittest.TestCase):
         MockSvc.return_value.run_stop.assert_called_once()
 
     def test_action_supervisor_restart(self):
-        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
-            with mock.patch("plonex.cli.Supervisor") as MockSvc:
+        with mock.patch("plonex.cli.runtime._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.runtime.Supervisor") as MockSvc:
                 MockSvc.return_value.__enter__ = mock.Mock(
                     return_value=MockSvc.return_value
                 )
@@ -779,8 +787,8 @@ class TestMain(unittest.TestCase):
         MockSvc.return_value.run_restart.assert_called_once()
 
     def test_action_supervisor_status(self):
-        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
-            with mock.patch("plonex.cli.Supervisor") as MockSvc:
+        with mock.patch("plonex.cli.runtime._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.runtime.Supervisor") as MockSvc:
                 MockSvc.return_value.__enter__ = mock.Mock(
                     return_value=MockSvc.return_value
                 )
@@ -790,8 +798,8 @@ class TestMain(unittest.TestCase):
         MockSvc.return_value.run_status.assert_called_once()
 
     def test_action_dependencies(self):
-        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
-            with mock.patch("plonex.cli.InstallService") as MockSvc:
+        with mock.patch("plonex.cli.setup_info._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.setup_info.InstallService") as MockSvc:
                 MockSvc.return_value.__enter__ = mock.Mock(
                     return_value=MockSvc.return_value
                 )
@@ -807,8 +815,8 @@ class TestMain(unittest.TestCase):
         )
 
     def test_action_dependencies_with_update_sources(self):
-        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
-            with mock.patch("plonex.cli.InstallService") as MockSvc:
+        with mock.patch("plonex.cli.setup_info._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.setup_info.InstallService") as MockSvc:
                 MockSvc.return_value.__enter__ = mock.Mock(
                     return_value=MockSvc.return_value
                 )
@@ -824,8 +832,8 @@ class TestMain(unittest.TestCase):
         )
 
     def test_action_dependencies_with_sync(self):
-        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
-            with mock.patch("plonex.cli.InstallService") as MockSvc:
+        with mock.patch("plonex.cli.setup_info._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.setup_info.InstallService") as MockSvc:
                 MockSvc.return_value.__enter__ = mock.Mock(
                     return_value=MockSvc.return_value
                 )
@@ -841,8 +849,8 @@ class TestMain(unittest.TestCase):
         )
 
     def test_action_sources_update(self):
-        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
-            with mock.patch("plonex.cli.SourcesService") as MockSvc:
+        with mock.patch("plonex.cli.setup_info._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.setup_info.SourcesService") as MockSvc:
                 MockSvc.return_value.__enter__ = mock.Mock(
                     return_value=MockSvc.return_value
                 )
@@ -852,8 +860,8 @@ class TestMain(unittest.TestCase):
         MockSvc.return_value.run_update.assert_called_once_with(glob=None)
 
     def test_action_sources_update_with_glob(self):
-        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
-            with mock.patch("plonex.cli.SourcesService") as MockSvc:
+        with mock.patch("plonex.cli.setup_info._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.setup_info.SourcesService") as MockSvc:
                 MockSvc.return_value.__enter__ = mock.Mock(
                     return_value=MockSvc.return_value
                 )
@@ -863,8 +871,8 @@ class TestMain(unittest.TestCase):
         MockSvc.return_value.run_update.assert_called_once_with(glob="foo")
 
     def test_action_sources_force_update(self):
-        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
-            with mock.patch("plonex.cli.SourcesService") as MockSvc:
+        with mock.patch("plonex.cli.setup_info._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.setup_info.SourcesService") as MockSvc:
                 MockSvc.return_value.__enter__ = mock.Mock(
                     return_value=MockSvc.return_value
                 )
@@ -878,8 +886,8 @@ class TestMain(unittest.TestCase):
         )
 
     def test_action_sources_tainted(self):
-        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
-            with mock.patch("plonex.cli.SourcesService") as MockSvc:
+        with mock.patch("plonex.cli.setup_info._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.setup_info.SourcesService") as MockSvc:
                 MockSvc.return_value.__enter__ = mock.Mock(
                     return_value=MockSvc.return_value
                 )
@@ -889,8 +897,8 @@ class TestMain(unittest.TestCase):
         MockSvc.return_value.run_show_tainted.assert_called_once_with(glob=None)
 
     def test_action_sources_list(self):
-        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
-            with mock.patch("plonex.cli.SourcesService") as MockSvc:
+        with mock.patch("plonex.cli.setup_info._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.setup_info.SourcesService") as MockSvc:
                 MockSvc.return_value.__enter__ = mock.Mock(
                     return_value=MockSvc.return_value
                 )
@@ -900,8 +908,8 @@ class TestMain(unittest.TestCase):
         MockSvc.return_value.run_list.assert_called_once_with(glob=None)
 
     def test_action_sources_missing(self):
-        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
-            with mock.patch("plonex.cli.SourcesService") as MockSvc:
+        with mock.patch("plonex.cli.setup_info._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.setup_info.SourcesService") as MockSvc:
                 MockSvc.return_value.__enter__ = mock.Mock(
                     return_value=MockSvc.return_value
                 )
@@ -911,8 +919,8 @@ class TestMain(unittest.TestCase):
         MockSvc.return_value.run_show_missing.assert_called_once_with(glob=None)
 
     def test_action_sources_clone_missing(self):
-        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
-            with mock.patch("plonex.cli.SourcesService") as MockSvc:
+        with mock.patch("plonex.cli.setup_info._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.setup_info.SourcesService") as MockSvc:
                 MockSvc.return_value.__enter__ = mock.Mock(
                     return_value=MockSvc.return_value
                 )
@@ -925,8 +933,8 @@ class TestMain(unittest.TestCase):
         )
 
     def test_action_sources_clone_missing_yes(self):
-        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
-            with mock.patch("plonex.cli.SourcesService") as MockSvc:
+        with mock.patch("plonex.cli.setup_info._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.setup_info.SourcesService") as MockSvc:
                 MockSvc.return_value.__enter__ = mock.Mock(
                     return_value=MockSvc.return_value
                 )
@@ -939,8 +947,8 @@ class TestMain(unittest.TestCase):
         )
 
     def test_action_sources_suggest_existing(self):
-        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
-            with mock.patch("plonex.cli.SourcesService") as MockSvc:
+        with mock.patch("plonex.cli.setup_info._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.setup_info.SourcesService") as MockSvc:
                 MockSvc.return_value.__enter__ = mock.Mock(
                     return_value=MockSvc.return_value
                 )
@@ -954,8 +962,8 @@ class TestMain(unittest.TestCase):
         )
 
     def test_action_sources_suggest_existing_apply_local(self):
-        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
-            with mock.patch("plonex.cli.SourcesService") as MockSvc:
+        with mock.patch("plonex.cli.setup_info._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.setup_info.SourcesService") as MockSvc:
                 MockSvc.return_value.__enter__ = mock.Mock(
                     return_value=MockSvc.return_value
                 )
@@ -969,8 +977,8 @@ class TestMain(unittest.TestCase):
         )
 
     def test_action_sources_suggest_existing_apply(self):
-        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
-            with mock.patch("plonex.cli.SourcesService") as MockSvc:
+        with mock.patch("plonex.cli.setup_info._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.setup_info.SourcesService") as MockSvc:
                 MockSvc.return_value.__enter__ = mock.Mock(
                     return_value=MockSvc.return_value
                 )
@@ -984,8 +992,8 @@ class TestMain(unittest.TestCase):
         )
 
     def test_action_sources_suggest_existing_apply_profile(self):
-        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
-            with mock.patch("plonex.cli.SourcesService") as MockSvc:
+        with mock.patch("plonex.cli.setup_info._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.setup_info.SourcesService") as MockSvc:
                 MockSvc.return_value.__enter__ = mock.Mock(
                     return_value=MockSvc.return_value
                 )
@@ -999,8 +1007,8 @@ class TestMain(unittest.TestCase):
         )
 
     def test_action_supervisor_graceful(self):
-        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
-            with mock.patch("plonex.cli.Supervisor") as MockSvc:
+        with mock.patch("plonex.cli.runtime._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.runtime.Supervisor") as MockSvc:
                 MockSvc.return_value.__enter__ = mock.Mock(
                     return_value=MockSvc.return_value
                 )
@@ -1010,8 +1018,8 @@ class TestMain(unittest.TestCase):
         MockSvc.return_value.run_graceful.assert_called_once_with(delay=2.5)
 
     def test_action_install(self):
-        with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
-            with mock.patch("plonex.cli.InstallService") as MockSvc:
+        with mock.patch("plonex.cli.setup_info._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.setup_info.InstallService") as MockSvc:
                 MockSvc.return_value.__enter__ = mock.Mock(
                     return_value=MockSvc.return_value
                 )
@@ -1033,8 +1041,10 @@ class TestMain(unittest.TestCase):
         etc.mkdir(exist_ok=True)
         (etc / "plonex.yml").write_text("supervisor_graceful_interval: 4.0\n")
         with mock.patch("plonex.cli._configure_logging"):
-            with mock.patch("plonex.cli._run_service_dependencies") as mock_deps:
-                with mock.patch("plonex.cli.Supervisor") as MockSvc:
+            with mock.patch(
+                "plonex.cli.runtime._run_service_dependencies"
+            ) as mock_deps:
+                with mock.patch("plonex.cli.runtime.Supervisor") as MockSvc:
                     MockSvc.return_value.__enter__ = mock.Mock(
                         return_value=MockSvc.return_value
                     )

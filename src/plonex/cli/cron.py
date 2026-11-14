@@ -1,4 +1,11 @@
+from argparse import ArgumentParser
+from argparse import Namespace
 from argparse import SUPPRESS
+from pathlib import Path
+from plonex.cli.dependencies import _run_service_dependencies
+from plonex.services.cron import CronService
+from plonex.services.invocation import ServiceInvocation
+from rich.console import Console
 
 
 def positive(value):
@@ -70,3 +77,46 @@ def register_cron_parsers(subs, add_subparser):
                 dest="queue_format",
             )
             child.add_argument("--limit", type=positive, default=50)
+
+
+def _handle_cron(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    if args.cron_action in {"run", "daemon", "configure"}:
+        _run_service_dependencies(target, "cron")
+    with ServiceInvocation.from_args(args, target).create(CronService) as svc:
+        action = args.cron_action
+        if action == "list":
+            svc.run_list()
+        elif action == "run":
+            svc.run_job(args.job)
+        elif action == "enqueue":
+            svc.enqueue(args.job)
+        elif action == "history":
+            svc.run_history(args.job, args.limit, output_format=args.history_format)
+        elif action == "logs":
+            svc.run_logs(args.job, args.tail)
+        elif action == "daemon":
+            svc.run_daemon(args.workers)
+        elif action in {"status", "queue", "inspect", "retry", "revoke", "restore"}:
+            svc.show_queue(
+                action,
+                getattr(args, "task_id", ""),
+                limit=args.limit,
+                output_format=args.queue_format,
+            )
+        elif action == "configure":
+            folder = target / "tmp" / "supervisor" / "etc" / "supervisor"
+            svc.configure_supervisor(folder)
+            path = folder / "plonex-cron.conf"
+            Console().print(
+                (
+                    str(path)
+                    if path.exists()
+                    else "No project jobs; no cron program configured."
+                ),
+                markup=False,
+            )
+
+
+ACTION_HANDLERS = {
+    "cron": _handle_cron,
+}

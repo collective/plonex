@@ -340,7 +340,7 @@ class TestShellProcess(unittest.TestCase):
             (target / "etc" / "plonex.yml").write_text("default_action: shell\n")
             with (
                 mock.patch.object(sys, "argv", ["plonex"]),
-                mock.patch("plonex.cli.run_shell") as shell,
+                mock.patch("plonex.cli.shell.run_shell") as shell,
             ):
                 main()
             shell.assert_called_once_with(target=target, verbose=False, quiet=False)

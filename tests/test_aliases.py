@@ -192,8 +192,8 @@ class TestAliases(unittest.TestCase):
             mock.patch.object(
                 sys, "argv", ["plonex", "--target", str(self.target), "start"]
             ),
-            mock.patch("plonex.cli._run_service_dependencies"),
-            mock.patch("plonex.cli.Supervisor") as supervisor,
+            mock.patch("plonex.cli.runtime._run_service_dependencies"),
+            mock.patch("plonex.cli.runtime.Supervisor") as supervisor,
             mock.patch("plonex.preparation.supervisor.SupervisorPreparation"),
         ):
             main()
@@ -203,8 +203,8 @@ class TestAliases(unittest.TestCase):
         self.config.write_text(self.config.read_text() + "default_action: start\n")
         with (
             mock.patch.object(sys, "argv", ["plonex"]),
-            mock.patch("plonex.cli._run_service_dependencies"),
-            mock.patch("plonex.cli.Supervisor") as supervisor,
+            mock.patch("plonex.cli.runtime._run_service_dependencies"),
+            mock.patch("plonex.cli.runtime.Supervisor") as supervisor,
             mock.patch("plonex.preparation.supervisor.SupervisorPreparation"),
         ):
             main()

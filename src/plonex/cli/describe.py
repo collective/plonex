@@ -1,5 +1,10 @@
+from argparse import ArgumentParser
+from argparse import Namespace
 from argparse import REMAINDER
 from argparse import SUPPRESS
+from pathlib import Path
+from plonex.services.describe import DescribeService
+from plonex.services.invocation import ServiceInvocation
 
 
 def register_describe_sections(parser, add_subparser):
@@ -35,3 +40,13 @@ def register_describe_sections(parser, add_subparser):
                 nargs=REMAINDER,
                 help="Optional command to inspect, e.g. instance debug --port 8081",
             )
+
+
+def _handle_describe(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    with ServiceInvocation.from_args(args, target).create(DescribeService) as svc:
+        svc.run()
+
+
+ACTION_HANDLERS = {
+    "describe": _handle_describe,
+}

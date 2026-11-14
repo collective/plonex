@@ -1,3 +1,13 @@
+from argparse import ArgumentParser
+from argparse import Namespace
+from pathlib import Path
+from plonex.cli.dependencies import _run_service_dependencies
+from plonex.services.invocation import ServiceInvocation
+from plonex.services.zeoserver import ZeoServer
+from rich.console import Console
+from typing import cast
+
+
 def register_db_parsers(subs, add_subparser) -> None:
     """Register database-related CLI parsers."""
     db_parser = add_subparser(
@@ -36,3 +46,35 @@ def register_db_parsers(subs, add_subparser) -> None:
         required=False,
         default=7,
     )
+
+
+def _handle_db(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    db_action = getattr(args, "db_action", None)
+    if db_action in {"backup", "restore"}:
+        from plonex.files import read_only
+
+        # Do not create missing storage directories or run mutating hooks before
+        # backup validation; an absent blob directory must remain an error.
+        with read_only():
+            svc = cast(
+                ZeoServer, ServiceInvocation.from_args(args, target).create(ZeoServer)
+            )
+            svc.options
+        if db_action == "backup":
+            path = svc.run_backup()
+        else:
+            path = svc.run_restore(
+                destination=args.restore_destination, backup=args.restore_backup
+            )
+        Console().print(str(path), markup=False)
+    elif db_action == "pack":
+        _run_service_dependencies(target, "db")
+        with ServiceInvocation.from_args(args, target).create(ZeoServer) as svc:
+            svc.run_pack(days=args.days)
+    else:
+        parser.print_help()
+
+
+ACTION_HANDLERS = {
+    "db": _handle_db,
+}

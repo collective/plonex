@@ -120,7 +120,7 @@ def test_dependency_options_work_on_either_side_of_the_action(
 def test_conflicting_or_read_only_operations_are_rejected_before_execution(
     project, tokens
 ):
-    with mock.patch("plonex.cli._run_service_dependencies") as dependencies:
+    with mock.patch("plonex.cli.runtime._run_service_dependencies") as dependencies:
         with mock.patch.object(sys, "argv", ["plonex", *tokens]):
             with pytest.raises(SystemExit) as error:
                 main()
@@ -134,8 +134,8 @@ def test_conflicting_or_read_only_operations_are_rejected_before_execution(
 def test_explicit_dependency_actions_dispatch_to_install_service(project, tokens):
     with (
         mock.patch("plonex.cli._configure_logging"),
-        mock.patch("plonex.cli._run_service_dependencies") as dependencies,
-        mock.patch("plonex.cli.InstallService") as service,
+        mock.patch("plonex.cli.setup_info._run_service_dependencies") as dependencies,
+        mock.patch("plonex.cli.setup_info.InstallService") as service,
         mock.patch.object(sys, "argv", ["plonex", *tokens, "--update-sources"]),
     ):
         main()
@@ -152,8 +152,8 @@ def test_explicit_dependency_actions_dispatch_to_install_service(project, tokens
 def test_outdated_dispatch_does_not_install(project):
     with (
         mock.patch("plonex.cli._configure_logging"),
-        mock.patch("plonex.cli._run_service_dependencies"),
-        mock.patch("plonex.cli.InstallService") as service,
+        mock.patch("plonex.cli.setup_info._run_service_dependencies"),
+        mock.patch("plonex.cli.setup_info.InstallService") as service,
         mock.patch.object(sys, "argv", ["plonex", "dependencies", "outdated"]),
     ):
         main()
@@ -165,8 +165,8 @@ def test_outdated_dispatch_does_not_install(project):
 def test_dependencies_add_persists_requirements_and_uses_install_options(project):
     with (
         mock.patch("plonex.cli._configure_logging"),
-        mock.patch("plonex.cli._run_service_dependencies") as dependencies,
-        mock.patch("plonex.cli.InstallService") as service,
+        mock.patch("plonex.cli.setup_info._run_service_dependencies") as dependencies,
+        mock.patch("plonex.cli.setup_info.InstallService") as service,
         mock.patch.object(
             sys,
             "argv",
@@ -223,8 +223,8 @@ def test_source_commands_preserve_confirmation_and_service_inspection(
 ):
     with (
         mock.patch("plonex.cli._configure_logging"),
-        mock.patch("plonex.cli._run_service_dependencies"),
-        mock.patch("plonex.cli.SourcesService") as service,
+        mock.patch("plonex.cli.setup_info._run_service_dependencies"),
+        mock.patch("plonex.cli.setup_info.SourcesService") as service,
         mock.patch.object(sys, "argv", ["plonex", "sources", *tokens]),
     ):
         main()

@@ -2,6 +2,7 @@
 
 from argcomplete import CompletionFinder
 from argparse import ArgumentParser
+from argparse import Namespace
 from contextlib import chdir
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -328,3 +329,12 @@ class ShellSession:
 def run_shell(target: Path, *, verbose: bool = False, quiet: bool = False) -> None:
     """Compatibility entry point for the normal CLI handler."""
     ShellSession(target=target, verbose=verbose, quiet=quiet).run()
+
+
+def _handle_shell(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    run_shell(target=target, verbose=args.verbose, quiet=args.quiet)
+
+
+ACTION_HANDLERS = {
+    "shell": _handle_shell,
+}

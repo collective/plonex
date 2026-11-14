@@ -66,8 +66,10 @@ class TestPytestService(unittest.TestCase):
                     "argv",
                     ["plonex", "test", "pytest", "my.package", "-q", "-k", "login"],
                 ),
-                mock.patch("plonex.cli._run_service_dependencies") as dependencies,
-                mock.patch("plonex.cli.PytestService") as pytest_service,
+                mock.patch(
+                    "plonex.cli.testing._run_service_dependencies"
+                ) as dependencies,
+                mock.patch("plonex.cli.testing.PytestService") as pytest_service,
             ):
                 main()
             dependencies.assert_called_once_with(target, "pytest")

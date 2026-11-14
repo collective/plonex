@@ -1,4 +1,12 @@
+from argparse import ArgumentParser
+from argparse import Namespace
 from argparse import REMAINDER
+from pathlib import Path
+from plonex.cli.dependencies import _run_service_dependencies
+from plonex.services.invocation import ServiceInvocation
+from plonex.services.pytest import PytestService
+from plonex.services.robottest import RobotTest
+from plonex.services.zopetest import ZopeTest
 
 
 def register_test_parsers(subs, add_subparser) -> None:
@@ -85,3 +93,37 @@ def register_test_parsers(subs, add_subparser) -> None:
         default="",
         dest="test",
     )
+
+
+def _handle_pytest(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "pytest")
+    with ServiceInvocation.from_args(args, target).create(PytestService) as svc:
+        svc.run()
+
+
+def _handle_test_sources(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    from plonex.services.sources.testing import run_selected_tests
+
+    result = run_selected_tests(target, args.source_args)
+    if result:
+        raise SystemExit(result if result > 0 else 1)
+
+
+def _handle_robottest(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "robottest")
+    with ServiceInvocation.from_args(args, target).create(RobotTest) as svc:
+        svc.run()
+
+
+def _handle_zopetest(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "zopetest")
+    with ServiceInvocation.from_args(args, target).create(ZopeTest) as svc:
+        svc.run()
+
+
+ACTION_HANDLERS = {
+    "pytest": _handle_pytest,
+    "test_sources": _handle_test_sources,
+    "robottest": _handle_robottest,
+    "zopetest": _handle_zopetest,
+}

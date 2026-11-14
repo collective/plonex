@@ -1,6 +1,15 @@
+from argparse import ArgumentParser
+from argparse import Namespace
 from argparse import REMAINDER
 from argparse import SUPPRESS
+from pathlib import Path
+from plonex.cli.dependencies import _run_service_dependencies
 from plonex.cli.describe import register_describe_sections
+from plonex.services.compile import CompileService
+from plonex.services.install import InstallService
+from plonex.services.invocation import ServiceInvocation
+from plonex.services.sources import SourcesService
+from rich.console import Console
 
 
 def _register_sources_subcommands(parser, add_subparser) -> None:
@@ -346,3 +355,175 @@ def register_setup_parsers(subs, add_subparser) -> None:
         default=None,
         dest="editor",
     )
+
+
+def _handle_compile(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "compile")
+    with ServiceInvocation.from_args(args, target).create(CompileService) as svc:
+        svc.run()
+
+
+def _handle_doctor(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    from plonex.files import read_only
+    from plonex.services.doctor import Doctor
+
+    with read_only():
+        service = ServiceInvocation.from_args(args, target).create(Doctor)
+        result = service.run(output_format=args.doctor_format)
+    if result["summary"]["error"] or (args.strict and result["summary"]["warning"]):
+        raise SystemExit(1)
+
+
+def _handle_snapshot(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    from plonex.inspection import safe_value
+    from plonex.services.snapshot import capture
+    from plonex.services.snapshot import differences
+    from plonex.services.snapshot import load
+    from plonex.services.snapshot import prepare
+    from plonex.services.snapshot import write_new
+
+    import json
+
+    if not args.snapshot_action:
+        raise ValueError(
+            "Use 'plonex project snapshot create', 'compare', or 'prepare'."
+        )
+    if args.snapshot_action == "prepare":
+        path = prepare(target, load(args.file), args.to, python=args.python)
+        Console().print(f"Prepared environment: {path}", markup=False)
+        return
+    snapshot = capture(target)
+    if args.snapshot_action == "create":
+        if args.output:
+            Console().print(f"Saved snapshot: {write_new(args.output, snapshot)}")
+        else:
+            Console().print(
+                json.dumps(snapshot, indent=2), markup=False, soft_wrap=True
+            )
+        return
+    changes = safe_value(differences(load(args.file), snapshot))
+    if args.snapshot_format == "json":
+        Console().print(
+            json.dumps({"differences": changes}, indent=2), markup=False, soft_wrap=True
+        )
+    elif changes:
+        for change in changes:
+            before = json.dumps(change["before"], ensure_ascii=False)
+            after = json.dumps(change["after"], ensure_ascii=False)
+            Console().print(
+                f"{change['change']}: {change['path']} — {before} → {after}",
+                markup=False,
+            )
+    else:
+        Console().print("Project matches the snapshot.")
+    if changes:
+        raise SystemExit(1)
+
+
+def _handle_inspect_legacy(
+    args: Namespace, parser: ArgumentParser, target: Path
+) -> None:
+    from plonex.services.legacy import inspect_project
+
+    import json
+
+    report = inspect_project(target)
+    if args.legacy_format == "json":
+        Console().print(json.dumps(report, indent=2), markup=False, soft_wrap=True)
+    else:
+        for item in report["findings"]:
+            Console().print(f"{item['kind']}: {item['summary']}", markup=False)
+            if item.get("suggestion"):
+                Console().print(f"  {item['suggestion']}", markup=False)
+        for note in report["notes"]:
+            Console().print(note, markup=False)
+    if any(item.get("severity") == "error" for item in report["findings"]):
+        raise SystemExit(1)
+
+
+def _handle_dependencies(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    if getattr(args, "dependencies_action", None) == "preview":
+        from plonex.services.install.preview import preview_dependencies
+
+        result = preview_dependencies(
+            target, online=args.online, output_format=args.preview_format
+        )
+        if not result["resolved"]:
+            raise SystemExit(1)
+        return
+    _run_service_dependencies(target, "dependencies")
+    persist_mode = getattr(args, "persist_mode", None)
+    with ServiceInvocation.from_args(args, target).create(InstallService) as svc:
+        if getattr(args, "show_outdated", False):
+            svc.run_show_outdated()
+        else:
+            svc.run(
+                persist=persist_mode == "project",
+                persist_local=persist_mode == "local",
+                persist_profile=persist_mode == "profile",
+                update_sources=getattr(args, "update_sources", None),
+                sync=getattr(args, "sync", False),
+            )
+
+
+def _handle_sources(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "sources")
+    sources_action = getattr(args, "sources_action", None) or "update"
+    glob_pattern = getattr(args, "glob", None)
+    with ServiceInvocation.from_args(args, target).create(SourcesService) as svc:
+        if sources_action == "update":
+            if getattr(args, "sources_force", False):
+                svc.run_update(
+                    force=True,
+                    assume_yes=getattr(args, "sources_yes", False),
+                    glob=glob_pattern,
+                )
+            else:
+                svc.run_update(glob=glob_pattern)
+        elif sources_action == "list":
+            svc.run_list(glob=glob_pattern)
+        elif sources_action == "missing":
+            svc.run_show_missing(glob=glob_pattern)
+        elif sources_action == "clone":
+            svc.run_clone_missing(
+                assume_yes=getattr(args, "sources_yes", False), glob=glob_pattern
+            )
+        elif sources_action == "tainted":
+            svc.run_show_tainted(glob=glob_pattern)
+        elif sources_action == "suggest":
+            svc.run_suggest_existing(
+                apply=getattr(args, "sources_apply", False),
+                apply_local=getattr(args, "sources_apply_local", False),
+                apply_profile=getattr(args, "sources_apply_profile", False),
+            )
+        else:
+            parser.print_help()
+
+
+def _handle_install(args: Namespace, parser: ArgumentParser, target: Path) -> None:
+    _run_service_dependencies(target, "install")
+    with ServiceInvocation.from_args(args, target).create(InstallService) as svc:
+        svc.add_packages(args.package)
+    with ServiceInvocation.from_args(args, target).create(InstallService) as svc:
+        if getattr(args, "dependencies_action", None) == "add":
+            persist_mode = getattr(args, "persist_mode", None)
+            svc.run(
+                persist=persist_mode == "project",
+                persist_local=persist_mode == "local",
+                persist_profile=persist_mode == "profile",
+                update_sources=getattr(args, "update_sources", None),
+                sync=False,
+            )
+        else:
+            svc.run()
+
+
+ACTION_HANDLERS = {
+    "compile": _handle_compile,
+    "doctor": _handle_doctor,
+    "snapshot": _handle_snapshot,
+    "inspect_legacy": _handle_inspect_legacy,
+    "dependencies": _handle_dependencies,
+    "sources": _handle_sources,
+    "install": _handle_install,
+}
