@@ -153,7 +153,7 @@ class TestBuildParser(unittest.TestCase):
         self.assertEqual(args.package, ["my.package", "other.package"])
 
     def test_action_upgrade(self):
-        args = self.parser.parse_args(["instance", "upgrade"])
+        args = self.parser.parse_args(["db", "upgrade"])
         self.assertEqual(args.action, "upgrade")
 
     def test_action_supervisor_default(self):
@@ -654,9 +654,7 @@ class TestMain(unittest.TestCase):
         MockSvc.return_value.run.assert_called_once()
 
     def test_action_upgrade(self):
-        svc = self._run_service(
-            ["instance", "upgrade"], "plonex.cli.runtime.UpgradeService"
-        )
+        svc = self._run_service(["db", "upgrade"], "plonex.cli.runtime.UpgradeService")
         svc.return_value.run.assert_called_once()
 
     def test_action_zeoserver(self):

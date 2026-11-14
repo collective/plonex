@@ -146,7 +146,7 @@ plonex supervisor restart
 
 `update` applies changed Supervisor program declarations; `restart` restarts the
 existing managed programs. Plone database upgrades remain explicit through
-`plonex instance upgrade`.
+`plonex db upgrade`.
 
 This first graph covers Supervisor startup. `supervisor status` and `supervisor stop`
 perform no preparation. Other command families retain their existing behavior;

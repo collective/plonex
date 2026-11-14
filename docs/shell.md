@@ -52,7 +52,7 @@ instance:
 ```text
 plonex[myproject]> instance debug
 ... instance starts; press Ctrl-Z ...
-plonex[myproject]> instance upgrade
+plonex[myproject]> db upgrade
 plonex[myproject]> fg
 ... back to the same instance and its live output ...
 ```

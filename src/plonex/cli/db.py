@@ -33,6 +33,13 @@ def register_db_parsers(subs, add_subparser) -> None:
     restore.add_argument(
         "--from", dest="restore_backup", help="Backup snapshot directory"
     )
+    upgrade = db_subs.add_parser(
+        "upgrade",
+        parents=[subs.choices["upgrade"]],
+        add_help=False,
+        help="Run Plone database upgrade steps",
+    )
+    upgrade.set_defaults(action="upgrade")
     db_pack_parser = add_subparser(
         db_subs,
         "pack",

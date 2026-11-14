@@ -22,7 +22,7 @@ plonex[myproject]> db start &
 plonex[myproject]> instance debug
 ... press Ctrl-Z to return to the prompt ...
 plonex[myproject]> options %2
-plonex[myproject]> instance upgrade
+plonex[myproject]> db upgrade
 plonex[myproject]> fg %2
 ```
 
@@ -211,15 +211,14 @@ See [Plone's console documentation](https://6.docs.plone.org/admin-guide/run-plo
 
 ## How do I run upgrade steps?
 
-Keep the configured application running, then run `plonex instance upgrade`.
-Install and enable `collective.ftw.upgrade` in the target project and site. Set
-`upgrade_tempfile_auth: true` in YAML and restart the instance to enable private
-temporary-file authentication for the same OS account. The default instance URL
-uses the configured HTTP port; select another running instance with
-`plonex instance upgrade --url http://127.0.0.1:8081/`. Alternatively configure
-the upgrade tool's authentication and URL environment variables explicitly.
-In the shell, detach the instance with Ctrl-Z, run the upgrade, and reattach.
-Review and back up the database before planned deployment upgrades.
+Run `plonex db upgrade` with the ZEO server running. Install and enable
+`collective.ftw.upgrade` in the target project and site. Plonex starts a temporary
+local instance with private authentication, runs the upgrade, and stops it. Output
+is recorded in `var/log/upgrade.logs`.
+
+To use an already running instance instead, pass
+`--url http://127.0.0.1:8081/` and configure its upgrade authentication. Review
+and back up the database before planned deployment upgrades.
 
 ## Why does Supervisor startup prepare dependencies and templates?
 

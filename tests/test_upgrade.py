@@ -22,7 +22,12 @@ class TestUpgradeService(PloneXTestCase):
             (cwd / ".venv" / "bin").mkdir(parents=True)
             (cwd / ".venv" / "bin" / "activate").touch()
             (cwd / ".venv" / "bin" / "upgrade").touch()
-            with UpgradeService(cli_options={"upgrade_tempfile_auth": True}) as svc:
+            with UpgradeService(
+                cli_options={
+                    "upgrade_tempfile_auth": True,
+                    "upgrade_url": "http://127.0.0.1:8000/",
+                }
+            ) as svc:
                 with mock.patch.object(svc, "run_command") as mock_run:
                     svc.run()
                 self.assertEqual(mock_run.call_count, 2)
@@ -114,7 +119,9 @@ def test_upgrade_ignores_unrelated_ambient_auth_directory_when_opted_in(
     (tmp_path / ".venv/bin/upgrade").touch()
     monkeypatch.setenv("UPGRADE_TEMPFILE_AUTH_DIR", "/unrelated/ambient")
     seen = []
-    with UpgradeService(target=tmp_path) as service:
+    with UpgradeService(
+        target=tmp_path, cli_options={"upgrade_url": "http://127.0.0.1:8000/"}
+    ) as service:
         with mock.patch.object(
             service,
             "run_command",
@@ -125,3 +132,61 @@ def test_upgrade_ignores_unrelated_ambient_auth_directory_when_opted_in(
             service.run()
     assert seen == [str(tmp_path / "var/ftw.upgrade-authentication")] * 2
     assert os.environ["UPGRADE_TEMPFILE_AUTH_DIR"] == "/unrelated/ambient"
+
+
+def test_temporary_instance_uses_project_configuration_and_cleans_up(tmp_path):
+    from plonex.services import upgrade as module
+
+    (tmp_path / "etc").mkdir()
+    (tmp_path / "etc/plonex.yml").write_text(
+        "environment_vars:\n  EXAMPLE_SETTING: preserved\n"
+    )
+    (tmp_path / ".venv/bin").mkdir(parents=True)
+    (tmp_path / ".venv/bin/activate").touch()
+    (tmp_path / ".venv/bin/upgrade").touch()
+    probe = mock.MagicMock()
+    probe.__enter__.return_value.getsockname.return_value = ("127.0.0.1", 45999)
+    process = mock.MagicMock()
+    process.poll.return_value = None
+    captured = {}
+
+    def launch(command, **kwargs):
+        config = Path(command[1])
+        captured["ini"] = config.read_text()
+        captured["zope"] = (config.parent / "zope.conf").read_text()
+        captured["folder"] = config.parent.parent
+        return process
+
+    from pathlib import Path
+
+    with UpgradeService(target=tmp_path) as service:
+        with (
+            mock.patch.object(module.socket, "socket", return_value=probe),
+            mock.patch.object(module.socket, "create_connection"),
+            mock.patch.object(module.subprocess, "Popen", side_effect=launch),
+            mock.patch.object(service, "run_command") as run,
+        ):
+            service.run()
+    assert run.call_count == 2
+    assert "127.0.0.1:45999" in captured["ini"]
+    assert str(tmp_path / "var/log/upgrade.logs") in captured["ini"]
+    assert "EXAMPLE_SETTING preserved" in captured["zope"]
+    assert "UPGRADE_TEMPFILE_AUTH_DIR" in captured["zope"]
+    process.terminate.assert_called_once()
+    assert not captured["folder"].exists()
+
+
+def test_upgrade_command_output_is_logged_and_failure_propagates(tmp_path, capsys):
+    import pytest
+    import sys
+
+    (tmp_path / ".venv/bin").mkdir(parents=True)
+    (tmp_path / ".venv/bin/activate").touch()
+    with UpgradeService(target=tmp_path) as service:
+        with pytest.raises(SystemExit) as failure:
+            service.run_command(
+                [sys.executable, "-c", "print('upgrade output'); exit(3)"]
+            )
+    assert failure.value.code == 3
+    assert "upgrade output" in capsys.readouterr().out
+    assert "upgrade output" in (tmp_path / "var/log/upgrade.logs").read_text()

@@ -36,7 +36,7 @@ def project(tmp_path, monkeypatch):
             ["run", "--", "task.py", "--flag"],
         ),
         (["instance", "add-user", "admin", "secret"], ["adduser", "admin", "secret"]),
-        (["instance", "upgrade"], ["upgrade"]),
+        (["db", "upgrade"], ["upgrade"]),
         (["db", "start"], ["zeoserver"]),
         (
             ["test", "pytest", "demo.pkg", "-k", "login", "--pdb"],

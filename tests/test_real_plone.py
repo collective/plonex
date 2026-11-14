@@ -225,7 +225,7 @@ transaction.commit()
             assert checked.returncode == 0, checked.stdout + checked.stderr
             assert "SITE_TITLE: Updated by scheduled job" in checked.stdout
             upgraded = subprocess.run(
-                [*prefix, "instance", "upgrade", "--url", f"http://127.0.0.1:{port}/"],
+                [*prefix, "db", "upgrade", "--url", f"http://127.0.0.1:{port}/"],
                 cwd=tmp_path,
                 env=env,
                 capture_output=True,
@@ -233,6 +233,19 @@ transaction.commit()
                 timeout=120,
             )
             assert upgraded.returncode == 0, upgraded.stdout + upgraded.stderr
+            temporary_upgrade = subprocess.run(
+                [*prefix, "db", "upgrade"],
+                cwd=tmp_path,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=180,
+            )
+            assert temporary_upgrade.returncode == 0, (
+                temporary_upgrade.stdout
+                + temporary_upgrade.stderr
+                + (tmp_path / "var/log/upgrade.logs").read_text()
+            )
     finally:
         for proc in reversed(processes):
             if proc.poll() is None:

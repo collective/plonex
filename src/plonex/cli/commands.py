@@ -36,7 +36,6 @@ COMMAND_GROUPS = (
             "console": "zconsole",
             "run": "run",
             "add-user": "adduser",
-            "upgrade": "upgrade",
         },
     ),
     CommandGroup(
@@ -117,7 +116,11 @@ def shortcut_commands() -> dict[str, str]:
         command: f"{group.name} {action}"
         for group in COMMAND_GROUPS
         for action, command in group.commands.items()
-    } | {"install": "dependencies add", "zeoserver": "db start"}
+    } | {
+        "install": "dependencies add",
+        "zeoserver": "db start",
+        "upgrade": "db upgrade",
+    }
 
 
 def validate_command_args(parser: ArgumentParser, args: Namespace) -> Namespace:

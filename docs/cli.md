@@ -10,9 +10,9 @@ performs no operation, including outside an initialized project.
 | `project`      | `init`, `compile`, `describe`, `doctor`, `snapshot`, `inspect-legacy`, `edit`                                                  | Project configuration and reports      |
 | `dependencies` | `install`, `sync`, `outdated`, `add`, `preview`                                                                                | Requirements and virtualenv management |
 | `sources`      | `list`, `clone`, `update`, `missing`, `tainted`, `suggest`                                                                     | Source checkouts                       |
-| `instance`     | `start`, `debug`, `console`, `run`, `add-user`, `upgrade`                                                                      | Plone instances                        |
+| `instance`     | `start`, `debug`, `console`, `run`, `add-user`                                                                                 | Plone instances                        |
 | `supervisor`   | `status`, `start`, `stop`, `restart`, `graceful`, `reread`, `update`                                                           | Background services                    |
-| `db`           | `start`, `backup`, `restore`, `pack`                                                                                           | The ZEO database                       |
+| `db`           | `start`, `backup`, `restore`, `pack`, `upgrade`                                                                                | The ZEO database                       |
 | `test`         | `pytest`, `zope`, `robot`, `robot-server`, `sources`                                                                           | Tests and test services                |
 | `cron`         | `list`, `run`, `enqueue`, `history`, `logs`, `configure`, `daemon`, `status`, `queue`, `inspect`, `retry`, `revoke`, `restore` | Scheduled jobs                         |
 
@@ -229,7 +229,7 @@ The following old forms are removed, rather than hidden aliases:
 | `runwsgi`, `fg`                                  | `instance start`, `instance debug`                                    |
 | `zconsole`, `zconsole debug`                     | `instance console`                                                    |
 | `run`, `zconsole run`                            | `instance run`                                                        |
-| `adduser`, `upgrade`                             | `instance add-user`, `instance upgrade`                               |
+| `adduser`, `upgrade`                             | `instance add-user`, `db upgrade`                                     |
 | `zeoserver`                                      | `db start`                                                            |
 | `pytest`, `zopetest`, `robottest`, `robotserver` | `test pytest`, `test zope`, `test robot`, `test robot-server`         |
 | `sources clone-missing`                          | `sources clone`                                                       |

@@ -14,7 +14,7 @@ Use `sources list` to inspect selection and checkout health, `sources clone`
 to obtain missing code, and `dependencies install` to install it. Editable installation
 avoids reinstalling after ordinary Python edits; dependency or extra changes still
 require `dependencies install`. Restart the application when its imports or configuration
-need refreshing. Use the existing shell's Ctrl-Z detachment, `instance upgrade`, and `fg`
+need refreshing. Use the existing shell's Ctrl-Z detachment, `db upgrade`, and `fg`
 attachment when the application needs to keep running during an upgrade.
 
 ## Current reporting and scheduling

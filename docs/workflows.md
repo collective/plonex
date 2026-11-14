@@ -219,7 +219,7 @@ their branch, repository, and checkout health. The highlighted YAML suggestion
 appears in a separate panel. Name filters apply to both rows and suggestions;
 Git inspection output stays inside the report.
 
-`instance upgrade`
+`db upgrade`
 
 - Run Plone upgrade steps.
 
