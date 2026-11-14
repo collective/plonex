@@ -141,9 +141,9 @@ class JobRunner:
             )
             for key, value in runtime.options.get("environment_vars", {}).items()
         }
-        return [*runtime.command, str(script)], environment | {
-            "PLONEX_JOB_SPEC": str(spec)
-        }
+        return [*runtime.command, str(script)], (
+            environment | runtime.plonex_environment | {"PLONEX_JOB_SPEC": str(spec)}
+        )
 
     @staticmethod
     def terminate_many(processes):
@@ -235,7 +235,15 @@ class JobRunner:
                     environment.update(extra_env)
                     environment.update(job.environment)
                     if "PLONEX_JOB_SPEC" in extra_env:
-                        environment["PLONEX_JOB_SPEC"] = extra_env["PLONEX_JOB_SPEC"]
+                        for key in (
+                            "PLONEX_JOB_SPEC",
+                            "PLONEX_TARGET",
+                            "PLONEX_INSTANCE_NAME",
+                            "PLONEX_INSTANCE_HOME",
+                            "PLONEX_COMMAND",
+                            "PLONEX_VERSION",
+                        ):
+                            environment[key] = extra_env[key]
                     environment.setdefault("PYTHONUNBUFFERED", "1")
                     with self.mutex:
                         if self.stopping.is_set():

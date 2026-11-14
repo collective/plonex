@@ -99,6 +99,14 @@ class ServiceInvocation:
         """An override preserves existing CLI mock and extension points."""
         service = (service_type or self.service_type)(**self.kwargs)
         service._invocation_parameters = self.parameters
+        command = {
+            "runwsgi": "instance start",
+            "fg": "instance debug",
+            "zconsole": "instance console",
+            "run": "instance run",
+        }.get(self.command)
+        if command:
+            service._plonex_command = command
         return service
 
     def snapshot_environment(self, path: Path) -> dict[str, str]:

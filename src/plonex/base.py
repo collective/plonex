@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from dataclasses import field
 from functools import cached_property
 from functools import wraps
+from importlib.metadata import version
 from jinja2 import BaseLoader
 from jinja2 import Environment
 from pathlib import Path
@@ -49,6 +50,7 @@ class BaseService:
     logger: logging.Logger = field(default=logger, init=False)
     _entered: bool = field(default=False, init=False)
     _invocation_parameters: dict | None = field(default=None, init=False, repr=False)
+    _plonex_command: str | None = field(default=None, init=False, repr=False)
 
     stream_output: ClassVar[bool] = False
     command_output_enabled: ClassVar[bool] = True
@@ -682,6 +684,9 @@ class ZopeBasedService(BaseService):
     """
 
     tmp_folder: Path | None = None
+    _zope_template_environment: dict = field(
+        default_factory=dict, init=False, repr=False
+    )
     zope_conf_template: str = (
         "resource://plonex.services.zope_configuration.templates:zope.conf.j2"  # noqa: E501
     )
@@ -812,6 +817,11 @@ class ZopeBasedService(BaseService):
         else:
             deprecation_warnings = default_warning_action
         self._deprecation_warning_action = deprecation_warnings
+        self._zope_template_environment = (
+            self.options.get("environment_vars", {})
+            | upgrade_environment
+            | self.plonex_environment
+        )
         pre_services = [
             TemplateService(
                 source_path=self.zope_conf_template,
@@ -825,9 +835,7 @@ class ZopeBasedService(BaseService):
                         "security_policy_implementation"
                     )
                     or security_policy_implementation,
-                    "environment_vars": self.options.get("environment_vars", {})
-                    | upgrade_environment
-                    | {"PLONEX_TARGET": str(self.target.absolute())},
+                    "environment_vars": self._zope_template_environment,
                     "verbose_security": self.options.get("verbose_security")
                     or verbose_security,
                     "blobstorage": self.options["blobstorage"],
@@ -891,18 +899,40 @@ class ZopeBasedService(BaseService):
 
     def __enter__(self):
         self._prepare_zope_runtime()
+        # Invocation metadata is attached after construction, before entry.
+        self._zope_template_environment.update(self.plonex_environment)
         return super().__enter__()
 
+    @property
+    def plonex_environment(self) -> dict[str, str]:
+        assert self.tmp_folder is not None
+        command = getattr(self, "_plonex_command", None)
+        if command is None:
+            action = getattr(self, "action", "")
+            command = {
+                "run": "instance run",
+                "debug": "instance console",
+            }.get(action, "instance start")
+        return {
+            "PLONEX_TARGET": str(self.target.absolute()),
+            "PLONEX_INSTANCE_NAME": self.name,
+            "PLONEX_INSTANCE_HOME": str(self.tmp_folder.absolute()),
+            "PLONEX_COMMAND": command,
+            "PLONEX_VERSION": version("plonex"),
+        }
+
     def run_command(self, command: Sequence[str | Path | int], cwd: Path | None = None):
-        previous_root = os.environ.get("PLONEX_TARGET")
-        os.environ["PLONEX_TARGET"] = str(self.target.absolute())
+        environment = self.plonex_environment
+        previous = {key: os.environ.get(key) for key in environment}
+        os.environ.update(environment)
         try:
             return self._run_zope_command(command, cwd)
         finally:
-            if previous_root is None:
-                os.environ.pop("PLONEX_TARGET", None)
-            else:
-                os.environ["PLONEX_TARGET"] = previous_root
+            for key, value in previous.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
 
     def _run_zope_command(self, command: Sequence[str | Path | int], cwd: Path | None):
         # Python reads PYTHONWARNINGS when the child interpreter starts.

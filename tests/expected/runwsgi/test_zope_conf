@@ -8,6 +8,10 @@ verbose-security off
 default-zpublisher-encoding utf-8
 <environment>
     PLONEX_TARGET TARGET_PATH
+    PLONEX_INSTANCE_NAME runwsgi
+    PLONEX_INSTANCE_HOME TARGET_PATH/tmp/runwsgi
+    PLONEX_COMMAND instance start
+    PLONEX_VERSION PLONEX_VERSION_VALUE
 </environment>
 <zodb_db main>
     # Main database

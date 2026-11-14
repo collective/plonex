@@ -402,6 +402,9 @@ def test_plone_job_renders_isolated_runtime_and_private_payload_without_global_e
     assert payload.stat().st_mode & 0o777 == 0o600
     assert json.loads(payload.read_text())["user"] == "scheduler"
     assert environment["PLONEX_RENDER_TEST"] == "runtime"
+    assert environment["PLONEX_INSTANCE_NAME"] == "nightly"
+    assert environment["PLONEX_INSTANCE_HOME"] == str(configuration.parent.parent)
+    assert environment["PLONEX_COMMAND"] == "instance run"
     assert "PLONEX_RENDER_TEST" not in os.environ
     second, _ = runner.command(service.jobs.get("stats"), "second-run")
     assert second[2] != command[2]

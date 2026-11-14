@@ -1175,10 +1175,19 @@ one place and make only small targeted overrides where needed.
 
 ### Project environment variables
 
-Plonex automatically supplies `PLONEX_TARGET` to Zope instances and
-instance console and run commands. Its value is the absolute project root;
-it takes precedence over a value inherited from the shell or defined in the
-configuration.
+Plonex supplies these variables to Zope instances, console sessions, and scripts:
+
+- `PLONEX_TARGET`: absolute project root.
+- `PLONEX_INSTANCE_NAME`: runtime service name, selected with `--name` where
+  supported (for example, `instance1`). Defaults are `runwsgi`, `fg`, and
+  `zconsole` for start, debug, and console or run, respectively.
+- `PLONEX_INSTANCE_HOME`: absolute path of the generated instance runtime directory.
+- `PLONEX_COMMAND`: `instance start`, `instance debug`, `instance console`, or
+  `instance run`. Internal Zope script jobs use `instance run`.
+- `PLONEX_VERSION`: version of Plonex launching the process.
+
+These values take precedence over values inherited from the shell or defined
+in configuration.
 
 Before running a command, plonex reads the optional `.env` and `.env.local` files
 in the project root (the directory containing `etc/plonex.yml`). Both supply

@@ -8,6 +8,10 @@ verbose-security off
 default-zpublisher-encoding utf-8
 <environment>
     PLONEX_TARGET TARGET_PATH
+    PLONEX_INSTANCE_NAME zconsole
+    PLONEX_INSTANCE_HOME TARGET_PATH/tmp/zconsole
+    PLONEX_COMMAND instance run
+    PLONEX_VERSION PLONEX_VERSION_VALUE
 </environment>
 <zodb_db main>
     # Main database

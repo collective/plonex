@@ -2,6 +2,7 @@ from contextlib import chdir
 from contextlib import contextmanager
 from dataclasses import dataclass
 from dataclasses import field
+from importlib.metadata import version
 from pathlib import Path
 from plonex import logger
 from tempfile import TemporaryDirectory
@@ -62,6 +63,8 @@ class ReadExpected:
             text = text.replace("CONF_PATH", str(service.etc_folder))
         if "TARGET_PATH" in text:
             text = text.replace("TARGET_PATH", str(service.target))
+        if "PLONEX_VERSION_VALUE" in text:
+            text = text.replace("PLONEX_VERSION_VALUE", version("plonex"))
 
         return text
 
