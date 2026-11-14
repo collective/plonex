@@ -359,7 +359,27 @@ class DescribeService(BaseService):
 
         import json
 
-        report = safe_value(ProjectReport(self).build())
+        builder = ProjectReport(self)
+        report = safe_value(builder.build())
+        references = (
+            builder.trace.safe_options()
+            if any(section["key"] == "configuration" for section in report["sections"])
+            else {}
+        )
+        origins = (
+            {
+                row["key"]: safe_value(row["source"])
+                for row in builder.trace.rows(nested=True)
+                if row["active"]
+            }
+            if references
+            else {}
+        )
+        from .formatting import render_value
+        from .formatting import variable_definitions
+
+        destinations = variable_definitions(report, references, origins)
+
         self.description_path.write_text(report["markdown"])
         if (
             self.describe_template
@@ -385,6 +405,10 @@ class DescribeService(BaseService):
             .from_string(template)
             .render(
                 report=report,
+                render_value=render_value,
+                references=references,
+                origins=origins,
+                destinations=destinations,
                 file_uri=self.report_file_uri,
                 markdown_file=self.description_path.name,
                 json_file=json_path.name,

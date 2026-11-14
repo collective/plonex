@@ -280,3 +280,115 @@ class TestDescribeService(PloneXTestCase):
             self.assertTrue(service.description_html_path.is_file())
             self.assertIn("<nav", service.description_html_path.read_text())
             browser.assert_called_once_with(service.description_html_path.as_uri())
+
+
+def test_html_formats_structured_values_and_resolves_variable_tooltips(tmp_path):
+    from html import unescape
+    from html.parser import HTMLParser
+
+    (tmp_path / "etc").mkdir()
+    (tmp_path / "etc/plonex.yml").write_text(
+        'project_label: "Example <site>"\n'
+        'output_path: "{{ project_label }}/output"\n'
+        'api_token: "secret-value"\n'
+        'derived_secret: "{{ api_token }}"\n'
+        "cron_jobs:\n  pack-db:\n    command: [plonex, db, pack]\n"
+        '    schedule: "0 3 * * 0"\n'
+    )
+    with DescribeService(target=tmp_path, section="configuration") as service:
+        service.run()
+    html = service.description_html_path.read_text()
+    assert '<pre class="formatted-value">' in html
+    assert 'class="nt"' in html
+    assert '<a class="variable" href="#variable-' in html
+    from re import search
+
+    anchor = search(r'href="#(variable-[a-f0-9]+)"', html).group(1)
+    assert f'id="{anchor}"' in html
+    assert (tmp_path / "etc/plonex.yml").as_uri() in html
+    assert 'title="project_label: Example &lt;site&gt;\nDefined in:' in html
+    assert "secret-value" not in html
+    assert "Example <site>" not in html
+
+    class Text(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.parts = []
+
+        def handle_data(self, data):
+            self.parts.append(data)
+
+    parser = Text()
+    parser.feed(html)
+    text = unescape("".join(parser.parts))
+    assert "pack-db:" in text
+    assert "\n  command:\n  - plonex" in text
+
+
+def test_yaml_and_unresolved_variables_are_escaped_and_readable():
+    from plonex.services.describe.formatting import render_value
+
+    html = str(
+        render_value(
+            "site: {{ target }}\nitems:\n  - one\n  - two\n",
+            {"target": '<img src=x onerror="bad">'},
+        )
+    )
+    assert html.startswith('<pre class="formatted-value">')
+    assert 'class="variable"' in html
+    assert "&lt;img" in html
+    assert "<img" not in html
+    assert 'class="nt"' in html or 'class="p"' in html
+    assert "{{ absent }}" in str(render_value("{{ absent }}", {}))
+
+
+def test_formatted_yaml_preserves_variable_position_and_lexer_state():
+    from html.parser import HTMLParser
+    from plonex.services.describe.formatting import render_value
+
+    import yaml
+
+    value = {
+        "pack-db": {
+            "schedule": "{{ pack_db_time }}",
+            "command": ["plonex", "db", "pack"],
+            "timeout": 14400,
+        }
+    }
+    html = str(render_value(value, {"pack_db_time": "0 3 * * 0"}))
+
+    class Text(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.parts = []
+
+        def handle_data(self, data):
+            self.parts.append(data)
+
+    parser = Text()
+    parser.feed(html)
+    text = "".join(parser.parts)
+    assert yaml.safe_load(text) == value
+    assert "schedule: '{{ pack_db_time }}'" in text
+    assert 'title="pack_db_time: 0 3 * * 0"' in html
+    assert '<span class="nt">command</span>' in html
+
+
+def test_variable_origin_handles_nested_values_and_non_file_sources():
+    from plonex.services.describe.formatting import render_value
+
+    rendered = str(
+        render_value(
+            "{{ settings.label }} and {{ default }}",
+            {"settings": {"label": "<value>"}, "default": "fallback"},
+            {"settings.label": 'config "source"', "default": "service defaults"},
+            {"settings.label": {"anchor": "variable-example"}},
+        )
+    )
+    assert '<a class="variable" href="#variable-example"' in rendered
+    assert (
+        "settings.label: &lt;value&gt;\nDefined in: config &quot;source&quot;"
+        in rendered
+    )
+    assert 'class="variable" tabindex="0"' in rendered
+    assert "default: fallback\nDefined in: service defaults" in rendered
