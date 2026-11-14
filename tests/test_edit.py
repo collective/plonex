@@ -224,13 +224,11 @@ class TestEditService(PloneXTestCase):
             svc = EditService()
             files = [file1, file2]
 
-            # Mock user selection of both files
+            # Multiple selections are rejected.
             with mock.patch("plonex.services.edit.Prompt.ask", return_value="1,2"):
                 result = svc.select_files_interactive(files)
 
-            self.assertEqual(len(result), 2)
-            self.assertIn(file1, result)
-            self.assertIn(file2, result)
+            self.assertEqual(result, [])
 
     def test_select_files_interactive_with_single_selection(self):
         """Test interactive file selection with single file selection."""
@@ -267,6 +265,22 @@ class TestEditService(PloneXTestCase):
 
             self.assertEqual(result, [])
 
+    def test_select_files_uses_picker_on_terminal(self):
+        with temp_cwd() as cwd:
+            files = [cwd / "etc" / "plonex.yml"]
+            with mock.patch("plonex.services.edit.sys.stdin.isatty", return_value=True):
+                with mock.patch("plonex.services.edit.Console") as console:
+                    console.return_value.is_terminal = True
+                    with mock.patch("plonex.services.edit.FilePicker") as picker:
+                        picker.return_value.choose.return_value = files
+                        assert EditService().select_files_interactive(files) == files
+                        picker.return_value.choose.assert_called_once_with()
+
+    def test_noninteractive_selection_handles_eof(self):
+        with temp_cwd() as cwd:
+            with mock.patch("plonex.services.edit.Prompt.ask", side_effect=EOFError):
+                assert EditService().select_files_interactive([cwd / "test.yml"]) == []
+
     def test_run_with_open_all_flag(self):
         """Test that run() uses all files when open_all is True."""
         with temp_cwd():
@@ -286,6 +300,24 @@ class TestEditService(PloneXTestCase):
             self.assertEqual(command[0], "echo")
             self.assertIn(str(etc_folder / "plonex.yml"), command)
             self.assertTrue(kwargs.get("stream_output"))
+            self.assertEqual(kwargs["cwd"], svc.target)
+
+    def test_open_all_passes_one_file_to_each_editor_invocation(self):
+        with temp_cwd() as cwd:
+            files = [cwd / "one.yml", cwd / "two.yml"]
+            with EditService(open_all=True, cli_options={"editor": "echo"}) as svc:
+                with mock.patch.object(
+                    svc, "discover_config_files", return_value=files
+                ):
+                    with mock.patch.object(svc, "execute_command") as execute:
+                        svc.run()
+            self.assertEqual(
+                execute.call_args_list,
+                [
+                    mock.call(["echo", str(path)], cwd=cwd, stream_output=True)
+                    for path in files
+                ],
+            )
 
     def test_run_with_interactive_selection(self):
         """Test that run() uses interactive selection when open_all is False."""

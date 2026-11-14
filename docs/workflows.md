@@ -226,7 +226,10 @@ Git inspection output stays inside the report.
 ## Configuration editing
 
 There is a dedicated `plonex project edit` command to help you edit the configuration files for your `plonex` project.
-You can use `--all` to open all discovered config files in your editor, otherwise you can select which files to edit interactively.
+Use the arrow keys to move through the file picker, Enter to open the highlighted
+file, or `q` to cancel. With non-interactive input, enter one file number. Use
+`--all` to open each discovered file in a separate editor invocation, one after
+another. Editors that return immediately may leave multiple windows open.
 The selected editor:
 
 1. with the `--editor` option in the command line

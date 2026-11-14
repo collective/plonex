@@ -342,7 +342,7 @@ def register_setup_parsers(subs, add_subparser) -> None:
     )
     edit_parser.add_argument(
         "--all",
-        help="Open all discovered configuration files (bypass interactive menu)",
+        help="Open all discovered configuration files one at a time",
         required=False,
         default=False,
         action="store_true",

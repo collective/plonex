@@ -3,10 +3,12 @@
 from dataclasses import dataclass
 from pathlib import Path
 from plonex.base import BaseService
+from plonex.services.edit.tui import FilePicker
 from rich.console import Console
 from rich.prompt import Prompt
 
 import os
+import sys
 
 
 @dataclass(kw_only=True)
@@ -21,7 +23,7 @@ class EditService(BaseService):
     1. CLI --editor flag (passed via cli_options)
     2. plonex.yml options.editor setting
     3. $EDITOR environment variable
-    4. Fallback to 'nano'
+    4. Fallback to 'open'
     """
 
     name: str = "edit"
@@ -78,7 +80,7 @@ class EditService(BaseService):
         1. CLI --editor flag (passed via cli_options)
         2. plonex.yml options.editor
         3. $EDITOR environment variable
-        4. Fallback to 'nano'
+        4. Fallback to 'open'
         """
         # 1. CLI option
         if self.cli_options.get("editor"):
@@ -108,6 +110,9 @@ class EditService(BaseService):
             return []
 
         console = Console()
+        if sys.stdin.isatty() and console.is_terminal:
+            return FilePicker(files, self.target, console).choose()
+
         console.print("[bold]Available configuration files:[/bold]")
 
         # Display files with their relative paths and numbers
@@ -123,36 +128,23 @@ class EditService(BaseService):
         console.print()
 
         try:
-            selection_str = Prompt.ask(
-                "Enter file numbers to edit (comma-separated, e.g., 1,3,5)",
-                console=console,
-            )
-        except KeyboardInterrupt:
+            selection_str = Prompt.ask("Enter a file number to edit", console=console)
+        except (KeyboardInterrupt, EOFError):
             console.print("\n[yellow]Selection cancelled by user.[/yellow]")
             return []
 
-        selected_files: list[Path] = []
-        if selection_str.strip():
-            try:
-                indices = [int(x.strip()) for x in selection_str.split(",")]
-                for idx in indices:
-                    if 1 <= idx <= len(file_display):
-                        selected_files.append(file_display[idx - 1][2])
-                    else:
-                        console.print(
-                            f"[yellow]Warning: Invalid selection {idx}, "
-                            f"skipping.[/yellow]"
-                        )
-            except ValueError:
-                console.print(
-                    "[red]Invalid input. Please enter comma-separated numbers.[/red]"
-                )
-                return []
-        else:
+        if not selection_str.strip():
             console.print("[yellow]No files selected. Exiting.[/yellow]")
             return []
-
-        return selected_files
+        try:
+            index = int(selection_str.strip())
+        except ValueError:
+            console.print("[red]Invalid input. Please enter one file number.[/red]")
+            return []
+        if not 1 <= index <= len(file_display):
+            console.print(f"[yellow]Invalid selection {index}.[/yellow]")
+            return []
+        return [file_display[index - 1][2]]
 
     def run(self) -> None:
         """Run the edit service.
@@ -182,8 +174,10 @@ class EditService(BaseService):
 
         try:
             self.logger.info(f"Opening {len(selected_files)} file(s) with {editor}")
-            file_paths = [str(f) for f in selected_files]
-            self.execute_command([editor] + file_paths, stream_output=True)
+            for file_path in selected_files:
+                self.execute_command(
+                    [editor, str(file_path)], cwd=self.target, stream_output=True
+                )
         except Exception as e:
             console = Console()
             console.print(f"[red]Error opening editor '{editor}': {e}[/red]")
