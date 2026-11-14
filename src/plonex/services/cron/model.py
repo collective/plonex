@@ -19,6 +19,7 @@ class Job:
     command: tuple[str, ...] = ()
     callable: str = ""
     site: str = "/Plone"
+    vhm: str = ""
     context: str = ""
     user: str = ""
     runtime: str = "cron"
@@ -133,9 +134,30 @@ class JobSet:
                 raise ValueError(f"Cron job {name!r}: callable must be module:function")
             if function and not values.get("user"):
                 raise ValueError(f"Cron job {name!r}: a named Plone user is required")
-            for key in ("site", "context", "user", "runtime", "timezone", "lock"):
+            for key in (
+                "site",
+                "vhm",
+                "context",
+                "user",
+                "runtime",
+                "timezone",
+                "lock",
+            ):
                 if key in values and not isinstance(values[key], str):
                     raise ValueError(f"Cron job {name!r}: {key} must be a string")
+            if values.get("vhm"):
+                parts = values["vhm"].split("/")
+                if (
+                    not function
+                    or len(parts) < 4
+                    or parts[:2] != ["", "VirtualHostBase"]
+                    or parts[2] not in {"http", "https"}
+                    or not parts[3]
+                ):
+                    raise ValueError(
+                        f"Cron job {name!r}: vhm requires a callable and an absolute "
+                        "VirtualHostBase path with protocol and host"
+                    )
             if "enabled" in values and not isinstance(values["enabled"], bool):
                 raise ValueError(f"Cron job {name!r}: enabled must be a boolean")
             for key in ("timeout", "lock_timeout", "retries", "retry_delay"):

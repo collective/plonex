@@ -18,6 +18,8 @@ def execute(app, specification):
 
     old_site = getSite()
     try:
+        if specification.get("vhm"):
+            app.REQUEST.traverse(specification["vhm"])
         site = app.unrestrictedTraverse(specification["site"].strip("/"))
         setSite(site)
         with adopt_user(username=specification["user"]):

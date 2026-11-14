@@ -78,6 +78,19 @@ The project must have Plone, its add-on, and `zconsole` installed, and ZEO must 
 available. Normal Zope configuration, ZCML additions, blob paths, and environment
 settings apply. `runtime: cron` selects `etc/plonex-cron.yml` overrides.
 
+To set the public URL for a callable job, optionally provide a Zope virtual-host
+traversal path, for example:
+
+```yaml
+    vhm: /VirtualHostBase/https/example.com:443/Plone/client/
+```
+
+The runner traverses this path on the job's synthetic request before invoking
+the callable. Use the same `VirtualHostRoot` and `_vh_` directives as in your
+proxy configuration when the public path differs from the physical Zope path.
+The path must resolve in the target Zope instance. `site` still identifies the
+physical Plone site and `context` remains relative to that site.
+
 This is trusted server-side code running as the deployment OS account. Naming a
 Plone user provides the application security context; it is not a sandbox for
 untrusted Python code.

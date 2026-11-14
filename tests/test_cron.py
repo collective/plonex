@@ -60,6 +60,8 @@ def project(tmp_path, monkeypatch):
         {"lock": "../outside"},
         {"kwargs": []},
         {"kwargs": {"value": object()}},
+        {"vhm": "/VirtualHostBase/https/example.com:443/Plone/"},
+        {"vhm": 42},
         {"unknown": True},
     ],
 )
@@ -81,6 +83,42 @@ def test_plone_job_requires_one_callable_and_an_explicit_user():
     ):
         with pytest.raises(ValueError):
             JobSet.from_options({"cron_jobs": {"bad": spec}})
+
+
+@pytest.mark.parametrize(
+    "path", ["/VirtualHostBase/https/", "/bad", "/VirtualHostBase/ftp/example.com/"]
+)
+def test_plone_job_rejects_invalid_virtual_host_path(path):
+    with pytest.raises(ValueError, match="vhm"):
+        JobSet.from_options(
+            {
+                "cron_jobs": {
+                    "job": {
+                        "schedule": "* * * * *",
+                        "callable": "example:run",
+                        "user": "scheduler",
+                        "vhm": path,
+                    }
+                }
+            }
+        )
+
+
+def test_plone_job_accepts_virtual_host_path():
+    path = "/VirtualHostBase/https/example.com:443/Plone/client/"
+    job = JobSet.from_options(
+        {
+            "cron_jobs": {
+                "job": {
+                    "schedule": "* * * * *",
+                    "callable": "example:run",
+                    "user": "scheduler",
+                    "vhm": path,
+                }
+            }
+        }
+    ).get("job")
+    assert job.vhm == path
 
 
 def test_cron_matcher_uses_the_declared_timezone_and_accepts_utc_timestamps():
@@ -274,6 +312,19 @@ def test_plone_failure_aborts_and_restores_user_and_site(fake_plone):
         execute(app, spec)
     assert state["commits"] == 0 and state["aborts"] == 1
     assert state["user"] == "old" and state["site"] == "old"
+
+
+def test_plone_job_traverses_virtual_host_path(fake_plone):
+    app, site, state, business = fake_plone
+    path = "/VirtualHostBase/https/example.com:443/Plone/client/"
+    spec = {
+        "site": "/Plone",
+        "user": "scheduler",
+        "callable": "example_jobs:run",
+        "vhm": path,
+    }
+    execute(app, spec)
+    app.REQUEST.traverse.assert_called_once_with(path)
 
 
 def test_missing_plone_user_fails_without_running_callback(fake_plone):
