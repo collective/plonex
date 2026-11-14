@@ -839,13 +839,9 @@ class TestInit(PloneXTestCase):
             (package / "setup.cfg").write_text("[metadata]\nname = demo.cfg\n")
             install = InstallService(dont_ask=True)
             requirement = self._fake_requirement(path=str(package))
-            with mock.patch(
-                "setuptools.config.read_configuration",
-                return_value={"metadata": {"name": "demo.cfg"}},
-            ):
-                self.assertEqual(
-                    install.resolve_package_name_from_path(requirement), "demo-cfg"
-                )
+            self.assertEqual(
+                install.resolve_package_name_from_path(requirement), "demo-cfg"
+            )
 
     def test_resolve_package_name_from_setup_cfg_missing_name(self):
         with temp_cwd() as cwd:
@@ -854,12 +850,9 @@ class TestInit(PloneXTestCase):
             (package / "setup.cfg").write_text("[metadata]\nversion = 1.0\n")
             install = InstallService(dont_ask=True)
             requirement = self._fake_requirement(path=str(package))
-            with mock.patch(
-                "setuptools.config.read_configuration", return_value={"metadata": {}}
-            ):
-                self.assertEqual(
-                    install.resolve_package_name_from_path(requirement), "package"
-                )
+            self.assertEqual(
+                install.resolve_package_name_from_path(requirement), "package"
+            )
 
     def test_resolve_package_name_falls_back_to_folder_name(self):
         with temp_cwd() as cwd:

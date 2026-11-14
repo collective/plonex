@@ -190,7 +190,9 @@ transaction.commit()
             assert status in {302, 401, 403}
             status, body = request("GET")
             assert status == 200, body
-            token = re.search(r'name="_authenticator" value="([^"]+)"', body).group(1)
+            token_match = re.search(r'name="_authenticator" value="([^"]+)"', body)
+            assert token_match, f"Queue panel did not render an action form: {body}"
+            token = token_match.group(1)
             status, _ = request("POST", {"action": "enqueue", "value": "smoke"})
             assert status == 403
             status, body = request(

@@ -11,10 +11,14 @@ import os
 
 def execute(app, specification):
     from plone.api.env import adopt_user  # type: ignore[import-not-found]
-    from zope.component.hooks import getSite  # type: ignore[import-not-found]
-    from zope.component.hooks import setSite  # type: ignore[import-not-found]
+    from zope.component.hooks import (
+        getSite,  # type: ignore[import-not-found,import-untyped]
+    )
+    from zope.component.hooks import (
+        setSite,  # type: ignore[import-not-found,import-untyped]
+    )
 
-    import transaction  # type: ignore[import-not-found]
+    import transaction  # type: ignore[import-not-found,import-untyped]
 
     old_site = getSite()
     try:
