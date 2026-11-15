@@ -8,7 +8,7 @@ description = "Deploy a manage Plone site based on some configuration files"
 readme = "README.md"
 license = {text = "GPL-3.0"}
 keywords = ["plone", "deployment"]
-version = "0.1.0"
+version = "0.0.1a0"
 requires-python = ">=3.11"
 authors = [
     { name="Alessandro Pisa", email="pisa@syslab.com" },
@@ -64,6 +64,24 @@ max-line-length = 88
 
 [tool.isort]
 profile = "plone"
+
+[tool.check-manifest]
+ignore = [
+    ".codespellignore",
+    ".editorconfig",
+    ".markdownlint.json",
+    ".pre-commit-config.yaml",
+    ".readthedocs.yaml",
+    "CHANGES.md",
+    "Makefile",
+    "checkmake.ini",
+    "constraints.txt",
+    "requirements.txt",
+    "pyproject.toml.orig",
+    "docs/**",
+    "news/**",
+    "tests/**",
+]
 
 [tool.towncrier]
 directory = "news/"
