@@ -242,7 +242,13 @@ def test_bare_families_print_their_help_outside_a_project(
     with mock.patch.object(sys, "argv", ["plonex", family]):
         with redirect_stdout(StringIO()) as output:
             main()
-    assert f"plonex {family}" in output.getvalue()
+    help_text = output.getvalue()
+    assert "Usage:" in help_text
+    assert {
+        "project": "Open plonex configuration files",
+        "instance": "Add a user",
+        "test": "Start the Robot Server",
+    }[family] in help_text
 
 
 def test_root_help_identifies_shortcuts_and_all_command_families(project):
