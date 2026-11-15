@@ -1,3 +1,5 @@
+TWINE_REPOSITORY ?= pypi
+
 .PHONY: all
 all: help
 
@@ -37,6 +39,16 @@ install: .venv/bin/uv requirements.txt constraints.txt
 pre-commit:  ## Install and run pre-commit hooks
 	@pre-commit install
 	@pre-commit run --all-files
+
+.PHONY: release
+release:  ## Release this package on PyPI
+	@echo "Releasing to repository: $(TWINE_REPOSITORY)"
+	@echo "To release to a different repository, run \`make release TWINE_REPOSITORY=<repository>\`"
+	TWINE_REPOSITORY="$(TWINE_REPOSITORY)" uvx \
+		--from zest-releaser \
+		--with zest-releaser\[recommended\] \
+		--with zestreleaser-towncrier \
+		fullrelease
 
 
 .PHONY: clean

@@ -54,7 +54,7 @@ Homepage = "https://github.com/collective/plonex"
 Documentation = "https://plonex.readthedocs.io/"
 Repository = "https://github.com/collective/plonex"
 Issues = "https://github.com/collective/plonex/issues"
-Changelog = "https://github.com/collective/plonex/CHANGELOG.md"
+Changelog = "https://github.com/collective/plonex/blob/main/CHANGES.md"
 
 [project.optional-dependencies]
 test = ["mypy", "pytest", "pytest-cov", "supervisor", "huey[stats]>=3.5,<4", "ZODB"]
@@ -64,3 +64,41 @@ max-line-length = 88
 
 [tool.isort]
 profile = "plone"
+
+[tool.towncrier]
+directory = "news/"
+filename = "CHANGES.md"
+start_string = "<!-- towncrier release notes start -->\n"
+title_format = "## {version} ({project_date})"
+template = "news/.changelog_template.jinja"
+underlines = ["", "", ""]
+
+[[tool.towncrier.type]]
+directory = "breaking"
+name = "Breaking changes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "feature"
+name = "New features"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "bugfix"
+name = "Bug fixes"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "internal"
+name = "Internal"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "documentation"
+name = "Documentation"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "tests"
+name = "Tests"
+showcontent = true

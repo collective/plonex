@@ -37,6 +37,7 @@ mindmap/index
 :caption: Appendix
 
 appendix
+changelog
 ```
 
 The [README](https://github.com/collective/plonex#readme) has a short project overview and quickstart. The

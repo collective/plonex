@@ -62,6 +62,7 @@ repos:
     hooks:
       - id: markdownlint
         files: \.md$
+        exclude: ^news/.*\.md$
 
   # Lint Makefiles
   - repo: https://github.com/mrtazz/checkmake
