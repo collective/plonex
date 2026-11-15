@@ -4,6 +4,8 @@ Plone deployment CLI.
 
 `plonex` is a helper tool designed to simplify everyday project operations with Plone.
 
+Read the [documentation](https://plonex.readthedocs.io/) for guides and reference material.
+
 > [!NOTE]
 > At the moment `plonex` is in early development and may have breaking changes. Use with caution and report issues.
 
