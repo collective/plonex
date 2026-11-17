@@ -761,7 +761,7 @@ class SourcesService(BaseService):
                 )
                 return
             resolved = self._resolve_profile_source(raw_profiles[0], self.target)
-            if isinstance(resolved, str):
+            if isinstance(resolved, (str, dict)):
                 self.logger.error("Cannot write to a remote profile: %s", resolved)
                 return
             destination = resolved / "etc" / "plonex.yml"

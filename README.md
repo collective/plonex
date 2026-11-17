@@ -300,6 +300,22 @@ profiles:
 http_port: 8081
 ```
 
+For a profile inside a Git repository, use a mapping:
+
+```yaml
+profiles:
+  - repo: https://github.com/collective/plonex-profiles.git
+    ref: c3d225439c3fd57c7a80ffff247aa50cb062773d
+    path: base
+```
+
+Plonex checks out `ref` (a commit, tag, or branch) and loads
+`base/etc/plonex.yml`. `path` is relative to the repository root and defaults
+to the root; `ref` defaults to the repository's default branch. Profile
+checkouts are cached per repository and ref, so a cached branch does not update
+automatically. Nested profile paths are relative to the selected profile root.
+Remote profiles cannot be used as destinations for profile-writing commands.
+
 Profile configuration is loaded before the local project configuration, so the
 local `etc/plonex.yml` remains the highest-precedence place for site-specific
 overrides such as ports, hostnames, and service settings.

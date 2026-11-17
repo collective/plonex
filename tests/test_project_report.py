@@ -243,3 +243,46 @@ def test_html_file_links_quote_special_characters(project):
         service.run()
     html = service.description_html_path.read_text()
     assert f'<a href="{path.as_uri()}">etc/requirements.d/a &amp; b.txt</a>' in html
+
+
+def test_profile_report_shows_remote_file_and_cache(project):
+    from plonex.services.profile import ProfileService
+
+    cache = project / "var/cache/profiles/example"
+    config = cache / "base/etc/plonex.yml"
+    config.parent.mkdir(parents=True)
+    config.write_text("http_port: 1234\n")
+    declaration = {
+        "repo": "https://github.com/collective/plonex-profiles.git",
+        "ref": "c3d225439c3fd57c7a80ffff247aa50cb062773d",
+        "path": "base",
+    }
+    (project / "etc/plonex.yml").write_text(yaml.safe_dump({"profiles": [declaration]}))
+    remote = (
+        "https://github.com/collective/plonex-profiles/blob/"
+        "c3d225439c3fd57c7a80ffff247aa50cb062773d/base/etc/plonex.yml"
+    )
+    with mock.patch.object(ProfileService, "_clone_remote_source", return_value=cache):
+        with DescribeService(target=project, section="profiles") as service:
+            service.run()
+    html = service.description_html_path.read_text()
+    assert f'href="{remote}"' in html
+    assert f'href="{config.as_uri()}"' in html
+    assert "Cached: var/cache/profiles/example/base/etc/plonex.yml" in html
+    payload = json.loads((service.describe_folder / "profiles.json").read_text())
+    section = payload["sections"][0]
+    assert "cached" in section["rows"][0]
+    assert remote in section["rows"][0]
+    assert any(link["href"] == remote for link in section["links"])
+    markdown = service.description_path.read_text()
+    assert f"]({remote})" in markdown
+
+
+@pytest.mark.parametrize(
+    "declaration",
+    ["profiles/local", {"repo": "https://git.example.org/team/profile.git"}],
+)
+def test_profile_report_does_not_guess_remote_file_urls(declaration):
+    from plonex.services.describe.report import ProjectReport
+
+    assert ProjectReport.profile_remote_file(declaration) is None
