@@ -752,14 +752,14 @@ class InstallService(BaseService):
             )
             return None
         resolved = self._resolve_profile_source(raw_profiles[0], self.target)
-        if isinstance(resolved, str):
+        if isinstance(resolved, (str, dict)):
             self.logger.error("Cannot write to a remote profile: %s", resolved)
             return None
         return resolved
 
     def _collect_profile_roots(
         self,
-        profile: str | Path,
+        profile: str | Path | dict,
         relative_to: Path,
         seen: set[Path],
     ) -> list[Path]:

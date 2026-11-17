@@ -59,7 +59,7 @@ class BaseService:
     _configuration_trace: ConfigurationTrace | None = field(
         default=None, init=False, repr=False
     )
-    _profile_sources: dict[Path, str] = field(
+    _profile_sources: dict[Path, Any] = field(
         default_factory=dict, init=False, repr=False
     )
 
@@ -108,16 +108,17 @@ class BaseService:
                 return line.split(marker, 1)[1].split("/constraints.txt", 1)[0]
         return None
 
-    def _normalize_profiles(self, profiles: Any, source: Path) -> list[str | Path]:
+    def _normalize_profiles(self, profiles: Any, source: Path) -> list[Any]:
         if profiles is None:
             return []
         if isinstance(profiles, str):
             profiles = [profiles]
         if not isinstance(profiles, list) or not all(
-            isinstance(item, str) for item in profiles
+            isinstance(item, (str, dict)) for item in profiles
         ):
             self.logger.error(
-                "The 'profiles' option in %r should be a string or a list of strings",
+                "The 'profiles' option in %r should be a string or a list "
+                "of strings or mappings",
                 source,
             )
             return []
@@ -125,9 +126,11 @@ class BaseService:
 
     def _resolve_profile_source(
         self,
-        profile: str | Path,
+        profile: str | Path | dict,
         relative_to: Path,
-    ) -> str | Path:
+    ) -> str | Path | dict:
+        if isinstance(profile, dict):
+            return profile
         if isinstance(profile, Path):
             return profile
 
@@ -140,7 +143,7 @@ class BaseService:
 
     def _load_profile_options(
         self,
-        profile: str | Path,
+        profile: str | Path | dict,
         relative_to: Path,
         seen: set[Path] | None = None,
     ) -> dict:
@@ -149,7 +152,7 @@ class BaseService:
         resolved_profile = self._resolve_profile_source(profile, relative_to)
         profile_service = ProfileService(source=resolved_profile, target=self.target)
         profile_root = profile_service.source_path
-        self._profile_sources[profile_root.absolute()] = str(profile)
+        self._profile_sources[profile_root.absolute()] = profile
 
         if seen is None:
             seen = set()

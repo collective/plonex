@@ -50,7 +50,7 @@ class InitService(BaseService):
 
     def _collect_profile_roots(
         self,
-        profile: str | Path,
+        profile: str | Path | dict,
         relative_to: Path,
         seen: set[Path],
     ) -> list[Path]:

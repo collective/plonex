@@ -17,6 +17,8 @@ from plonex.services.cron.model import JobSet
 from plonex.services.cron.runner import JobRunner
 from plonex.services.sources import SourcesService
 from plonex.services.sources.installation import SourceInstallPlan
+from urllib.parse import quote
+from urllib.parse import urlsplit
 
 import configparser
 import json
@@ -324,16 +326,23 @@ class ProjectReport:
         rows, links = [], []
         for folder, declaration in self.service._profile_sources.items():
             path = folder / "etc" / "plonex.yml"
+            remote = self.profile_remote_file(declaration)
+            cached = folder.is_relative_to(self.target / "var/cache/profiles")
             rows.append(
                 (
-                    declaration,
+                    str(declaration),
                     self.display(folder),
                     self.display(path),
+                    "cached" if cached else "local",
+                    remote or "—",
                     "present" if path.exists() else "missing",
                 )
             )
             if path.is_file():
-                links.append(self.link(path))
+                label = self.display(path)
+                links.append(self.link(path, f"Cached: {label}" if cached else label))
+            if remote:
+                links.append({"label": f"Remote: {remote}", "href": remote})
         return Section(
             "profiles",
             SECTIONS["profiles"],
@@ -343,9 +352,42 @@ class ProjectReport:
                 "override earlier profiles. Per-option provenance shows the "
                 "exact effective chain."
             ),
-            ("Declaration", "Resolved folder", "Configuration", "State"),
+            (
+                "Declaration",
+                "Resolved folder",
+                "Configuration",
+                "Storage",
+                "Remote file",
+                "State",
+            ),
             rows,
             links=links,
+        )
+
+    @staticmethod
+    def profile_remote_file(declaration):
+        """Link GitHub profile files without guessing URLs for other Git hosts."""
+        if isinstance(declaration, dict):
+            repo = declaration.get("repo", "")
+            ref = declaration.get("ref") or "HEAD"
+            path = declaration.get("path", ".")
+        elif isinstance(declaration, str):
+            repo, ref, path = declaration, "HEAD", "."
+        else:
+            return None
+        if not isinstance(repo, str):
+            return None
+        parsed = urlsplit(repo)
+        if parsed.scheme not in {"http", "https"} or parsed.hostname != "github.com":
+            return None
+        parts = parsed.path.strip("/").removesuffix(".git").split("/")
+        if len(parts) != 2 or not all(parts):
+            return None
+        file_path = (Path(path) / "etc/plonex.yml").as_posix()
+        return (
+            f"https://github.com/{quote(parts[0], safe='')}/"
+            f"{quote(parts[1], safe='')}/blob/{quote(ref, safe='')}/"
+            f"{quote(file_path, safe='/')}"
         )
 
     def environment(self):
