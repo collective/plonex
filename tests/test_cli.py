@@ -846,6 +846,30 @@ class TestMain(unittest.TestCase):
             sync=True,
         )
 
+    def test_action_sources_release(self):
+        with mock.patch("plonex.cli.setup_info._run_service_dependencies") as mock_deps:
+            with mock.patch("plonex.cli.setup_info.SourcesService") as MockSvc:
+                MockSvc.return_value.__enter__ = mock.Mock(
+                    return_value=MockSvc.return_value
+                )
+                MockSvc.return_value.__exit__ = mock.Mock(return_value=False)
+                MockSvc.return_value.run_release.return_value = 0
+                self._run_with_target(
+                    [
+                        "sources",
+                        "release",
+                        "demo",
+                        "--stage",
+                        "release",
+                        "--repository",
+                        "private",
+                    ]
+                )
+        mock_deps.assert_called_once_with(self.temp_dir.resolve(), "sources")
+        MockSvc.return_value.run_release.assert_called_once_with(
+            "demo", "private", "release"
+        )
+
     def test_action_sources_update(self):
         with mock.patch("plonex.cli.setup_info._run_service_dependencies") as mock_deps:
             with mock.patch("plonex.cli.setup_info.SourcesService") as MockSvc:

@@ -16,7 +16,9 @@ from typing import Any
 from typing import Sequence
 
 import logging
+import os
 import sh  # type: ignore[import-untyped]
+import subprocess
 import yaml
 
 
@@ -436,6 +438,60 @@ class SourcesService(BaseService):
         except sh.ErrorReturnCode as exc:
             return False, self._error_reason(exc)
         return True, "updated"
+
+    @BaseService.entered_only
+    def run_release(
+        self, name: str, repository: str | None = None, stage: str = "fullrelease"
+    ) -> int:
+        """Run an interactive zest.releaser command for a configured source."""
+        if stage not in {"fullrelease", "prerelease", "release", "postrelease"}:
+            raise ValueError(f"Unknown release stage {stage!r}.")
+        checkouts = self.configured_checkouts()
+        if name not in checkouts:
+            raise ValueError(f"Unknown source {name!r}.")
+        source = self.sources_options[name]
+        configured_repository = (
+            source.get("release_repository") if isinstance(source, dict) else None
+        )
+        if configured_repository is not None and (
+            not isinstance(configured_repository, str)
+            or not configured_repository.strip()
+        ):
+            raise ValueError(
+                f"Source {name!r}: release_repository must be a non-empty string."
+            )
+        path = checkouts[name]
+        if not path.is_dir():
+            raise ValueError(
+                f"Source {name!r} is missing at {path}. "
+                "Run plonex sources clone first."
+            )
+
+        environment = dict(os.environ)
+        environment["TWINE_REPOSITORY"] = (
+            repository
+            if repository is not None
+            else configured_repository or environment.get("TWINE_REPOSITORY", "pypi")
+        )
+        print(
+            f"Running {stage} for {name} (repository: "
+            f"{environment['TWINE_REPOSITORY']})",
+            flush=True,
+        )
+        return subprocess.run(
+            [
+                "uvx",
+                "--from",
+                "zest-releaser",
+                "--with",
+                "zest-releaser[recommended]",
+                "--with",
+                "zestreleaser-towncrier",
+                stage,
+            ],
+            cwd=path,
+            env=environment,
+        ).returncode
 
     @BaseService.entered_only
     def run_update(

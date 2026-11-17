@@ -14,6 +14,19 @@ from rich.console import Console
 
 def _register_sources_subcommands(parser, add_subparser) -> None:
     sources_subs = parser.add_subparsers(dest="sources_action")
+    release_parser = add_subparser(
+        sources_subs, "release", help="Release a configured source"
+    )
+    release_parser.add_argument("source", help="Name of the source to release")
+    release_parser.add_argument(
+        "--repository", help="Override the source's Twine repository"
+    )
+    release_parser.add_argument(
+        "--stage",
+        choices=("fullrelease", "prerelease", "release", "postrelease"),
+        default="fullrelease",
+        help="zest.releaser command to run (default: fullrelease)",
+    )
     update_parser = add_subparser(
         sources_subs, "update", help="Update configured sources"
     )
@@ -467,11 +480,15 @@ def _handle_dependencies(args: Namespace, parser: ArgumentParser, target: Path) 
 
 
 def _handle_sources(args: Namespace, parser: ArgumentParser, target: Path) -> None:
-    _run_service_dependencies(target, "sources")
     sources_action = getattr(args, "sources_action", None) or "update"
+    _run_service_dependencies(target, "sources")
     glob_pattern = getattr(args, "glob", None)
     with ServiceInvocation.from_args(args, target).create(SourcesService) as svc:
-        if sources_action == "update":
+        if sources_action == "release":
+            result = svc.run_release(args.source, args.repository, args.stage)
+            if result:
+                raise SystemExit(result if result > 0 else 1)
+        elif sources_action == "update":
             if getattr(args, "sources_force", False):
                 svc.run_update(
                     force=True,

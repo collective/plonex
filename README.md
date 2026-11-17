@@ -997,23 +997,52 @@ test selection, and debugging improvements.
 
 - Add one or more packages and run dependency installation.
 
-`sources {list|clone|update|missing|tainted|suggest} [options]`
+`sources {list|clone|update|missing|tainted|suggest|release} [options]`
 
 - Manage configured source checkouts (uses Gitman under the hood).
+
 - `update`: run a regular sources update (executed by Gitman).
+
 - `update --force`: run a forced update (`--force`), asking for confirmation by
   default.
+
 - `update --force --yes`: skip confirmation.
+
 - `tainted`: list checkouts with local changes.
+
 - `list`: show configured checkouts and whether each is clean, tainted, or missing.
+
 - `missing`: show configured checkouts that are not present on disk.
+
 - `clone`: clone missing configured checkouts (using `repo` and optional `rev`).
+
 - `clone --yes`: skip confirmation prompt before cloning.
+
+- `release <source> [--stage <stage>] [--repository <name>]`: run an interactive
+  zest.releaser command in the named configured checkout using `uvx` (which must
+  be installed). The stage defaults to `fullrelease`; choose `prerelease`,
+  `release`, or `postrelease` to run an individual step. Repository selection
+  uses `--repository`, then the source's `release_repository`, then the
+  `TWINE_REPOSITORY` environment variable, and finally `pypi`.
+
+  ```yaml
+  sources:
+    my.package:
+      repo: https://example.org/my.package.git
+      release_repository: spypi.syslab.com
+  ```
+
+  For example, `plonex sources release my.package --stage prerelease` runs
+  only the prerelease step.
+
 - `suggest`: inspect existing unmanaged checkouts and print a ready-to-paste
   YAML snippet for `etc/plonex.yml` with inferred `repo` and `rev`.
+
 - `suggest --apply`: write inferred entries into `etc/plonex.yml`.
+
 - `suggest --apply-local`: write inferred entries into
   `etc/plonex-sources.local.yml`.
+
 - `suggest --apply-profile`: write inferred entries into
   the `etc/plonex.yml` of the first configured profile.
 
