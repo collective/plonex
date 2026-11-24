@@ -403,16 +403,22 @@ In this example:
 services:
   - template:
       run_for: [supervisor, runwsgi]
-      source: etc/templates/runtime.conf.j2
-      target: tmp/runtime.conf
+      source: templates/runtime.conf.j2
+      target: ../tmp/runtime.conf
 ```
 
 Notes:
 
 - service entries must be a list of single-key mappings,
 - unknown service names raise a configuration error,
-- relative `source`/`target` paths are resolved from the project target folder,
+- relative `source`/`target` paths are resolved from the directory of the YAML
+  file defining the template, including entries appended by profiles or overrides,
+- local `file:` URIs follow the same rule for relative paths,
 - `resource://...` template sources are supported.
+
+Configurations written for the previous project-root behavior may need their
+relative template paths updated, for example from `etc/templates/a.j2` to
+`templates/a.j2` in `etc/plonex.yml`.
 
 Recommended pattern:
 
