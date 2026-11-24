@@ -2,6 +2,8 @@ from pathlib import Path
 from plonex.base import BaseService
 from plonex.services.registry import service_registry
 from typing import Any
+from urllib.parse import unquote
+from urllib.parse import urlsplit
 
 _SERVICE_REGISTRY = service_registry.services
 
@@ -15,17 +17,17 @@ def _normalize_template_kwargs(kwargs: dict[str, Any], target: Path) -> dict[str
     if "target" in normalized and "target_path" not in normalized:
         normalized["target_path"] = normalized.pop("target")
 
-    source_path = normalized.get("source_path")
-    if isinstance(source_path, str) and not source_path.startswith("resource://"):
-        source_as_path = Path(source_path)
-        if not source_as_path.is_absolute():
-            normalized["source_path"] = target / source_as_path
-
-    target_path = normalized.get("target_path")
-    if isinstance(target_path, str):
-        target_as_path = Path(target_path)
-        if not target_as_path.is_absolute():
-            normalized["target_path"] = target / target_as_path
+    for key in ("source_path", "target_path"):
+        value = normalized.get(key)
+        if not isinstance(value, str) or value.startswith("resource://"):
+            continue
+        if value.startswith("file:"):
+            uri = urlsplit(value)
+            if uri.netloc not in ("", "localhost") or uri.query or uri.fragment:
+                raise ValueError(f"Invalid local file URI: {value}")
+            value = unquote(uri.path)
+        path = Path(value).expanduser()
+        normalized[key] = path if path.is_absolute() else target / path
 
     return normalized
 
@@ -50,6 +52,7 @@ def _service_from_config(
     spec: dict[str, Any],
     target: Path,
     dependency_for: str | None = None,
+    config_directory: Path | None = None,
 ) -> BaseService | None:
     if not isinstance(spec, dict):
         raise ValueError("Each service entry should be a mapping")
@@ -79,7 +82,9 @@ def _service_from_config(
         )
 
     if service_name == "template":
-        service_kwargs = _normalize_template_kwargs(service_kwargs, target)
+        service_kwargs = _normalize_template_kwargs(
+            service_kwargs, config_directory or target
+        )
 
     service_kwargs.setdefault("target", target)
 
@@ -94,12 +99,39 @@ def _service_from_config(
 def _run_service_dependencies(target: Path, service_name: str) -> None:
     with BaseService(target=target) as svc:
         services = svc.options.get("services") or []
+        definitions = svc.configuration_trace.definitions.get(("services",), [])
 
     if not isinstance(services, list):
         raise ValueError("The 'services' option should be a list")
 
-    for spec in services:
-        service = _service_from_config(spec, target, dependency_for=service_name)
+    # Trace events contain the list after each append or removal. Keep the
+    # defining directory alongside each entry as those operations are applied.
+    previous: list = []
+    directories: list[Path] = []
+    for definition in definitions:
+        current = definition.value if isinstance(definition.value, list) else []
+        source = Path(definition.source)
+        directory = source.parent if source.is_file() else target
+        if definition.operation == "append" and current[: len(previous)] == previous:
+            directories.extend([directory] * (len(current) - len(previous)))
+        elif definition.operation == "remove":
+            remaining = iter(zip(previous, directories))
+            kept = []
+            for item in current:
+                for old_item, old_directory in remaining:
+                    if old_item == item:
+                        kept.append(old_directory)
+                        break
+            directories = kept
+        else:
+            directories = [directory] * len(current)
+        previous = current
+
+    for index, spec in enumerate(services):
+        directory = directories[index] if index < len(directories) else target
+        service = _service_from_config(
+            spec, target, dependency_for=service_name, config_directory=directory
+        )
         if service is None:
             continue
         with service:
