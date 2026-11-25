@@ -61,17 +61,21 @@ def register_runtime_parsers(subs, add_subparser) -> None:
         "status",
         help="Status of supervisor",
     )
-    start_parser = add_subparser(
-        supervisor_subs, "start", help="Prepare and start supervisor"
-    )
-    start_parser.add_argument(
-        "--plan", action="store_true", help="Explain preparation without executing it"
-    )
-    add_subparser(supervisor_subs, "stop", help="Stop supervisor")
-    restart = add_subparser(supervisor_subs, "restart", help="Restart managed programs")
-    restart.add_argument(
-        "programs", nargs="*", help="Programs to restart (default: all)"
-    )
+    for action, help_text in (
+        ("start", "Prepare and start supervisor or managed programs"),
+        ("stop", "Stop supervisor or managed programs"),
+        ("restart", "Restart managed programs"),
+    ):
+        action_parser = add_subparser(supervisor_subs, action, help=help_text)
+        action_parser.add_argument(
+            "programs", nargs="*", metavar="PROGRAM", help=f"Programs to {action}"
+        )
+        if action == "start":
+            action_parser.add_argument(
+                "--plan",
+                action="store_true",
+                help="Explain preparation without executing it",
+            )
     add_subparser(
         supervisor_subs, "reread", help="Reread Supervisor program declarations"
     )
@@ -207,7 +211,7 @@ def _handle_supervisor(args: Namespace, parser: ArgumentParser, target: Path) ->
 
         preparation = SupervisorPreparation(target)
         if getattr(args, "plan", False):
-            preparation.show_plan()
+            preparation.show_plan(args.programs)
             return
         preparation.run()
     elif supervisor_action not in {"status", "stop"}:
@@ -221,8 +225,12 @@ def _handle_supervisor(args: Namespace, parser: ArgumentParser, target: Path) ->
         service._render_configuration = False
     with service as svc:
         if supervisor_action == "start":
-            was_running = svc.is_running()
-            svc.run()
+            if args.programs:
+                svc.run_start(args.programs)
+                was_running = True
+            else:
+                was_running = svc.is_running()
+                svc.run()
             if was_running and preparation.graph.changed:
                 Console().print(
                     "Prepared changes affect: "
@@ -231,12 +239,9 @@ def _handle_supervisor(args: Namespace, parser: ArgumentParser, target: Path) ->
                     markup=False,
                 )
         elif supervisor_action == "stop":
-            svc.run_stop()
+            svc.run_stop(args.programs)
         elif supervisor_action == "restart":
-            if args.programs:
-                svc.run_restart(args.programs)
-            else:
-                svc.run_restart()
+            svc.run_restart(args.programs)
         elif supervisor_action == "status":
             svc.run_status()
         elif supervisor_action == "graceful":

@@ -212,9 +212,18 @@ Plone upgrades remain explicit operations.
 Other Supervisor actions retain their existing behavior. Already-running programs
 need explicit updates/restarts to load changed dependencies or configuration.
 
-Use `supervisor restart PROGRAM ...` for specific managed programs; omitting names
-restarts all programs. A targeted restart requires an already-running Supervisor
-and never starts it implicitly.
+Pass one or more names to `supervisor start PROGRAM ...`, `supervisor stop PROGRAM ...`,
+or `supervisor restart PROGRAM ...` to manage selected programs. All three require
+an already-running daemon when you supply names. Use `all` as the program name
+to act on every managed program while keeping the daemon running.
+
+| Command without names | Behavior                                         |
+| --------------------- | ------------------------------------------------ |
+| `supervisor start`    | Starts the daemon                                |
+| `supervisor stop`     | Shuts down the daemon                            |
+| `supervisor restart`  | Restarts all programs or starts a stopped daemon |
+
+Add `--plan` to either form of `supervisor start` to preview preparation.
 
 ## Breaking migration
 

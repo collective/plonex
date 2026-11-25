@@ -5,6 +5,7 @@ from pathlib import Path
 from plonex.base import BaseService
 from plonex.services.template import TemplateService
 
+import re
 import sh  # type: ignore[import-untyped]
 import time
 
@@ -152,7 +153,11 @@ class Supervisor(BaseService):
         self.print(output)
 
     @BaseService.entered_only
-    def run_stop(self):
+    def run_stop(self, programs: list[str] | None = None):
+        if programs:
+            output = self._run_program_action("stop", programs)
+            self.print(output.replace(" stopped", "[red] stopped[/red]"))
+            return
         if not self.is_running():
             self.logger.info("supervisord is not running")
             return
@@ -166,25 +171,41 @@ class Supervisor(BaseService):
             return
         super().run()
 
-    @BaseService.entered_only
-    def run_restart(self, programs=None):
-        import re
-
-        if programs and any(
+    def _run_program_action(self, action: str, programs: list[str]) -> str:
+        if any(
             not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.:*-]*", name)
             for name in programs
         ):
             raise ValueError("Invalid Supervisor program name")
         if not self.is_running():
-            if programs:
-                raise ValueError(
-                    "Supervisord is not running; start it before restarting programs"
-                )
-            self.logger.info("supervisord is not running, starting it instead")
-            return self.run()
-        output = self.supervisorctl(
-            "-c", str(self.supervisord_conf), "restart", *(programs or ["all"])
-        )
+            raise ValueError(f"Supervisord is not running. Cannot {action} programs.")
+        try:
+            output = self.supervisorctl(
+                "-c", str(self.supervisord_conf), action, *programs
+            )
+        except sh.ErrorReturnCode as error:
+            message = error.stdout.decode().strip() or error.stderr.decode().strip()
+            raise ValueError(
+                message or f"Supervisor could not {action} the programs"
+            ) from error
+        return output.rstrip()
+
+    @BaseService.entered_only
+    def run_start(self, programs: list[str]):
+        output = self._run_program_action("start", programs)
+        self.print(output.replace(" started", "[green] started[/green]"))
+
+    @BaseService.entered_only
+    def run_restart(self, programs: list[str] | None = None):
+        if programs:
+            output = self._run_program_action("restart", programs)
+        else:
+            if not self.is_running():
+                self.logger.info("supervisord is not running, starting it instead")
+                return self.run()
+            output = self.supervisorctl(
+                "-c", str(self.supervisord_conf), "restart", "all"
+            )
         output = output.replace(" started", "[green] started[/green]")
         output = output.replace(" stopped", "[red] stopped[/red]")
         self.print(output.rstrip())

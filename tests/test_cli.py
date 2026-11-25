@@ -762,6 +762,22 @@ class TestMain(unittest.TestCase):
         self.preparation.return_value.run.assert_called_once()
         MockSvc.return_value.run.assert_called_once()
 
+    def test_action_supervisor_start_programs(self):
+        with mock.patch("plonex.cli.runtime.Supervisor") as supervisor:
+            service = supervisor.return_value
+            service.__enter__.return_value = service
+            self._run_with_target(["supervisor", "start", "client1", "client2"])
+        self.preparation.return_value.run.assert_called_once()
+        service.run_start.assert_called_once_with(["client1", "client2"])
+        service.run.assert_not_called()
+
+    def test_action_supervisor_start_plan_for_program(self):
+        with mock.patch("plonex.cli.runtime.Supervisor") as supervisor:
+            self._run_with_target(["supervisor", "start", "client1", "--plan"])
+        self.preparation.return_value.show_plan.assert_called_once_with(["client1"])
+        self.preparation.return_value.run.assert_not_called()
+        supervisor.assert_not_called()
+
     def test_action_supervisor_stop(self):
         with mock.patch("plonex.cli.runtime._run_service_dependencies") as mock_deps:
             with mock.patch("plonex.cli.runtime.Supervisor") as MockSvc:
@@ -772,6 +788,28 @@ class TestMain(unittest.TestCase):
                 self._run_with_target(["supervisor", "stop"])
         mock_deps.assert_not_called()
         MockSvc.return_value.run_stop.assert_called_once()
+
+    def test_supervisor_program_commands_forward_program_names(self):
+        config = str(self.temp_dir / "tmp/supervisor/etc/supervisord.conf")
+        for action in ("start", "stop", "restart"):
+            control = mock.Mock(return_value="")
+            with (
+                self.subTest(action=action),
+                mock.patch("plonex.cli.runtime._run_service_dependencies"),
+                mock.patch(
+                    "plonex.cli.runtime.Supervisor.supervisorctl",
+                    new_callable=mock.PropertyMock,
+                    return_value=control,
+                ),
+            ):
+                self._run_with_target(["supervisor", action, "client1", "client2"])
+                self.assertEqual(
+                    control.call_args_list,
+                    [
+                        mock.call("-c", config, "status"),
+                        mock.call("-c", config, action, "client1", "client2"),
+                    ],
+                )
 
     def test_action_supervisor_restart(self):
         with mock.patch("plonex.cli.runtime._run_service_dependencies") as mock_deps:

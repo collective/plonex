@@ -346,7 +346,7 @@ class SupervisorPreparation:
     def plan(self):
         return [asdict(entry) for entry in self.graph.plan()]
 
-    def show_plan(self):
+    def show_plan(self, programs: list[str] | None = None):
         console = Console()
         tree = Tree("Supervisor startup plan")
         for entry in self.plan():
@@ -363,9 +363,11 @@ class SupervisorPreparation:
             if entry["affected"] and entry["state"] != "current":
                 branch.add(Text("Affects: " + ", ".join(entry["affected"])))
         console.print(tree)
+        operation = " ".join(["supervisor start", *(programs or [])])
         console.print(
-            "Final operation: supervisor start. "
-            "Preparation does not restart existing programs."
+            f"Final operation: {operation}. "
+            "Preparation does not restart existing programs.",
+            markup=False,
         )
 
     def run(self):
